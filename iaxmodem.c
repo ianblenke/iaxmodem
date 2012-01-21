@@ -21,16 +21,16 @@
 #include <string.h>
 #include <strings.h>
 
-#ifndef __OpenBSD__
+#if !defined(__OpenBSD__) && !defined(__FreeBSD__)
 # ifndef USE_UNIX98_PTY
 #  include <pty.h>
 # endif /* !USE_UNIX98_PTY */
+# include <termios.h>
 #else
+#if !defined(__FreeBSD__)
 # include <util.h>
 #endif
-
-
-#include <termios.h>
+#endif
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -59,6 +59,7 @@
 #define O_LARGEFILE 0
 #endif
 
+#define SPANDSP_EXPOSE_INTERNAL_STRUCTURES 
 #include <spandsp.h>
 #ifdef STATICLIBS
 #include <iax-client.h>
@@ -164,6 +165,10 @@ int logmode = S_IRUSR | S_IWUSR | S_IRGRP;
 #include "compat/strings.c"
 #include "compat/headers.h"
 #include "sys/stropts.h"
+#endif
+
+#ifdef __FreeBSD__
+#include "compat/strndup-freebsd.c"
 #endif
 
 void
@@ -565,7 +570,6 @@ t31_call_control_handler(t31_state_t *s, void *user_data, int op, const char *nu
 	case AT_MODEM_CONTROL_HANGUP:
 	    /* Hang up */
 	    printlog(LOG_INFO, "Hanging Up\n");
-	    modemstate = MODEM_ONHOOK;
 	    if (record) {
 		if (dspaudiofd > 0) {
 		    close(dspaudiofd);
@@ -583,12 +587,19 @@ t31_call_control_handler(t31_state_t *s, void *user_data, int op, const char *nu
 	    iaxaudiofd = -1;
 	    gettimeofday(&lasthangup, NULL);
 	    if (phonestate != PHONE_FREED) {
+		if (modemstate == MODEM_RINGING && phonestate == PHONE_CONNECTED ) {
+		    /* Asterisk gets a little confused if we hangup an IAX call that  */
+		    /* we never answered, resulting in congestion, rather than a      */
+		    /* hangup, on the asterisk side.                                  */
+		    iax_answer(session[0]);
+		    sleep(1);	// apparently necessary or the answer can be ignored
+		}
 		iax_hangup(session[0], "Normal disconnect");
 		iax_destroy(session[0]);
 		phonestate = PHONE_FREED;
 		if (gothup) sighandler(SIGHUP);
+	    modemstate = MODEM_ONHOOK;
 	    }
-	    if (modemstate != MODEM_CALLING && modemstate != MODEM_CONNECTED) return -1;
 	    break;
 	case AT_MODEM_CONTROL_CTS:
 	    {
@@ -1277,7 +1288,7 @@ iaxmodem(const char *config, int nondaemon)
 			if (gothup) sighandler(SIGHUP);
 			break;
 		    case IAX_EVENT_HANGUP:
-			printlog(LOG_INFO, "Remote hangup.\n");
+			printlog(LOG_INFO, "Remote hangup. Cause: \"%s\" Code: %u\n", iaxevent->ies.cause ? iaxevent->ies.cause : "", iaxevent->ies.causecode);
 			if (modemstate != MODEM_ONHOOK) {
 			    if (modemstate == MODEM_CALLING)
 				t31_call_event(&t31_state, AT_CALL_EVENT_BUSY);
@@ -1317,6 +1328,11 @@ iaxmodem(const char *config, int nondaemon)
 			 * Watch for IAX2 jitter... the 32-bit timestamp shouldn't ever "wrap" 
 			 * unless we expect a single call to last more than a month.
 			 */
+			if (!nojitterbuffer && last_ts && abs((int)(iaxevent->ts - last_ts)) > 300  ) {
+			    printlog(LOG_ERROR, "IAX2 jitter gap too big, syncing - last_ts: %u, ts: %u\n", last_ts, iaxevent->ts);
+			    last_ts = iaxevent->ts;
+			    break;
+			}
 			if (!nojitterbuffer && last_ts && iaxevent->ts <= last_ts) {
 			    /*
 			     * We've already sent audio corresponding to this time.
@@ -1324,7 +1340,7 @@ iaxmodem(const char *config, int nondaemon)
 			    break;
 			}
 			if (!nojitterbuffer && last_ts && iaxevent->ts != last_ts + 20) {
-			    printlog(LOG_ERROR, "IAX2 jitter - last_ts: %d, ts: %d\n", last_ts, iaxevent->ts);
+			    printlog(LOG_ERROR, "IAX2 jitter - last_ts: %u, ts: %u\n", last_ts, iaxevent->ts);
 			    int16_t fillbuf[VOIP_PACKET_SIZE];
 			    memcpy(fillbuf, iaxbuf, VOIP_PACKET_SIZE*sizeof(int16_t));
 			    while (last_ts + 20 < iaxevent->ts) {

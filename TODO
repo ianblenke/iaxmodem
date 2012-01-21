@@ -1,1 +1,1 @@
-nothing to do?
+call transfers (connecting two iaxmodems on the same host) cause "Bus error" on big-endian systems

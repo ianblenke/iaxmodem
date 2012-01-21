@@ -6,7 +6,7 @@ getVersions()
     STEP1=`grep @VERSION@ lib/spandsp/config.status | sed 's/;.*//g'`
     DSPVER=`echo "@VERSION@" | sed $STEP1`
     if [ -n "$DSPVER" ]; then
-	DSPVER="spandsp-$DSPVER-snapshot-20080725"
+	DSPVER="spandsp-$DSPVER-snapshot-20100228"
     fi
     STEP1=`grep @VERSION@ lib/libiax2/config.status | sed 's/;.*//g'`
     IAXVER=`echo "@VERSION@" | sed $STEP1`

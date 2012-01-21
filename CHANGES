@@ -1,3 +1,8 @@
+	if the timestamp jumps too much the jitterbuffer ignores it (Ivan Tikhonov)
+	update to spandsp-20100228
+	some changes for FreeBSD support to iaxmodem.c
+	fix more unaligned problems for big-endian systems (libiax2)
+	if we hang up on a call that is ringing then answer+hangup with IAX2 (Travis Schafer)
 1.2.0
 	improve skew behavior, especially for faulty RTC; add "skew" config feature
 	add support for command-dial (ATD...;) in spandsp

@@ -162,10 +162,13 @@ However, here is an example:
     auth=md5
     secret=<secret password>
     context=outbound
+    sendani=yes
     disallow=all
     allow=ulaw
     allow=alaw
     jitterbuffer=no
+    requirecalltoken=no
+    trunk=no
 
 The [context] name refers to the "peername" entry in the iaxmodem
 config file.  The secret should match the "secret" entry in the same.
