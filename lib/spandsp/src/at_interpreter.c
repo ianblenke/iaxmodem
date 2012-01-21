@@ -13,24 +13,24 @@
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2, as
- * published by the Free Software Foundation.
+ * it under the terms of the GNU Lesser General Public License version 2.1,
+ * as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: at_interpreter.c,v 1.22 2007/12/20 11:11:16 steveu Exp $
+ * $Id: at_interpreter.c,v 1.30 2008/07/24 13:55:23 steveu Exp $
  */
 
 /*! \file */
 
-#ifdef HAVE_CONFIG_H
+#if defined(HAVE_CONFIG_H)
 #include <config.h>
 #endif
 
@@ -108,9 +108,11 @@ static const char *revision = VERSION;
 #define DLE 0x10
 #define SUB 0x1A
 
+/* BEWARE: right now this must match up with a list in the T.31 code. */
 enum
 {
-    T31_FLUSH,
+    T31_NONE = -1,
+    T31_FLUSH = 0,
     T31_SILENCE_TX,
     T31_SILENCE_RX,
     T31_CED_TONE,
@@ -247,13 +249,21 @@ void at_call_event(at_state_t *s, int event)
         }
         else
         {
-            /* FAX modem connection */
-            at_set_at_rx_mode(s, AT_MODE_DELIVERY);
-            if (s->silent_dial)
-                at_modem_control(s, AT_MODEM_CONTROL_RESTART, (void *) T31_NOCNG_TONE);
+            if (s->command_dial)
+            {
+                at_put_response_code(s, AT_RESPONSE_CODE_OK);
+                at_set_at_rx_mode(s, AT_MODE_OFFHOOK_COMMAND);
+            }
             else
-                at_modem_control(s, AT_MODEM_CONTROL_RESTART, (void *) T31_CNG_TONE);
-            s->dte_is_waiting = TRUE;
+            {
+                /* FAX modem connection */
+                at_set_at_rx_mode(s, AT_MODE_DELIVERY);
+                if (s->silent_dial)
+                    at_modem_control(s, AT_MODEM_CONTROL_RESTART, (void *) T31_NOCNG_TONE);
+                else
+                    at_modem_control(s, AT_MODEM_CONTROL_RESTART, (void *) T31_CNG_TONE);
+                s->dte_is_waiting = TRUE;
+            }
         }
         break;
     case AT_CALL_EVENT_BUSY:
@@ -308,9 +318,13 @@ void at_call_event(at_state_t *s, int event)
 void at_reset_call_info(at_state_t *s)
 {
     struct at_call_id *call_id;
-
-    for (call_id = s->call_id;  call_id;  call_id = call_id->next)
+    struct at_call_id *next;
+ 
+    for (call_id = s->call_id;  call_id;  call_id = next)
+    {
+        next = call_id->next;
         free(call_id);
+    }
     s->call_id = NULL;
     s->rings_indicated = 0;
     s->call_info_displayed = FALSE;
@@ -319,11 +333,17 @@ void at_reset_call_info(at_state_t *s)
 
 void at_set_call_info(at_state_t *s, char const *id, char const *value)
 {
-    struct at_call_id *new_call_id = malloc(sizeof(struct at_call_id));
-    struct at_call_id *call_id = s->call_id;
+    struct at_call_id *new_call_id;
+    struct at_call_id *call_id;
 
-    new_call_id->id = id ? strdup(id) : NULL;
-    new_call_id->value = value ? strdup(value) : NULL;
+    /* TODO: We should really not merely ignore a failure to malloc */
+    if ((new_call_id = (struct at_call_id *) malloc(sizeof(*new_call_id))) == NULL)
+        return;
+    call_id = s->call_id;
+    /* If these strdups fail its pretty harmless. We just appear to not
+       have the relevant field. */
+    new_call_id->id = (id)  ?  strdup(id)  :  NULL;
+    new_call_id->value = (value)  ?  strdup(value)  :  NULL;
     new_call_id->next = NULL;
 
     if (call_id)
@@ -397,6 +417,33 @@ static int parse_hex_num(const char **s, int max_value)
     if (i > max_value)
         i = -1;
     return i;
+}
+/*- End of function --------------------------------------------------------*/
+
+static int match_element(const char **variant, const char *variants)
+{
+    int i;
+    size_t len;
+    char const *s;
+    char const *t;
+
+    s = variants;
+    for (i = 0;  *s;  i++)
+    {
+        if ((t = strchr(s, ',')))
+            len = t - s;
+        else
+            len = strlen(s);
+        if (len == (int) strlen(*variant)  &&  memcmp(*variant, s, len) == 0)
+        {
+            *variant += len;
+            return  i;
+        }
+        s += len;
+        if (*s == ',')
+            s++;
+    }
+    return  -1;
 }
 /*- End of function --------------------------------------------------------*/
 
@@ -524,34 +571,7 @@ static int parse_hex_out(at_state_t *s, const char **t, int *target, int max_val
 }
 /*- End of function --------------------------------------------------------*/
 
-static int match_element(const char **variant, const char *variants)
-{
-    int i;
-    size_t len;
-    char const *s;
-    char const *t;
-
-    s = variants;
-    for (i = 0;  *s;  i++)
-    {
-        if ((t = strchr(s, ',')))
-            len = t - s;
-        else
-            len = strlen(s);
-        if (len == (int) strlen(*variant)  &&  memcmp(*variant, s, len) == 0)
-        {
-            *variant += len;
-            return  i;
-        }
-        s += len;
-        if (*s == ',')
-            s++;
-    }
-    return  -1;
-}
-/*- End of function --------------------------------------------------------*/
-
-static int parse_string_out(at_state_t *s, const char **t, int *target, int max_value, const char *prefix, const char *def)
+static int parse_string_list_out(at_state_t *s, const char **t, int *target, int max_value, const char *prefix, const char *def)
 {
     char buf[100];
     int val;
@@ -597,56 +617,39 @@ static int parse_string_out(at_state_t *s, const char **t, int *target, int max_
 }
 /*- End of function --------------------------------------------------------*/
 
-static int process_class1_cmd(at_state_t *s, const char **t)
+static int parse_string_out(at_state_t *s, const char **t, char **target, const char *prefix)
 {
-    int val;
-    int operation;
-    int direction;
-    int result;
-    const char *allowed;
+    char buf[100];
 
-    direction = (*(*t + 2) == 'T');
-    operation = *(*t + 3);
-    /* Step past the "+Fxx" */
-    *t += 4;
-    switch (operation)
+    switch (*(*t)++)
     {
-    case 'S':
-        allowed = "0-255";
+    case '=':
+        switch (**t)
+        {
+        case '?':
+            /* Show possible values */
+            (*t)++;
+            snprintf(buf, sizeof(buf), "%s", (prefix)  ?  prefix  :  "");
+            at_put_response(s, buf);
+            break;
+        default:
+            /* Set value */
+            if (*target)
+                free(*target);
+            /* If this strdup fails, it should be harmless */
+            *target = strdup(*t);
+            break;
+        }
         break;
-    case 'H':
-        allowed = "3";
+    case '?':
+        /* Show current index value */
+        at_put_response(s, (*target)  ?  *target  :  "");
         break;
     default:
-        allowed = "24,48,72,73,74,96,97,98,121,122,145,146";
-        break;
-    }
-    
-    val = -1;
-    if (!parse_out(s, t, &val, 255, NULL, allowed))
-        return TRUE;
-    if (val < 0)
-    {
-        /* It was just a query */
-        return  TRUE;
-    }
-    /* All class 1 FAX commands are supposed to give an ERROR response, if the phone
-       is on-hook. */
-    if (s->at_rx_mode == AT_MODE_ONHOOK_COMMAND)
-        return FALSE;
-
-    result = TRUE;
-    if (s->class1_handler)
-        result = s->class1_handler(s, s->class1_user_data, direction, operation, val);
-    switch (result)
-    {
-    case 0:
-        /* Inhibit an immediate response.  (These commands should not be part of a multi-command entry.) */
-        *t = (const char *) -1;
-        return TRUE;
-    case -1:
         return FALSE;
     }
+    while (*t)
+        t++;
     return TRUE;
 }
 /*- End of function --------------------------------------------------------*/
@@ -715,6 +718,60 @@ static const char *s_reg_handler(at_state_t *s, const char *t, int reg)
 }
 /*- End of function --------------------------------------------------------*/
 
+static int process_class1_cmd(at_state_t *s, const char **t)
+{
+    int val;
+    int operation;
+    int direction;
+    int result;
+    const char *allowed;
+
+    direction = (*(*t + 2) == 'T');
+    operation = *(*t + 3);
+    /* Step past the "+Fxx" */
+    *t += 4;
+    switch (operation)
+    {
+    case 'S':
+        allowed = "0-255";
+        break;
+    case 'H':
+        allowed = "3";
+        break;
+    default:
+        allowed = "24,48,72,73,74,96,97,98,121,122,145,146";
+        break;
+    }
+    
+    val = -1;
+    if (!parse_out(s, t, &val, 255, NULL, allowed))
+        return TRUE;
+    if (val < 0)
+    {
+        /* It was just a query */
+        return  TRUE;
+    }
+    /* All class 1 FAX commands are supposed to give an ERROR response, if the phone
+       is on-hook. */
+    if (s->at_rx_mode == AT_MODE_ONHOOK_COMMAND)
+        return FALSE;
+
+    result = TRUE;
+    if (s->class1_handler)
+        result = s->class1_handler(s, s->class1_user_data, direction, operation, val);
+    switch (result)
+    {
+    case 0:
+        /* Inhibit an immediate response.  (These commands should not be part of a multi-command entry.) */
+        *t = (const char *) -1;
+        return TRUE;
+    case -1:
+        return FALSE;
+    }
+    return TRUE;
+}
+/*- End of function --------------------------------------------------------*/
+
 static const char *at_cmd_dummy(at_state_t *s, const char *t)
 {
     /* Dummy routine to absorb delimiting characters from a command string */
@@ -744,6 +801,7 @@ static const char *at_cmd_D(at_state_t *s, const char *t)
     at_reset_call_info(s);
     s->do_hangup = FALSE;
     s->silent_dial = FALSE;
+    s->command_dial = FALSE;
     t += 1;
     ok = FALSE;
     /* There are a numbers of options in a dial command string.
@@ -773,7 +831,7 @@ static const char *at_cmd_D(at_state_t *s, const char *t)
                 break;
             case ' ':
             case '-':
-                /* Ignore whitespace and dashes */
+                /* Ignore spaces and dashes */
                 /* This is not a standards based thing. It just improves
                    compatibility with some other modems. */
                 break;
@@ -823,7 +881,7 @@ static const char *at_cmd_D(at_state_t *s, const char *t)
                 break;
             case ';':
                 /* V.250 6.3.1 - Dial string terminator - make voice call and remain in command mode */
-                /* TODO: */
+                s->command_dial = TRUE;
                 break;
             case '>':
                 /* GSM07.07 6.2 - Direct dialling from phone book supplementary service subscription
@@ -3267,7 +3325,7 @@ static const char *at_cmd_plus_FCLASS(at_state_t *s, const char *t)
     /* T.31 says the reply string should be "0,1.0", however making
        it "0,1,1.0" makes things compatible with a lot more software
        that may be expecting a pre-T.31 modem. */
-    if (!parse_string_out(s, &t, &s->fclass_mode, 1, NULL, "0,1,1.0"))
+    if (!parse_string_list_out(s, &t, &s->fclass_mode, 1, NULL, "0,1,1.0"))
         return NULL;
     return t;
 }
@@ -4705,31 +4763,10 @@ static const char *at_cmd_plus_VSID(at_state_t *s, const char *t)
 {
     /* Extension of V.253 +VCID, Set calling number ID */
     t += 5;
-    switch (*t)
-    {
-    case '=':
-        switch (*(t+1))
-        {
-        case '?':
-            /* Show possible values */
-            at_put_response(s, "");
-            break;
-        default:
-            /* Set value */
-            s->local_id = strdup(t + 1);
-            if (at_modem_control(s, AT_MODEM_CONTROL_SETID, s->local_id) < 0)
-                return NULL;
-            break;
-        }
-        break;
-    case '?':
-        /* Show current index value from def */
-        at_put_response(s, (s->local_id)  ?  s->local_id  :  "");
-        break;
-    default:
+    if (!parse_string_out(s, &t, &s->local_id, NULL))
         return NULL;
-    }
-    while (*t) t++;
+    if (at_modem_control(s, AT_MODEM_CONTROL_SETID, s->local_id) < 0)
+        return NULL;
     return t;
 }
 /*- End of function --------------------------------------------------------*/
@@ -5286,6 +5323,9 @@ at_state_t *at_init(at_state_t *s,
 
 int at_free(at_state_t *s)
 {
+    at_reset_call_info(s);
+    if (s->local_id)
+        free(s->local_id);
     free(s);
     return 0;
 }

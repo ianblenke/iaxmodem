@@ -22,10 +22,10 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: line_model.c,v 1.1 2007/04/03 12:59:32 steveu Exp $
+ * $Id: line_model.c,v 1.6 2008/07/02 14:48:25 steveu Exp $
  */
 
-#ifdef HAVE_CONFIG_H
+#if defined(HAVE_CONFIG_H)
 #include "config.h"
 #endif
 
@@ -37,7 +37,7 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <audiofile.h>
-#include <tiffio.h>
+#include "floating_fudge.h"
 #if defined(HAVE_TGMATH_H)
 #include <tgmath.h>
 #endif

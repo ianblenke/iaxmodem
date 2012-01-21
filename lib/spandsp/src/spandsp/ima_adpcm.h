@@ -8,25 +8,25 @@
  *
  * Copyright (C) 2004 Steve Underwood
  *
- * Based on a bit from here, a bit from there, eye of toad,
- * ear of bat, etc - plus, of course, my own 2 cents.
- *
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2, as
- * published by the Free Software Foundation.
+ * it under the terms of the GNU Lesser General Public License version 2.1,
+ * as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: ima_adpcm.h,v 1.16 2007/12/13 11:31:32 steveu Exp $
+ * Based on a bit from here, a bit from there, eye of toad,
+ * ear of bat, etc - plus, of course, my own 2 cents.
+ *
+ * $Id: ima_adpcm.h,v 1.20 2008/04/17 14:27:00 steveu Exp $
  */
 
 /*! \file */
@@ -46,8 +46,12 @@ IMA ADPCM offers a good balance of simplicity and quality at a rate of
 
 enum
 {
-    IMA_ADPCM_DVI4 = 0,
-    IMA_ADPCM_VDVI = 1
+    /*! IMA4 is the original IMA ADPCM variant */
+    IMA_ADPCM_IMA4 = 0,
+    /*! DVI4 is the IMA ADPCM variant defined in RFC3551 */
+    IMA_ADPCM_DVI4 = 1,
+    /*! VDVI is the variable bit rate IMA ADPCM variant defined in RFC3551 */
+    IMA_ADPCM_VDVI = 2
 };
 
 /*!
@@ -58,6 +62,8 @@ enum
 typedef struct
 {
     int variant;
+    /*! \brief The size of a chunk, in samples. */
+    int chunk_size;
     /*! \brief The last state of the ADPCM algorithm. */
     int last;
     /*! \brief Current index into the step size table. */
@@ -75,8 +81,11 @@ extern "C"
 /*! Initialise an IMA ADPCM encode or decode context.
     \param s The IMA ADPCM context
     \param variant ???
+    \param chunk_size The size of a chunk, in samples. A chunk size of
+           zero sample samples means treat each encode or decode operation
+           as a chunk.
     \return A pointer to the IMA ADPCM context, or NULL for error. */
-ima_adpcm_state_t *ima_adpcm_init(ima_adpcm_state_t *s, int variant);
+ima_adpcm_state_t *ima_adpcm_init(ima_adpcm_state_t *s, int variant, int chunk_size);
 
 /*! Free an IMA ADPCM encode or decode context.
     \param s The IMA ADPCM context.

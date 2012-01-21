@@ -1,49 +1,39 @@
 #
 # SpanDSP - a series of DSP components for telephony
 #
-# configure.ac -- Process this file with autoconf to produce configure
+# configure.ac - Process this file with autoconf to produce configure
 #
 # This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License version 2, as
-# published by the Free Software Foundation.
+# it under the terms of the GNU Lesser General Public License version 2.1,
+# as published by the Free Software Foundation.
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
+# You should have received a copy of the GNU Lesser General Public
+# License along with this program; if not, write to the Free Software
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #
-# $Id: configure.ac,v 1.38 2007/11/10 11:14:56 steveu Exp $
+# $Id: configure.ac,v 1.56 2008/07/10 12:44:54 steveu Exp $
 
 # @start 1
 
 AC_INIT
 
-AC_DEFUN([AX_COMPILER_VENDOR],
-[
-AC_CACHE_CHECK([for _AC_LANG compiler vendor], ax_cv_[]_AC_LANG_ABBREV[]_compiler_vendor,
- [ax_cv_[]_AC_LANG_ABBREV[]_compiler_vendor=unknown
-  # note: don't check for GCC first, since some other compilers define __GNUC__
-  for ventest in intel:__ICC,__ECC,__INTEL_COMPILER ibm:__xlc__,__xlC__,__IBMC__,__IBMCPP__ gnu:__GNUC__ sun:__SUNPRO_C,__SUNPRO_CC hp:__HP_cc,__HP_aCC dec:__DECC,__DECCXX,__DECC_VER,__DECCXX_VER borland:__BORLANDC__,__TURBOC__ comeau:__COMO__ cray:_CRAYC kai:__KCC lcc:__LCC__ metrowerks:__MWERKS__ sgi:__sgi,sgi microsoft:_MSC_VER watcom:__WATCOMC__ portland:__PGI; do
-    vencpp="defined("`echo $ventest | cut -d: -f2 | sed 's/,/) || defined(/g'`")"
-    AC_COMPILE_IFELSE([AC_LANG_PROGRAM(,[
-#if !($vencpp)
-      thisisanerror;
-#endif
-])], [ax_cv_]_AC_LANG_ABBREV[_compiler_vendor=`echo $ventest | cut -d: -f1`; break])
-  done
- ])
-])
+m4_include(config/ax_compiler_vendor.m4)
+m4_include(config/ax_check_real_file.m4)
+m4_include(config/ax_fixed_point_machine.m4)
+m4_include(config/ax_misaligned_access_fails.m4)
+m4_include(config/ax_c99_features.m4)
 
 SPANDSP_MAJOR_VERSION=0
 SPANDSP_MINOR_VERSION=0
-SPANDSP_MICRO_VERSION=4
+SPANDSP_MICRO_VERSION=5
 
-SPANDSP_LT_CURRENT=0
-SPANDSP_LT_REVISION=2
+SPANDSP_LT_CURRENT=1
+SPANDSP_LT_REVISION=0
 SPANDSP_LT_AGE=0
 
 VERSION=$SPANDSP_MAJOR_VERSION.$SPANDSP_MINOR_VERSION.$SPANDSP_MICRO_VERSION
@@ -73,11 +63,12 @@ then
   # If we are doing a Canadian Cross, in which the host and build systems
   # are not the same, we set reasonable default values for the tools.
 
+  CC_FOR_BUILD=${CC_FOR_BUILD-gcc}
+  CPPFLAGS_FOR_BUILD="\$(CPPFLAGS)"
   CC=${CC-${host_alias}-gcc}
   CFLAGS=${CFLAGS-"-g -O2"}
   CXX=${CXX-${host_alias}-c++}
   CXXFLAGS=${CXXFLAGS-"-g -O2"}
-  CC_FOR_BUILD=${CC_FOR_BUILD-gcc}
 else
   # Set reasonable default values for some tools even if not Canadian.
   # Of course, these are different reasonable default values, originally
@@ -87,6 +78,7 @@ else
   # in Makefile.in, so can still be overridden by fragments.
   # This is all going to change when we autoconfiscate...
   CC_FOR_BUILD="\$(CC)"
+  CPPFLAGS_FOR_BUILD="\$(CPPFLAGS)"
   AC_PROG_CC
 
   # We must set the default linker to the linker used by gcc for the correct
@@ -126,7 +118,7 @@ AC_TYPE_SIGNAL
 
 AC_ARG_ENABLE(doc,          [  --enable-doc         Build the documentation])
 AC_ARG_ENABLE(tests,        [  --enable-tests       Build the test programs])
-AC_ARG_ENABLE(itutests,     [  --enable-itutests    Build TIFF test files for some ITU test images])
+AC_ARG_ENABLE(test_data,    [  --enable-test-data   Build TIFF test files for some ITU test images])
 AC_ARG_ENABLE(mmx,          [  --enable-mmx         Enable MMX support])
 AC_ARG_ENABLE(sse,          [  --enable-sse         Enable SSE support])
 AC_ARG_ENABLE(fixed_point,  [  --enable-fixed-point Enable fixed point support])
@@ -137,6 +129,20 @@ AC_FUNC_MALLOC
 AC_FUNC_MEMCMP
 AC_FUNC_REALLOC
 AC_FUNC_SELECT_ARGTYPES
+
+AX_C99_FUNC_LRINT
+AX_C99_FUNC_LRINTF
+AX_C99_FUNC_LLRINT
+AX_C99_FUNC_LLRINTF
+
+if test "x$ac_cv_c99_lrint" = "xno" ; then
+    if test "x$ac_cv_c99_lrintf" = "xno" ; then
+        AC_MSG_WARN([[*** Missing C99 standard functions lrint() and lrintf().]])
+        AC_MSG_WARN([[*** This may cause benign compiler warnings on some systems (ie Solaris).]])
+    fi
+fi
+
+AX_C99_FLEXIBLE_ARRAY
 
 AC_CHECK_FUNCS([memmove])
 AC_CHECK_FUNCS([memset])
@@ -171,8 +177,7 @@ AC_CHECK_HEADERS([sys/select.h])
 AC_CHECK_HEADERS([sys/ioctl.h])
 AC_CHECK_HEADERS([sys/fcntl.h])
 AC_CHECK_HEADERS([audiofile.h])
-AC_CHECK_HEADERS([fftw.h])
-AC_CHECK_HEADERS([fftw3.h])
+AC_CHECK_HEADERS([fftw3.h], , [AC_CHECK_HEADERS([fftw.h])])
 AC_CHECK_HEADERS([tiffio.h])
 AC_CHECK_HEADERS([pthread.h])
 AC_CHECK_HEADERS([unicall.h])
@@ -220,48 +225,63 @@ AC_CHECK_HEADERS([FL/Fl_Cartesian.H], [], [], [],[[#include <FL/Fl.H>
 AC_CHECK_HEADERS([FL/Fl_Audio_Meter.H], [], [], [],[[#include <FL/Fl.H>
 ]])
 
-if test "${build}" == "${host}"
-then
-    case "${host}" in
-    x86_64-*)
-        AC_CHECK_FILE([${prefix}/lib64], libdir='$(exec_prefix)/lib64')
-        ;;
-    esac
-fi
-
 AC_LANG([C])
 
 if test "${build}" == "${host}"
 then
     case "${host}" in
     x86_64-*)
+        AX_CHECK_REAL_FILE([${prefix}/lib64], libdir='$(exec_prefix)/lib64')
+        ;;
+    esac
+fi
+
+AC_CHECK_LIB([m], [cos])
+# Some platforms still seem to lack the basic single precision trig and power related function.
+AC_SEARCH_LIBS([sinf], [m], AC_DEFINE([HAVE_SINF], [1], [Define to 1 if you have the sinf() function.]))
+AC_SEARCH_LIBS([cosf], [m], AC_DEFINE([HAVE_COSF], [1], [Define to 1 if you have the cosf() function.]))
+AC_SEARCH_LIBS([tanf], [m], AC_DEFINE([HAVE_TANF], [1], [Define to 1 if you have the tanf() function.]))
+AC_SEARCH_LIBS([asinf], [m], AC_DEFINE([HAVE_ASINF], [1], [Define to 1 if you have the asinf() function.]))
+AC_SEARCH_LIBS([acosf], [m], AC_DEFINE([HAVE_ACOSF], [1], [Define to 1 if you have the acosf() function.]))
+AC_SEARCH_LIBS([atanf], [m], AC_DEFINE([HAVE_ATANF], [1], [Define to 1 if you have the atanf() function.]))
+AC_SEARCH_LIBS([atan2f], [m], AC_DEFINE([HAVE_ATAN2F], [1], [Define to 1 if you have the atan2f() function.]))
+AC_SEARCH_LIBS([ceilf], [m], AC_DEFINE([HAVE_CEILF], [1], [Define to 1 if you have the ceilf() function.]))
+AC_SEARCH_LIBS([floorf], [m], AC_DEFINE([HAVE_FLOORF], [1], [Define to 1 if you have the floorf() function.]))
+AC_SEARCH_LIBS([powf], [m], AC_DEFINE([HAVE_POWF], [1], [Define to 1 if you have the powf() function.]))
+AC_SEARCH_LIBS([expf], [m], AC_DEFINE([HAVE_EXPF], [1], [Define to 1 if you have the expf() function.]))
+AC_SEARCH_LIBS([logf], [m], AC_DEFINE([HAVE_LOGF], [1], [Define to 1 if you have the logf() function.]))
+AC_SEARCH_LIBS([log10f], [m], AC_DEFINE([HAVE_LOG10F], [1], [Define to 1 if you have the log10f() function.]))
+
+if test "${build}" == "${host}"
+then
+    case "${host}" in
+    x86_64-*)
         # X86_64 Linux machines may have both 64 bit and 32 bit libraries. We need to choose the right set
-        AC_CHECK_FILE([/usr/X11R6/lib64], [TESTLIBS="$TESTLIBS -L/usr/X11R6/lib64"], AC_CHECK_FILE([/usr/X11R6/lib], [TESTLIBS="$TESTLIBS -L/usr/X11R6/lib"]))
+        AX_CHECK_REAL_FILE([/usr/X11R6/lib64], [TESTLIBS="$TESTLIBS -L/usr/X11R6/lib64"], AC_CHECK_FILE([/usr/X11R6/lib], [TESTLIBS="$TESTLIBS -L/usr/X11R6/lib"]))
         ;;
     esac
 fi
 
 # Checks for libraries.
-AC_CHECK_LIB([Xft], [XftFontOpen], TESTLIBS="$TESTLIBS -lXft",, $TESTLIBS)
-AC_CHECK_LIB([Xext], [XextCreateExtension], TESTLIBS="$TESTLIBS -lXext",, $TESTLIBS)
-AC_CHECK_LIB([X11], [XOpenDisplay], TESTLIBS="$TESTLIBS -lX11",, $TESTLIBS)
 AC_CHECK_LIB([tiff], [TIFFOpen], , AC_MSG_ERROR("Can't build without libtiff (does your system require a libtiff-devel package?)"), -lm)
-AC_CHECK_LIB([m], [cos])
-AC_CHECK_LIB([m], [pow])
-AC_CHECK_LIB([m], [sqrt])
+
 AC_CHECK_LIB([xml2], [xmlParseFile], [AC_DEFINE([HAVE_LIBXML2], [1], [Define to 1 if you have the 'libxml2' library (-lxml2).]) TESTLIBS="$TESTLIBS -lxml2"])
+
 if test -n "$enable_tests" ; then
-    AC_LANG([C++])
-    AC_CHECK_LIB([fltk], [main], TESTLIBS="$TESTLIBS -lfltk -lsupc++")
-    AC_CHECK_LIB([fltk_cartesian], [main], TESTLIBS="-lfltk_cartesian $TESTLIBS")
-    AC_CHECK_LIB([fltk_audio_meter], [main], TESTLIBS="-lfltk_audio_meter $TESTLIBS")
     AC_LANG([C])
     AC_CHECK_LIB([audiofile], [afOpenFile], TESTLIBS="$TESTLIBS -laudiofile", AC_MSG_ERROR("Can't make tests without libaudiofile (does your system require a libaudiofile-devel package?)"))
-    AC_CHECK_LIB([fftw3], [fftw_plan_dft_1d], TESTLIBS="$TESTLIBS -lfftw3")
-    AC_CHECK_LIB([fftw], [fftw_create_plan], TESTLIBS="$TESTLIBS -lfftw")
+    AC_CHECK_LIB([fftw3], [fftw_plan_dft_1d], TESTLIBS="$TESTLIBS -lfftw3", [AC_CHECK_LIB([fftw], [fftw_create_plan], TESTLIBS="$TESTLIBS -lfftw")])
     AC_CHECK_LIB([pthread], [pthread_attr_init], TESTLIBS="$TESTLIBS -lpthread")
     AC_CHECK_LIB([dl], [dlopen], TESTLIBS="$TESTLIBS -ldl")
     AC_CHECK_LIB([unicall], [uc_start], TESTLIBS="$TESTLIBS -lunicall",, -ltiff -ldl)
+    AC_CHECK_LIB([Xft], [XftFontOpen], TESTLIBS="$TESTLIBS -lXft",, $TESTLIBS)
+    AC_CHECK_LIB([Xext], [XextCreateExtension], TESTLIBS="$TESTLIBS -lXext",, $TESTLIBS)
+    AC_CHECK_LIB([X11], [XOpenDisplay], TESTLIBS="$TESTLIBS -lX11",, $TESTLIBS)
+    AC_LANG([C++])
+    AC_CHECK_LIB([fltk], [main], TESTLIBS="$TESTLIBS -lfltk -lsupc++",, $TESTLIBS)
+    AC_CHECK_LIB([fltk_cartesian], [main], TESTLIBS="-lfltk_cartesian $TESTLIBS",, $TESTLIBS)
+    AC_CHECK_LIB([fltk_audio_meter], [main], TESTLIBS="-lfltk_audio_meter $TESTLIBS",, $TESTLIBS)
+    AC_LANG([C])
 fi
 
 case "${ax_cv_c_compiler_vendor}" in
@@ -273,9 +293,28 @@ gnu)
     if test "$enable_mmx" = "yes" ; then
         COMP_VENDOR_CFLAGS="-mmmx $COMP_VENDOR_CFLAGS"
     fi
+    case $host_os in
+    mingw* | cygwin*)
+        COMP_VENDOR_LDFLAGS="-no-undefined"
+        ;;
+    *)
+        COMP_VENDOR_LDFLAGS=
+        ;;
+    esac
+    ;;
+sun)
+    COMP_VENDOR_CFLAGS="-xc99=all -mt -xCC -errwarn=%all -xvpara"
+    if test "$enable_sse" = "yes" ; then
+        COMP_VENDOR_CFLAGS="-native -fast $COMP_VENDOR_CFLAGS"
+    fi
+    if test "$enable_mmx" = "yes" ; then
+        COMP_VENDOR_CFLAGS="-native -fast $COMP_VENDOR_CFLAGS"
+    fi
+    COMP_VENDOR_LDFLAGS=
     ;;
 *)
     COMP_VENDOR_CFLAGS="-std=c99 -Wall -Wunused-variable -Wwrite-strings -Wstrict-prototypes -Wmissing-prototypes"
+    COMP_VENDOR_LDFLAGS=
     ;;
 esac
 
@@ -283,43 +322,30 @@ COMP_VENDOR_CFLAGS="-DNDEBUG -DIAXMODEM_STUFF $COMP_VENDOR_CFLAGS"
 
 AM_CONDITIONAL([COND_DOC], [test "$enable_doc" = yes])
 AM_CONDITIONAL([COND_TESTS], [test "$enable_tests" = yes])
-AM_CONDITIONAL([COND_ITUTESTS], [test "$enable_itutests" = yes])
+AM_CONDITIONAL([COND_TESTDATA], [test "$enable_test_data" = yes])
 AM_CONDITIONAL([COND_MMX], [test "$enable_mmx" = yes])
 AM_CONDITIONAL([COND_SSE], [test "$enable_sse" = yes])
 if test "$enable_fixed_point" = "yes" ; then
     AC_DEFINE([SPANDSP_USE_FIXED_POINT], [1], [Enable fixed point processing, where possible, instead of floating point])
     SPANDSP_USE_FIXED_POINT="#define SPANDSP_USE_FIXED_POINT 1"
 else
-#
-# So far we deal with the embedded ARM, Blackfin, MIPS, TI DSP and XScale processors as
-# things which lack fast hardware floating point.
-#
-# Other candidates would be the small embedded Power PCs.
-#
-    case $basic_machine in
-	      arc | arm | arm[bl]e | arme[lb] | armv[2345] | armv[345][lb] \
-	    | bfin \
-	    | mips | mipsbe | mipseb | mipsel | mipsle \
-	    | tic54x | c54x* | tic55x | c55x* | tic6x | c6x* \
-	    | xscale | xscalee[bl] \
-	    | arm-*  | armbe-* | armle-* | armeb-* | armv*-* \
-	    | bfin-* \
-	    | mips-* | mipsbe-* | mipseb-* | mipsel-* | mipsle-* \
-	    | tic30-* | tic4x-* | tic54x-* | tic55x-* | tic6x-* | tic80-* \
-	    | xscale-* | xscalee[bl]-* )
-        AC_DEFINE([SPANDSP_USE_FIXED_POINT], [1], [Enable fixed point processing, where possible, instead of floating point])
-        SPANDSP_USE_FIXED_POINT="#define SPANDSP_USE_FIXED_POINT 1"
-        ;;
-    *)
-        SPANDSP_USE_FIXED_POINT="#undef SPANDSP_USE_FIXED_POINT"
-        ;;
-    esac
+    AX_FIXED_POINT_MACHINE([$host],
+        [AC_DEFINE([SPANDSP_USE_FIXED_POINT], [1], [Enable fixed point processing, where possible, instead of floating point])
+        SPANDSP_USE_FIXED_POINT="#define SPANDSP_USE_FIXED_POINT 1"],
+        [SPANDSP_USE_FIXED_POINT="#undef SPANDSP_USE_FIXED_POINT"])
 fi
+AX_MISALIGNED_ACCESS_FAILS([$host],
+    [AC_DEFINE([SPANDSP_MISALIGNED_ACCESS_FAILS], [1], [Do not expect a misaligned memory access to work correctly])
+    SPANDSP_MISALIGNED_ACCESS_FAILS="#define SPANDSP_MISALIGNED_ACCESS_FAILS 1"],
+    [SPANDSP_MISALIGNED_ACCESS_FAILS="#undef SPANDSP_MISALIGNED_ACCESS_FAILS"])
 
 AC_SUBST(CC_FOR_BUILD)
+AC_SUBST(CPPFLAGS_FOR_BUILD)
 AC_SUBST(COMP_VENDOR_CFLAGS)
+AC_SUBST(COMP_VENDOR_LDFLAGS)
 AC_SUBST(TESTLIBS)
 AC_SUBST(SPANDSP_USE_FIXED_POINT)
+AC_SUBST(SPANDSP_MISALIGNED_ACCESS_FAILS)
 AC_SUBST(INSERT_INTTYPES_HEADER)
 AC_SUBST(INSERT_STDINT_HEADER)
 AC_SUBST(INSERT_TGMATH_HEADER)
@@ -327,11 +353,16 @@ AC_SUBST(INSERT_MATH_HEADER)
 
 AC_CONFIG_FILES([Makefile
                  doc/Makefile
-                 itutests/Makefile
-                 itutests/fax/Makefile
+                 doc/doxygen
                  src/Makefile
                  src/spandsp.h
                  spandsp-sim/Makefile
+                 test-data/Makefile
+                 test-data/etsi/Makefile
+                 test-data/etsi/fax/Makefile
+                 test-data/itu/Makefile
+                 test-data/itu/fax/Makefile
+                 test-data/local/Makefile
                  tests/Makefile
                  spandsp.spec])
 

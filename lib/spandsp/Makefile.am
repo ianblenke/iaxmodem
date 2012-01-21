@@ -1,37 +1,42 @@
 ##
 ## SpanDSP - a series of DSP components for telephony
 ##
-## Makefile.am -- Process this file with automake to produce Makefile.in
+## Makefile.am - Process this file with automake to produce Makefile.in
 ##
 ## This program is free software; you can redistribute it and/or modify
-## it under the terms of the GNU General Public License version 2, as
-## published by the Free Software Foundation.
+## it under the terms of the GNU Lesser General Public License version 2.1,
+## as published by the Free Software Foundation.
 ##
 ## This program is distributed in the hope that it will be useful,
 ## but WITHOUT ANY WARRANTY; without even the implied warranty of
 ## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-## GNU General Public License for more details.
+## GNU Lesser General Public License for more details.
 ##
-## You should have received a copy of the GNU General Public License
-## along with this program; if not, write to the Free Software
+## You should have received a copy of the GNU Lesser General Public
+## License along with this program; if not, write to the Free Software
 ## Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 ##
-## $Id: Makefile.am,v 1.29 2007/09/23 12:45:15 steveu Exp $
+## $Id: Makefile.am,v 1.40 2008/07/15 14:28:20 steveu Exp $
 
 AM_CFLAGS = $(COMP_VENDOR_CFLAGS)
+AM_LDFLAGS = $(COMP_VENDOR_LDFLAGS)
 
 noinst_SCRIPTS = spandsp.spec
 
-nobase_data_DATA = spandsp/global-tones.xml spandsp/tones.dtd
-
 MAINTAINERCLEANFILES = Makefile.in
 
-EXTRA_DIST = DueDiligence \
+EXTRA_DIST = autogen.sh \
+             DueDiligence \
+             README.testdata \
              spandsp.spec \
              wrapper.xsl \
              libspandsp.vcproj \
-             doc/libspandsp-doxygen \
-             src/float_fudge.h \
+             unpack_g722_data.sh \
+             unpack_g726_data.sh \
+             unpack_gsm0610_data.sh \
+             unpack_v56ter_data.sh \
+             doc/doxygen.in \
+             src/floating_fudge.h \
              src/spandsp/version.h.in \
              src/libspandsp.dsp \
              src/libspandsp.sln \
@@ -47,11 +52,12 @@ EXTRA_DIST = DueDiligence \
              src/msvc/vc8proj.foot \
              spandsp/global-tones.xml \
              spandsp/tones.dtd \
+             spandsp/tsb85.xml \
              debian/changelog \
              debian/compat \
              debian/control \
              debian/copyright \
-             debian/libspandsp3.install \
+             debian/libspandsp5.install \
              debian/libspandsp-dev.install \
              debian/libspandsp-doc.install \
              debian/rules \
@@ -63,12 +69,12 @@ endif
 if COND_TESTS
     MAYBE_TESTS=spandsp-sim tests
 endif
-if COND_ITUTESTS
-    MAYBE_ITUTESTS=itutests
+if COND_TESTDATA
+    MAYBE_TESTDATA=test-data
 endif
-SUBDIRS = src $(MAYBE_DOC) $(MAYBE_TESTS) $(MAYBE_ITUTESTS)
+SUBDIRS = src $(MAYBE_DOC) $(MAYBE_TESTS) $(MAYBE_TESTDATA)
 
-DIST_SUBDIRS = src spandsp-sim doc tests itutests
+DIST_SUBDIRS = src doc spandsp-sim tests test-data
 
 faq: faq.xml
 	cd faq ; xsltproc ../wrapper.xsl ../faq.xml

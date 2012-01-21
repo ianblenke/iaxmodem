@@ -10,22 +10,22 @@
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2, as
- * published by the Free Software Foundation.
+ * it under the terms of the GNU Lesser General Public License version 2.1,
+ * as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * This code is based on the widely used GSM 06.10 code available from
  * http://kbs.cs.tu-berlin.de/~jutta/toast.html
  *
- * $Id: gsm0610_local.h,v 1.7 2007/01/03 14:15:35 steveu Exp $
+ * $Id: gsm0610_local.h,v 1.10 2008/04/17 14:26:56 steveu Exp $
  */
 
 #if !defined(_GSM0610_LOCAL_H_)
@@ -140,15 +140,15 @@ static __inline__ int16_t gsm_abs(int16_t a)
 static __inline__ int16_t gsm_asr(int16_t a, int n)
 {
     if (n >= 16)
-        return  -(a < 0);
+        return  (int16_t) (-(a < 0));
     /*endif*/
     if (n <= -16)
         return  0;
     /*endif*/
     if (n < 0)
-        return a << -n;
+        return (int16_t) (a << -n);
     /*endif*/
-    return  a >> n;
+    return  (int16_t) (a >> n);
 }
 /*- End of function --------------------------------------------------------*/
 
@@ -158,12 +158,12 @@ static __inline__ int16_t gsm_asl(int16_t a, int n)
         return  0;
     /*endif*/
     if (n <= -16)
-        return  -(a < 0);
+        return  (int16_t) (-(a < 0));
     /*endif*/
     if (n < 0)
         return  gsm_asr(a, -n);
     /*endif*/
-    return  a << n;
+    return  (int16_t) (a << n);
 }
 /*- End of function --------------------------------------------------------*/
 

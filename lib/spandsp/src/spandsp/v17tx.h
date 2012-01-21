@@ -10,19 +10,19 @@
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2, as
- * published by the Free Software Foundation.
+ * it under the terms of the GNU Lesser General Public License version 2.1,
+ * as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: v17tx.h,v 1.32 2007/11/30 12:20:36 steveu Exp $
+ * $Id: v17tx.h,v 1.36 2008/07/16 14:23:48 steveu Exp $
  */
 
 /*! \file */
@@ -93,8 +93,13 @@ typedef struct
     int bit_rate;
     /*! \brief The callback function used to get the next bit to be transmitted. */
     get_bit_func_t get_bit;
-    /*! \brief A user specified opaque pointer passed to the callback function. */
-    void *user_data;
+    /*! \brief A user specified opaque pointer passed to the get_bit function. */
+    void *get_bit_user_data;
+
+    /*! \brief The callback function used to report modem status changes. */
+    modem_tx_status_func_t status_handler;
+    /*! \brief A user specified opaque pointer passed to the status function. */
+    void *status_user_data;
 
     /*! \brief The gain factor needed to achieve the specified output power. */
 #if defined(SPANDSP_USE_FIXED_POINT)
@@ -175,11 +180,11 @@ v17_tx_state_t *v17_tx_init(v17_tx_state_t *s, int rate, int tep, get_bit_func_t
 /*! Reinitialise an existing V.17 modem transmit context, so it may be reused.
     \brief Reinitialise an existing V.17 modem transmit context.
     \param s The modem context.
-    \param rate The bit rate of the modem. Valid values are 7200, 9600, 12000 and 14400.
+    \param bit_rate The bit rate of the modem. Valid values are 7200, 9600, 12000 and 14400.
     \param tep TRUE is the optional TEP tone is to be transmitted.
     \param short_train TRUE if the short training sequence should be used.
     \return 0 for OK, -1 for parameter error. */
-int v17_tx_restart(v17_tx_state_t *s, int rate, int tep, int short_train);
+int v17_tx_restart(v17_tx_state_t *s, int bit_rate, int tep, int short_train);
 
 /*! Free a V.17 modem transmit context.
     \brief Free a V.17 modem transmit context.
@@ -193,6 +198,13 @@ int v17_tx_free(v17_tx_state_t *s);
     \param get_bit The callback routine used to get the data to be transmitted.
     \param user_data An opaque pointer. */
 void v17_tx_set_get_bit(v17_tx_state_t *s, get_bit_func_t get_bit, void *user_data);
+
+/*! Change the modem status report function associated with a V.17 modem transmit context.
+    \brief Change the modem status report function associated with a V.17 modem transmit context.
+    \param s The modem context.
+    \param handler The callback routine used to report modem status changes.
+    \param user_data An opaque pointer. */
+void v17_tx_set_modem_status_handler(v17_tx_state_t *s, modem_tx_status_func_t handler, void *user_data);
 
 /*! Generate a block of V.17 modem audio samples.
     \brief Generate a block of V.17 modem audio samples.

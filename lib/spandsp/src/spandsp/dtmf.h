@@ -10,19 +10,19 @@
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2, as
- * published by the Free Software Foundation.
+ * it under the terms of the GNU Lesser General Public License version 2.1,
+ * as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: dtmf.h,v 1.18 2007/12/20 11:11:16 steveu Exp $
+ * $Id: dtmf.h,v 1.28 2008/06/13 14:46:52 steveu Exp $
  */
 
 #if !defined(_SPANDSP_DTMF_H_)
@@ -43,6 +43,8 @@ the detector in an IVR application you will need proper echo cancellation to
 get good performance in the presence of speech prompts, so dial tone will not
 exist. If you do need good dial tone tolerance, a dial tone filter can be
 enabled in the detector.
+
+The DTMF receiver's design assumes the channel is free of any DC component.
 
 \section dtmf_rx_page_sec_2 How does it work?
 Like most other DSP based DTMF detector's, this one uses the Goertzel algorithm
@@ -73,7 +75,7 @@ repertoire of 16 DTMF dual tones.
 
 #define MAX_DTMF_DIGITS 128
 
-typedef void (*dtmf_rx_callback_t)(void *user_data, const char *digits, int len);
+typedef void (*digits_rx_callback_t)(void *user_data, const char *digits, int len);
 
 /*!
     DTMF generator state descriptor. This defines the state of a single
@@ -82,10 +84,15 @@ typedef void (*dtmf_rx_callback_t)(void *user_data, const char *digits, int len)
 typedef struct
 {
     tone_gen_state_t tones;
-    int current_sample;
-    /* The queue structure MUST be followed immediately by the buffer */
-    queue_state_t queue;
-    char digits[MAX_DTMF_DIGITS + 1];
+    float low_level;
+    float high_level;
+    int on_time;
+    int off_time;
+    union
+    {
+        queue_state_t queue;
+        uint8_t buf[QUEUE_STATE_T_SIZE(MAX_DTMF_DIGITS)];
+    } queue;
 } dtmf_tx_state_t;
 
 /*!
@@ -94,31 +101,46 @@ typedef struct
 typedef struct
 {
     /*! Optional callback funcion to deliver received digits. */
-    dtmf_rx_callback_t callback;
+    digits_rx_callback_t digits_callback;
     /*! An opaque pointer passed to the callback function. */
-    void *callback_data;
+    void *digits_callback_data;
     /*! Optional callback funcion to deliver real time digit state changes. */
     tone_report_func_t realtime_callback;
     /*! An opaque pointer passed to the real time callback function. */
     void *realtime_callback_data;
     /*! TRUE if dialtone should be filtered before processing */
     int filter_dialtone;
-    /*! Maximum acceptable "normal" (lower bigger than higher) twist ratio */
-    float normal_twist;
-    /*! Maximum acceptable "reverse" (higher bigger than lower) twist ratio */
-    float reverse_twist;
-
-    /*! 350Hz filter state for the optional dialtone filter */
+#if defined(SPANDSP_USE_FIXED_POINT)
+    /*! 350Hz filter state for the optional dialtone filter. */
     float z350[2];
-    /*! 440Hz filter state for the optional dialtone filter */
+    /*! 440Hz filter state for the optional dialtone filter. */
     float z440[2];
-
+    /*! Maximum acceptable "normal" (lower bigger than higher) twist ratio. */
+    float normal_twist;
+    /*! Maximum acceptable "reverse" (higher bigger than lower) twist ratio. */
+    float reverse_twist;
+    /*! Minimum acceptable tone level for detection. */
+    int32_t threshold;
+    /*! The accumlating total energy on the same period over which the Goertzels work. */
+    int32_t energy;
+#else
+    /*! 350Hz filter state for the optional dialtone filter. */
+    float z350[2];
+    /*! 440Hz filter state for the optional dialtone filter. */
+    float z440[2];
+    /*! Maximum acceptable "normal" (lower bigger than higher) twist ratio. */
+    float normal_twist;
+    /*! Maximum acceptable "reverse" (higher bigger than lower) twist ratio. */
+    float reverse_twist;
+    /*! Minimum acceptable tone level for detection. */
+    float threshold;
+    /*! The accumlating total energy on the same period over which the Goertzels work. */
+    float energy;
+#endif
     /*! Tone detector working states for the row tones. */
     goertzel_state_t row_out[4];
     /*! Tone detector working states for the column tones. */
     goertzel_state_t col_out[4];
-    /*! The accumlating total energy on the same period over which the Goertzels work. */
-    float energy;
     /*! The result of the last tone analysis. */
     uint8_t last_hit;
     /*! The confirmed digit we are currently receiving */
@@ -154,13 +176,19 @@ int dtmf_tx(dtmf_tx_state_t *s, int16_t amp[], int max_samples);
            assumed to be a NULL terminated string.
     \return The number of digits actually added. This may be less than the
             length of the digit string, if the buffer fills up. */
-size_t dtmf_tx_put(dtmf_tx_state_t *s, const char *digits, ssize_t len);
+size_t dtmf_tx_put(dtmf_tx_state_t *s, const char *digits, int len);
 
 /*! \brief Change the transmit level for a DTMF tone generator context.
     \param s The DTMF generator context.
     \param level The level of the low tone, in dBm0.
     \param twist The twist, in dB. */
 void dtmf_tx_set_level(dtmf_tx_state_t *s, int level, int twist);
+
+/*! \brief Change the transmit on and off time for a DTMF tone generator context.
+    \param s The DTMF generator context.
+    \param on-time The on time, in ms.
+    \param off_time The off time, in ms. */
+void dtmf_tx_set_timing(dtmf_tx_state_t *s, int on_time, int off_time);
 
 /*! \brief Initialise a DTMF tone generator context.
     \param s The DTMF generator context.
@@ -190,8 +218,14 @@ void dtmf_rx_set_realtime_callback(dtmf_rx_state_t *s,
     \param filter_dialtone TRUE to enable filtering of dialtone, FALSE
            to disable, < 0 to leave unchanged.
     \param twist Acceptable twist, in dB. < 0 to leave unchanged.
-    \param reverse_twist Acceptable reverse twist, in dB. < 0 to leave unchanged. */
-void dtmf_rx_parms(dtmf_rx_state_t *s, int filter_dialtone, int twist, int reverse_twist);
+    \param reverse_twist Acceptable reverse twist, in dB. < 0 to leave unchanged.
+    \param threshold The minimum acceptable tone level for detection, in dBm0.
+           <= -99 to leave unchanged. */
+void dtmf_rx_parms(dtmf_rx_state_t *s,
+                   int filter_dialtone,
+                   int twist,
+                   int reverse_twist,
+                   int threshold);
 
 /*! Process a block of received DTMF audio samples.
     \brief Process a block of received DTMF audio samples.
@@ -226,7 +260,7 @@ size_t dtmf_rx_get(dtmf_rx_state_t *s, char *digits, int max);
            and supplied in callbacks.
     \return A pointer to the DTMF receiver context. */
 dtmf_rx_state_t *dtmf_rx_init(dtmf_rx_state_t *s,
-                              dtmf_rx_callback_t callback,
+                              digits_rx_callback_t callback,
                               void *user_data);
 
 /*! \brief Free a DTMF receiver context.

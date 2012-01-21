@@ -10,24 +10,24 @@
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2, as
- * published by the Free Software Foundation.
+ * it under the terms of the GNU Lesser General Public License version 2.1,
+ * as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: v29tx.c,v 1.68 2008/01/10 14:06:21 steveu Exp $
+ * $Id: v29tx.c,v 1.76 2008/07/16 14:23:47 steveu Exp $
  */
 
 /*! \file */
 
-#ifdef HAVE_CONFIG_H
+#if defined(HAVE_CONFIG_H)
 #include <config.h>
 #endif
 
@@ -35,6 +35,7 @@
 #include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
+#include "floating_fudge.h"
 #if defined(HAVE_TGMATH_H)
 #include <tgmath.h>
 #endif
@@ -53,6 +54,11 @@
 
 #include "spandsp/v29tx.h"
 
+#if defined(SPANDSP_USE_FIXED_POINT)
+#define SPANDSP_USE_FIXED_POINTx
+#endif
+
+#include "v29tx_constellation_maps.h"
 #if defined(SPANDSP_USE_FIXED_POINT)
 #include "v29tx_fixed_rrc.h"
 #else
@@ -81,10 +87,12 @@ static __inline__ int get_scrambled_bit(v29_tx_state_t *s)
     int bit;
     int out_bit;
 
-    if ((bit = s->current_get_bit(s->user_data)) == PUTBIT_END_OF_DATA)
+    if ((bit = s->current_get_bit(s->get_bit_user_data)) == PUTBIT_END_OF_DATA)
     {
         /* End of real data. Switch to the fake get_bit routine, until we
            have shut down completely. */
+        if (s->status_handler)
+            s->status_handler(s->status_user_data, MODEM_TX_STATUS_DATA_EXHAUSTED);
         s->current_get_bit = fake_get_bit;
         s->in_training = TRUE;
         bit = 1;
@@ -109,83 +117,6 @@ static __inline__ complexf_t getbaud(v29_tx_state_t *s)
     {
         0, 2, 6, 4
     };
-#if defined(SPANDSP_USE_FIXED_POINT)
-    static const complexi16_t constellation[16] =
-    {
-        { 3,  0},           /*   0deg low  */
-        { 1,  1},           /*  45deg low  */
-        { 0,  3},           /*  90deg low  */
-        {-1,  1},           /* 135deg low  */
-        {-3,  0},           /* 180deg low  */
-        {-1, -1},           /* 225deg low  */
-        { 0, -3},           /* 270deg low  */
-        { 1, -1},           /* 315deg low  */
-        { 5,  0},           /*   0deg high */
-        { 3,  3},           /*  45deg high */
-        { 0,  5},           /*  90deg high */
-        {-3,  3},           /* 135deg high */
-        {-5,  0},           /* 180deg high */
-        {-3, -3},           /* 225deg high */
-        { 0, -5},           /* 270deg high */
-        { 3, -3}            /* 315deg high */
-    };
-    static const complexi16_t abab[6] =
-    {
-        { 3, -3},           /* 315deg high 9600 */
-        {-3,  0},           /* 180deg low       */
-        { 1, -1},           /* 315deg low 7200  */
-        {-3,  0},           /* 180deg low       */
-        { 0, -3},           /* 270deg low 4800  */
-        {-3,  0}            /* 180deg low       */
-    };
-    static const complexi16_t cdcd[6] =
-    {
-        { 3,  0},           /*   0deg low 9600  */
-        {-3,  3},           /* 135deg high      */
-        { 3,  0},           /*   0deg low 7200  */
-        {-1,  1},           /* 135deg low       */
-        { 3,  0},           /*   0deg low 4800  */
-        { 0,  3}            /*  90deg low       */
-    };
-#else
-    static const complexf_t constellation[16] =
-    {
-        { 3.0f,  0.0f},     /*   0deg low  */
-        { 1.0f,  1.0f},     /*  45deg low  */
-        { 0.0f,  3.0f},     /*  90deg low  */
-        {-1.0f,  1.0f},     /* 135deg low  */
-        {-3.0f,  0.0f},     /* 180deg low  */
-        {-1.0f, -1.0f},     /* 225deg low  */
-        { 0.0f, -3.0f},     /* 270deg low  */
-        { 1.0f, -1.0f},     /* 315deg low  */
-        { 5.0f,  0.0f},     /*   0deg high */
-        { 3.0f,  3.0f},     /*  45deg high */
-        { 0.0f,  5.0f},     /*  90deg high */
-        {-3.0f,  3.0f},     /* 135deg high */
-        {-5.0f,  0.0f},     /* 180deg high */
-        {-3.0f, -3.0f},     /* 225deg high */
-        { 0.0f, -5.0f},     /* 270deg high */
-        { 3.0f, -3.0f}      /* 315deg high */
-    };
-    static const complexf_t abab[6] =
-    {
-        { 3.0f, -3.0f},     /* 315deg high 9600 */
-        {-3.0f,  0.0f},     /* 180deg low       */
-        { 1.0f, -1.0f},     /* 315deg low 7200  */
-        {-3.0f,  0.0f},     /* 180deg low       */
-        { 0.0f, -3.0f},     /* 270deg low 4800  */
-        {-3.0f,  0.0f}      /* 180deg low       */
-    };
-    static const complexf_t cdcd[6] =
-    {
-        { 3.0f,  0.0f},     /*   0deg low 9600  */
-        {-3.0f,  3.0f},     /* 135deg high      */
-        { 3.0f,  0.0f},     /*   0deg low 7200  */
-        {-1.0f,  1.0f},     /* 135deg low       */
-        { 3.0f,  0.0f},     /*   0deg low 4800  */
-        { 0.0f,  3.0f}      /*  90deg low       */
-    };
-#endif
     int bits;
     int amp;
     int bit;
@@ -200,7 +131,7 @@ static __inline__ complexf_t getbaud(v29_tx_state_t *s)
                 if (s->training_step <= V29_TRAINING_SEG_1)
                 {
                     /* Optional segment: Unmodulated carrier (talker echo protection) */
-                    return constellation[0];
+                    return v29_9600_constellation[0];
                 }
                 if (s->training_step <= V29_TRAINING_SEG_2)
                 {
@@ -212,14 +143,14 @@ static __inline__ complexf_t getbaud(v29_tx_state_t *s)
 #endif
                 }
                 /* Segment 2: ABAB... */
-                return abab[(s->training_step & 1) + s->training_offset];
+                return v29_abab_constellation[(s->training_step & 1) + s->training_offset];
             }
             /* Segment 3: CDCD... */
             /* Apply the 1 + x^-6 + x^-7 training scrambler */
             bit = s->training_scramble_reg & 1;
             s->training_scramble_reg >>= 1;
             s->training_scramble_reg |= (((bit ^ s->training_scramble_reg) & 1) << 6);
-            return cdcd[bit + s->training_offset];
+            return v29_cdcd_constellation[bit + s->training_offset];
         }
         /* We should be in the block of test ones, or shutdown ones, if we get here. */
         /* There is no graceful shutdown procedure defined for V.29. Just
@@ -231,6 +162,11 @@ static __inline__ complexf_t getbaud(v29_tx_state_t *s)
                one, and we are up and running. */
             s->current_get_bit = s->get_bit;
             s->in_training = FALSE;
+        }
+        if (s->training_step == V29_TRAINING_SHUTDOWN_END)
+        {
+            if (s->status_handler)
+                s->status_handler(s->status_user_data, MODEM_TX_STATUS_SHUTDOWN_COMPLETE);
         }
     }
     /* 9600bps uses the full constellation.
@@ -253,7 +189,7 @@ static __inline__ complexf_t getbaud(v29_tx_state_t *s)
         bits = phase_steps_9600[bits];
     }
     s->constellation_state = (s->constellation_state + bits) & 7;
-    return constellation[amp | s->constellation_state];
+    return v29_9600_constellation[amp | s->constellation_state];
 }
 /*- End of function --------------------------------------------------------*/
 
@@ -289,8 +225,8 @@ int v29_tx(v29_tx_state_t *s, int16_t amp[], int len)
         x = complex_seti(0, 0);
         for (i = 0;  i < V29_TX_FILTER_STEPS;  i++)
         {
-            x.re += (int32_t) pulseshaper[9 - s->baud_phase][i]*(int32_t) s->rrc_filter[i + s->rrc_filter_step].re;
-            x.im += (int32_t) pulseshaper[9 - s->baud_phase][i]*(int32_t) s->rrc_filter[i + s->rrc_filter_step].im;
+            x.re += (int32_t) tx_pulseshaper[TX_PULSESHAPER_COEFF_SETS - 1 - s->baud_phase][i]*(int32_t) s->rrc_filter[i + s->rrc_filter_step].re;
+            x.im += (int32_t) tx_pulseshaper[TX_PULSESHAPER_COEFF_SETS - 1 - s->baud_phase][i]*(int32_t) s->rrc_filter[i + s->rrc_filter_step].im;
         }
         /* Now create and modulate the carrier */
         x.re >>= 4;
@@ -303,13 +239,13 @@ int v29_tx(v29_tx_state_t *s, int16_t amp[], int len)
         x = complex_setf(0.0f, 0.0f);
         for (i = 0;  i < V29_TX_FILTER_STEPS;  i++)
         {
-            x.re += pulseshaper[9 - s->baud_phase][i]*s->rrc_filter[i + s->rrc_filter_step].re;
-            x.im += pulseshaper[9 - s->baud_phase][i]*s->rrc_filter[i + s->rrc_filter_step].im;
+            x.re += tx_pulseshaper[TX_PULSESHAPER_COEFF_SETS - 1 - s->baud_phase][i]*s->rrc_filter[i + s->rrc_filter_step].re;
+            x.im += tx_pulseshaper[TX_PULSESHAPER_COEFF_SETS - 1 - s->baud_phase][i]*s->rrc_filter[i + s->rrc_filter_step].im;
         }
         /* Now create and modulate the carrier */
         z = dds_complexf(&(s->carrier_phase), s->carrier_phase_rate);
         /* Don't bother saturating. We should never clip. */
-        amp[sample] = (int16_t) rintf((x.re*z.re - x.im*z.im)*s->gain);
+        amp[sample] = (int16_t) lrintf((x.re*z.re - x.im*z.im)*s->gain);
 #endif
     }
     return sample;
@@ -357,7 +293,7 @@ void v29_tx_power(v29_tx_state_t *s, float power)
     /* The constellation does not maintain constant average power as we change bit rates.
        We need to scale the gain we get here by a bit rate specific scaling factor each
        time we restart the modem. */
-    s->base_gain = powf(10.0f, (power - DBM0_MAX_POWER)/20.0f)*32768.0f/PULSESHAPER_GAIN;
+    s->base_gain = powf(10.0f, (power - DBM0_MAX_POWER)/20.0f)*32768.0f/TX_PULSESHAPER_GAIN;
     set_working_gain(s);
 }
 /*- End of function --------------------------------------------------------*/
@@ -367,14 +303,21 @@ void v29_tx_set_get_bit(v29_tx_state_t *s, get_bit_func_t get_bit, void *user_da
     if (s->get_bit == s->current_get_bit)
         s->current_get_bit = get_bit;
     s->get_bit = get_bit;
-    s->user_data = user_data;
+    s->get_bit_user_data = user_data;
 }
 /*- End of function --------------------------------------------------------*/
 
-int v29_tx_restart(v29_tx_state_t *s, int rate, int tep)
+void v29_tx_set_modem_status_handler(v29_tx_state_t *s, modem_tx_status_func_t handler, void *user_data)
+{
+    s->status_handler = handler;
+    s->status_user_data = user_data;
+}
+/*- End of function --------------------------------------------------------*/
+
+int v29_tx_restart(v29_tx_state_t *s, int bit_rate, int tep)
 {
     span_log(&s->logging, SPAN_LOG_FLOW, "Restarting V.29\n");
-    s->bit_rate = rate;
+    s->bit_rate = bit_rate;
     set_working_gain(s);
     switch (s->bit_rate)
     {
@@ -408,7 +351,7 @@ int v29_tx_restart(v29_tx_state_t *s, int rate, int tep)
 }
 /*- End of function --------------------------------------------------------*/
 
-v29_tx_state_t *v29_tx_init(v29_tx_state_t *s, int rate, int tep, get_bit_func_t get_bit, void *user_data)
+v29_tx_state_t *v29_tx_init(v29_tx_state_t *s, int bit_rate, int tep, get_bit_func_t get_bit, void *user_data)
 {
     if (s == NULL)
     {
@@ -419,10 +362,10 @@ v29_tx_state_t *v29_tx_init(v29_tx_state_t *s, int rate, int tep, get_bit_func_t
     span_log_init(&s->logging, SPAN_LOG_NONE, NULL);
     span_log_set_protocol(&s->logging, "V.29 TX");
     s->get_bit = get_bit;
-    s->user_data = user_data;
+    s->get_bit_user_data = user_data;
     s->carrier_phase_rate = dds_phase_ratef(CARRIER_NOMINAL_FREQ);
     v29_tx_power(s, -14.0f);
-    v29_tx_restart(s, rate, tep);
+    v29_tx_restart(s, bit_rate, tep);
     return s;
 }
 /*- End of function --------------------------------------------------------*/

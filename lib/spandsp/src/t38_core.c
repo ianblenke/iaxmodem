@@ -10,24 +10,24 @@
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2, as
- * published by the Free Software Foundation.
+ * it under the terms of the GNU Lesser General Public License version 2.1,
+ * as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: t38_core.c,v 1.38 2007/11/26 13:35:21 steveu Exp $
+ * $Id: t38_core.c,v 1.44 2008/07/02 14:48:26 steveu Exp $
  */
 
 /*! \file */
 
-#ifdef HAVE_CONFIG_H
+#if defined(HAVE_CONFIG_H)
 #include "config.h"
 #endif
 
@@ -37,6 +37,7 @@
 #include <fcntl.h>
 #include <time.h>
 #include <string.h>
+#include "floating_fudge.h"
 #if defined(HAVE_TGMATH_H)
 #include <tgmath.h>
 #endif
@@ -54,195 +55,199 @@
 
 #define ACCEPTABLE_SEQ_NO_OFFSET    2000
 
-const char *t38_indicator(int indicator)
+const char *t38_indicator_to_str(int indicator)
 {
-    const char *type;
-
     switch (indicator)
     {
     case T38_IND_NO_SIGNAL:
-        type = "no-signal";
-        break;
+        return "no-signal";
     case T38_IND_CNG:
-        type = "cng";
-        break;
+        return "cng";
     case T38_IND_CED:
-        type = "ced";
-        break;
+        return "ced";
     case T38_IND_V21_PREAMBLE:
-        type = "v21-preamble";
-        break;
+        return "v21-preamble";
     case T38_IND_V27TER_2400_TRAINING:
-        type = "v27-2400-training";
-        break;
+        return "v27-2400-training";
     case T38_IND_V27TER_4800_TRAINING:
-        type = "v27-4800-training";
-        break;
+        return "v27-4800-training";
     case T38_IND_V29_7200_TRAINING:
-        type = "v29-7200-training";
-        break;
+        return "v29-7200-training";
     case T38_IND_V29_9600_TRAINING:
-        type = "v29-9600-training";
-        break;
+        return "v29-9600-training";
     case T38_IND_V17_7200_SHORT_TRAINING:
-        type = "v17-7200-short-training";
-        break;
+        return "v17-7200-short-training";
     case T38_IND_V17_7200_LONG_TRAINING:
-        type = "v17-7200-long-training";
-        break;
+        return "v17-7200-long-training";
     case T38_IND_V17_9600_SHORT_TRAINING:
-        type = "v17-9600-short-training";
-        break;
+        return "v17-9600-short-training";
     case T38_IND_V17_9600_LONG_TRAINING:
-        type = "v17-9600-long-training";
-        break;
+        return "v17-9600-long-training";
     case T38_IND_V17_12000_SHORT_TRAINING:
-        type = "v17-12000-short-training";
-        break;
+        return "v17-12000-short-training";
     case T38_IND_V17_12000_LONG_TRAINING:
-        type = "v17-12000-long-training";
-        break;
+        return "v17-12000-long-training";
     case T38_IND_V17_14400_SHORT_TRAINING:
-        type = "v17-14400-short-training";
-        break;
+        return "v17-14400-short-training";
     case T38_IND_V17_14400_LONG_TRAINING:
-        type = "v17-14400-long-training";
-        break;
+        return "v17-14400-long-training";
     case T38_IND_V8_ANSAM:
-        type = "v8-ansam";
-        break;
+        return "v8-ansam";
     case T38_IND_V8_SIGNAL:
-        type = "v8-signal";
-        break;
+        return "v8-signal";
     case T38_IND_V34_CNTL_CHANNEL_1200:
-        type = "v34-cntl-channel-1200";
-        break;
+        return "v34-cntl-channel-1200";
     case T38_IND_V34_PRI_CHANNEL:
-        type = "v34-pri-channel";
-        break;
+        return "v34-pri-channel";
     case T38_IND_V34_CC_RETRAIN:
-        type = "v34-CC-retrain";
-        break;
+        return "v34-CC-retrain";
     case T38_IND_V33_12000_TRAINING:
-        type = "v33-12000-training";
-        break;
+        return "v33-12000-training";
     case T38_IND_V33_14400_TRAINING:
-        type = "v33-14400-training";
-        break;
-    default:
-        type = "???";
-        break;
+        return "v33-14400-training";
     }
-    return type;
+    return "???";
 }
 /*- End of function --------------------------------------------------------*/
 
-const char *t38_data_type(int data_type)
+const char *t38_data_type_to_str(int data_type)
 {
-    const char *type;
-
     switch (data_type)
     {
     case T38_DATA_V21:
-        type = "v21";
-        break;
+        return "v21";
     case T38_DATA_V27TER_2400:
-        type = "v27-2400";
-        break;
+        return "v27-2400";
     case T38_DATA_V27TER_4800:
-        type = "v27-4800";
-        break;
+        return "v27-4800";
     case T38_DATA_V29_7200:
-        type = "v29-7200";
-        break;
+        return "v29-7200";
     case T38_DATA_V29_9600:
-        type = "v29-9600";
-        break;
+        return "v29-9600";
     case T38_DATA_V17_7200:
-        type = "v17-7200";
-        break;
+        return "v17-7200";
     case T38_DATA_V17_9600:
-        type = "v17-9600";
-        break;
+        return "v17-9600";
     case T38_DATA_V17_12000:
-        type = "v17-12000";
-        break;
+        return "v17-12000";
     case T38_DATA_V17_14400:
-        type = "v17-14400";
-        break;
+        return "v17-14400";
     case T38_DATA_V8:
-        type = "v8";
-        break;
+        return "v8";
     case T38_DATA_V34_PRI_RATE:
-        type = "v34-pri-rate";
-        break;
+        return "v34-pri-rate";
     case T38_DATA_V34_CC_1200:
-        type = "v34-CC-1200";
-        break;
+        return "v34-CC-1200";
     case T38_DATA_V34_PRI_CH:
-        type = "v34-pri-vh";
-        break;
+        return "v34-pri-vh";
     case T38_DATA_V33_12000:
-        type = "v33-12000";
-        break;
+        return "v33-12000";
     case T38_DATA_V33_14400:
-        type = "v33-14400";
-        break;
-    default:
-        type = "???";
-        break;
+        return "v33-14400";
     }
-    return type;
+    return "???";
 }
 /*- End of function --------------------------------------------------------*/
 
-const char *t38_field_type(int field_type)
+const char *t38_field_type_to_str(int field_type)
 {
-    const char *type;
-
     switch (field_type)
     {
     case T38_FIELD_HDLC_DATA:
-        type = "hdlc-data";
-        break;
+        return "hdlc-data";
     case T38_FIELD_HDLC_SIG_END:
-        type = "hdlc-sig-end";
-        break;
+        return "hdlc-sig-end";
     case T38_FIELD_HDLC_FCS_OK:
-        type = "hdlc-fcs-OK";
-        break;
+        return "hdlc-fcs-OK";
     case T38_FIELD_HDLC_FCS_BAD:
-        type = "hdlc-fcs-BAD";
-        break;
+        return "hdlc-fcs-BAD";
     case T38_FIELD_HDLC_FCS_OK_SIG_END:
-        type = "hdlc-fcs-OK-sig-end";
-        break;
+        return "hdlc-fcs-OK-sig-end";
     case T38_FIELD_HDLC_FCS_BAD_SIG_END:
-        type = "hdlc-fcs-BAD-sig-end";
-        break;
+        return "hdlc-fcs-BAD-sig-end";
     case T38_FIELD_T4_NON_ECM_DATA:
-        type = "t4-non-ecm-data";
-        break;
+        return "t4-non-ecm-data";
     case T38_FIELD_T4_NON_ECM_SIG_END:
-        type = "t4-non-ecm-sig-end";
-        break;
+        return "t4-non-ecm-sig-end";
     case T38_FIELD_CM_MESSAGE:
-        type = "cm-message";
-        break;
+        return "cm-message";
     case T38_FIELD_JM_MESSAGE:
-        type = "jm-message";
-        break;
+        return "jm-message";
     case T38_FIELD_CI_MESSAGE:
-        type = "ci-message";
-        break;
+        return "ci-message";
     case T38_FIELD_V34RATE:
-        type = "v34rate";
+        return "v34rate";
+    }
+    return "???";
+}
+/*- End of function --------------------------------------------------------*/
+
+const char *t38_cm_profile_to_str(int profile)
+{
+    switch (profile)
+    {
+    case '1':
+        return "G3 Facsimile Terminal: (Sending Facsimile)";
+    case '2':
+        return "G3 Facsimile Terminal: (Receiving Facsimile)";
+    case '3':
+        return "V.34 HDX and G3 Facsimile Terminal: (Sending Facsimile)";
+    case '4':
+        return "V.34 HDX and G3 Facsimile Terminal: (Receiving Facsimile)";
+    case '5':
+        return "V.34 HDX-only Facsimile Terminal: (Sending Facsimile)";
+    case '6':
+        return "V.34 HDX-only Facsimile Terminal: (Receiving Facsimile)";
+    }
+    return "???";
+}
+/*- End of function --------------------------------------------------------*/
+
+const char *t38_jm_to_str(const uint8_t *data, int len)
+{
+    if (len < 2)
+        return "???";
+    switch (data[0])
+    {
+    case 'A':
+        switch (data[1])
+        {
+        case '0':
+            return "ACK";
+        }
         break;
-    default:
-        type = "???";
+    case 'N':
+        switch (data[1])
+        {
+        case '0':
+            return "NACK: No compatible mode available";
+        case '1':
+            /* Response for profiles 1 and 2 */
+            return "NACK: No V.34 fax, use G3 fax";
+        case '2':
+            /* Response for profiles 5 and 6 */
+            return "NACK: V.34 fax only.";
+        }
         break;
     }
-    return type;
+    return "???";
+}
+/*- End of function --------------------------------------------------------*/
+
+int t38_v34rate_to_bps(const uint8_t *data, int len)
+{
+    int i;
+    int rate;
+
+    if (len < 3)
+        return -1;
+    for (i = 0, rate = 0;  i < 3;  i++)
+    {
+        if (data[i] < '0'  ||  data[i] > '9')
+            return -1;
+        rate = rate*10 + data[i] - '0';
+    }
+    return rate*100;
 }
 /*- End of function --------------------------------------------------------*/
 
@@ -408,7 +413,7 @@ int t38_core_rx_ifp_packet(t38_core_state_t *s, const uint8_t *buf, int len, uin
             }
             t30_indicator = (buf[0] >> 1) & 0xF;
         }
-        span_log(&s->logging, SPAN_LOG_FLOW, "Rx %5d: indicator %s\n", log_seq_no, t38_indicator(t30_indicator));
+        span_log(&s->logging, SPAN_LOG_FLOW, "Rx %5d: indicator %s\n", log_seq_no, t38_indicator_to_str(t30_indicator));
         s->rx_indicator_handler(s, s->rx_user_data, t30_indicator);
         /* This must come after the indicator handler, so the handler routine sees the existing state of the
            indicator. */
@@ -548,8 +553,8 @@ int t38_core_rx_ifp_packet(t38_core_state_t *s, const uint8_t *buf, int len, uin
                      "Rx %5d: (%d) data %s/%s + %d byte(s)\n",
                      log_seq_no,
                      i,
-                     t38_data_type(t30_data),
-                     t38_field_type(t30_field_type),
+                     t38_data_type_to_str(t30_data),
+                     t38_field_type_to_str(t30_field_type),
                      numocts);
             s->rx_data_handler(s, s->rx_user_data, t30_data, t30_field_type, msg, numocts);
             s->current_rx_data_type = t30_data;
@@ -623,8 +628,8 @@ static int t38_encode_data(t38_core_state_t *s, uint8_t buf[], int data_type, co
                  "Tx %5d: (%d) data %s/%s + %d byte(s)\n",
                  s->tx_seq_no,
                  data_field_no,
-                 t38_data_type(data_type),
-                 t38_field_type(field[data_field_no].field_type),
+                 t38_data_type_to_str(data_type),
+                 t38_field_type_to_str(field[data_field_no].field_type),
                  field[data_field_no].field_len);
     }
     
@@ -744,7 +749,7 @@ int t38_core_send_indicator(t38_core_state_t *s, int indicator, int count)
             span_log(&s->logging, SPAN_LOG_FLOW, "T.38 indicator len is %d\n", len);
             return len;
         }
-        span_log(&s->logging, SPAN_LOG_FLOW, "Tx %5d: indicator %s\n", s->tx_seq_no, t38_indicator(indicator));
+        span_log(&s->logging, SPAN_LOG_FLOW, "Tx %5d: indicator %s\n", s->tx_seq_no, t38_indicator_to_str(indicator));
         s->tx_packet_handler(s, s->tx_packet_user_data, buf, len, count);
         s->tx_seq_no = (s->tx_seq_no + 1) & 0xFFFF;
     }

@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: g722_tests.c,v 1.19 2007/11/10 11:14:58 steveu Exp $
+ * $Id: g722_tests.c,v 1.26 2008/05/13 13:17:25 steveu Exp $
  */
 
 /*! \file */
@@ -44,7 +44,7 @@ including the additional listening test.
 
 \section g722_tests_page_sec_2 How is it used?
 To perform the tests in the G.722 specification you need to obtain the test data files from the
-specification. These are copyright material, and so cannot be distributed with spandsp.
+specification. These are copyright material, and so cannot be distributed with this test software.
 
 The files, containing test vectors, which are supplied with the G.722 specification, should be
 copied to itutests/g722. The ITU tests can then be run by executing g722_tests without
@@ -52,11 +52,11 @@ any parameters.
 
 To perform a general audio quality test, g722_tests should be run with a parameter specifying
 the required bit rate for compression. The valid parameters are "-48", "-56", and "-64".
-The file ../localtests/short_wb_voice.wav will be compressed to the specified bit rate, decompressed,
+The file ../test-data/local/short_wb_voice.wav will be compressed to the specified bit rate, decompressed,
 and the resulting audio stored in post_g722.wav.
 */
 
-#ifdef HAVE_CONFIG_H
+#if defined(HAVE_CONFIG_H)
 #include <config.h>
 #endif
 
@@ -76,10 +76,10 @@ and the resulting audio stored in post_g722.wav.
 
 #define MAX_TEST_VECTOR_LEN 40000
 
-#define TESTDATA_DIR        "../itutests/g722/"
+#define TESTDATA_DIR        "../test-data/itu/g722/"
 
-#define EIGHTK_IN_FILE_NAME "../localtests/short_nb_voice.wav"
-#define IN_FILE_NAME        "../localtests/short_wb_voice.wav"
+#define EIGHTK_IN_FILE_NAME "../test-data/local/short_nb_voice.wav"
+#define IN_FILE_NAME        "../test-data/local/short_wb_voice.wav"
 #define OUT_FILE_NAME       "post_g722.wav"
 
 #if 0
@@ -418,17 +418,17 @@ int main(int argc, char *argv[])
             }
             if ((x = afGetFrameSize(inhandle, AF_DEFAULT_TRACK, 1)) != 2.0)
             {
-                printf("    Unexpected frame size in wave file '%s'\n", EIGHTK_IN_FILE_NAME);
+                fprintf(stderr, "    Unexpected frame size in wave file '%s'\n", EIGHTK_IN_FILE_NAME);
                 exit(2);
             }
             if ((x = afGetRate(inhandle, AF_DEFAULT_TRACK)) != (float) SAMPLE_RATE)
             {
-                printf("    Unexpected sample rate %f in wave file '%s'\n", x, EIGHTK_IN_FILE_NAME);
+                fprintf(stderr, "    Unexpected sample rate %f in wave file '%s'\n", x, EIGHTK_IN_FILE_NAME);
                 exit(2);
             }
             if ((x = afGetChannels(inhandle, AF_DEFAULT_TRACK)) != 1.0)
             {
-                printf("    Unexpected number of channels in wave file '%s'\n", EIGHTK_IN_FILE_NAME);
+                fprintf(stderr, "    Unexpected number of channels in wave file '%s'\n", EIGHTK_IN_FILE_NAME);
                 exit(2);
             }
         }
@@ -441,17 +441,17 @@ int main(int argc, char *argv[])
             }
             if ((x = afGetFrameSize(inhandle, AF_DEFAULT_TRACK, 1)) != 2.0)
             {
-                printf("    Unexpected frame size in wave file '%s'\n", IN_FILE_NAME);
+                fprintf(stderr, "    Unexpected frame size in wave file '%s'\n", IN_FILE_NAME);
                 exit(2);
             }
             if ((x = afGetRate(inhandle, AF_DEFAULT_TRACK)) != (float) G722_SAMPLE_RATE)
             {
-                printf("    Unexpected sample rate %f in wave file '%s'\n", x, IN_FILE_NAME);
+                fprintf(stderr, "    Unexpected sample rate %f in wave file '%s'\n", x, IN_FILE_NAME);
                 exit(2);
             }
             if ((x = afGetChannels(inhandle, AF_DEFAULT_TRACK)) != 1.0)
             {
-                printf("    Unexpected number of channels in wave file '%s'\n", IN_FILE_NAME);
+                fprintf(stderr, "    Unexpected number of channels in wave file '%s'\n", IN_FILE_NAME);
                 exit(2);
             }
         }

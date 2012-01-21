@@ -10,32 +10,33 @@
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2, as
- * published by the Free Software Foundation.
+ * it under the terms of the GNU Lesser General Public License version 2.1,
+ * as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * This code is based on the U.S. Department of Defense reference
  * implementation of the LPC-10 2400 bps Voice Coder. They do not
  * exert copyright claims on their code, and it may be freely used.
  *
- * $Id: lpc10_decode.c,v 1.16 2007/11/26 13:28:59 steveu Exp $
+ * $Id: lpc10_decode.c,v 1.22 2008/07/02 14:48:25 steveu Exp $
  */
 
-#ifdef HAVE_CONFIG_H
+#if defined(HAVE_CONFIG_H)
 #include <config.h>
 #endif
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <inttypes.h>
+#include "floating_fudge.h"
 #if defined(HAVE_TGMATH_H)
 #include <tgmath.h>
 #endif
@@ -1079,7 +1080,7 @@ int lpc10_decode_release(lpc10_decode_state_t *s)
 }
 /*- End of function --------------------------------------------------------*/
 
-int lpc10_decode(lpc10_decode_state_t *s, int16_t amp[], const uint8_t code[], int quant)
+int lpc10_decode(lpc10_decode_state_t *s, int16_t amp[], const uint8_t code[], int len)
 {
     int voice[2];
     int32_t pitch;
@@ -1089,18 +1090,21 @@ int lpc10_decode(lpc10_decode_state_t *s, int16_t amp[], const uint8_t code[], i
     float rms;
     int i;
     int j;
+    int base;
 
-    /* Decode 54 bits to LPC10_SAMPLES_PER_FRAME speech samples. */
-    for (i = 0;  i < quant;  i++)
+    /* Decode 54 bits in 7 bytes to LPC10_SAMPLES_PER_FRAME speech samples. */
+    len /= 7;
+    for (i = 0;  i < len;  i++)
     {
         lpc10_unpack(&frame, &code[i*7]);
         decode(s, &frame, voice, &pitch, &rms, rc);
         synths(s, voice, &pitch, &rms, rc, speech);
+        base = i*LPC10_SAMPLES_PER_FRAME;
         for (j = 0;  j < LPC10_SAMPLES_PER_FRAME;  j++)
-            amp[i*LPC10_SAMPLES_PER_FRAME + j] = (int16_t) rintf(32768.0f*speech[j]);
+            amp[base + j] = (int16_t) lrintf(32768.0f*speech[j]);
     }
 
-    return quant*LPC10_SAMPLES_PER_FRAME;
+    return len*LPC10_SAMPLES_PER_FRAME;
 }
 /*- End of function --------------------------------------------------------*/
 /*- End of file ------------------------------------------------------------*/

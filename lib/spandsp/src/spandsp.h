@@ -3,26 +3,26 @@
  *
  * spandsp.h - The head guy amongst the headers
  *
- * Written by Steve Underwood <spandsp/steveu@coppice.org>
+ * Written by Steve Underwood <steveu@coppice.org>
  *
  * Copyright (C) 2003 Steve Underwood
  *
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2, as
- * published by the Free Software Foundation.
+ * it under the terms of the GNU Lesser General Public License version 2.1,
+ * as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: spandsp.h,v 1.52 2007/07/27 11:52:04 steveu Exp $
+ * $Id: spandsp.h.in,v 1.8 2008/07/25 13:56:54 steveu Exp $
  */
 
 /*! \file */
@@ -30,11 +30,15 @@
 #if !defined(_SPANDSP_H_)
 #define _SPANDSP_H_
 
+#undef SPANDSP_USE_FIXED_POINT
+#undef SPANDSP_MISALIGNED_ACCESS_FAILS
+
 #include <stdlib.h>
 #include <inttypes.h>
 #include <string.h>
 #include <limits.h>
 #include <time.h>
+#include <math.h>
 #include <tiffio.h>
 
 #include <spandsp/telephony.h>
@@ -87,14 +91,17 @@
 #include <spandsp/v42bis.h>
 #include <spandsp/t4.h>
 #include <spandsp/t30.h>
+#include <spandsp/t30_api.h>
 #include <spandsp/t30_fcf.h>
+#include <spandsp/t30_logging.h>
 #include <spandsp/t35.h>
 #include <spandsp/at_interpreter.h>
+#include <spandsp/fax_modems.h>
+#include <spandsp/fax.h>
 #include <spandsp/t38_core.h>
 #include <spandsp/t38_gateway.h>
 #include <spandsp/t38_terminal.h>
 #include <spandsp/t31.h>
-#include <spandsp/fax.h>
 #include <spandsp/adsi.h>
 #include <spandsp/oki_adpcm.h>
 #include <spandsp/ima_adpcm.h>

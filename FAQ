@@ -125,6 +125,12 @@ will then proceed to the next entry in the dialplan.
 Passing ${EXTEN} or some related value in the Dial application is
 important, as that provides the DID indication for iaxmodem.  If this
 application parameter is omitted then iaxmodem will not receive DID.
+
+Also, using the ChanIsAvail command prior to dialing is known not to work
+since it issues a IAX "HANGUP" and puts the iaxmodem in a busy state.
+Therefore, the following Dial command will be rejected with the cause
+"Busy". Some Asterisk pre-packaged distributions dial extensions using
+macros containg ChanIsAvail (ie. Voiceroute's Druid) so beware of them. 
 -----------------------------------------------------------------
 Q7: I start iaxmodem and then place a call to it, and I see these
 messages appear on output:

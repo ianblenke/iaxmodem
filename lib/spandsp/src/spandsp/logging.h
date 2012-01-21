@@ -10,19 +10,19 @@
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2, as
- * published by the Free Software Foundation.
+ * it under the terms of the GNU Lesser General Public License version 2.1,
+ * as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: logging.h,v 1.13 2007/04/08 08:16:18 steveu Exp $
+ * $Id: logging.h,v 1.16 2008/05/05 11:25:01 steveu Exp $
  */
 
 /*! \file */
@@ -44,14 +44,14 @@ typedef void (*error_handler_func_t)(const char *text);
 /* Logging elements */
 enum
 {
-    SPAN_LOG_SEVERITY_MASK          = 0x00FF,
-    SPAN_LOG_SHOW_DATE              = 0x0100,
-    SPAN_LOG_SHOW_SAMPLE_TIME       = 0x0200,
-    SPAN_LOG_SHOW_SEVERITY          = 0x0400,
-    SPAN_LOG_SHOW_PROTOCOL          = 0x0800,
-    SPAN_LOG_SHOW_VARIANT           = 0x1000,
-    SPAN_LOG_SHOW_TAG               = 0x2000,
-    SPAN_LOG_SUPPRESS_LABELLING     = 0x8000
+    SPAN_LOG_SEVERITY_MASK              = 0x00FF,
+    SPAN_LOG_SHOW_DATE                  = 0x0100,
+    SPAN_LOG_SHOW_SAMPLE_TIME           = 0x0200,
+    SPAN_LOG_SHOW_SEVERITY              = 0x0400,
+    SPAN_LOG_SHOW_PROTOCOL              = 0x0800,
+    SPAN_LOG_SHOW_VARIANT               = 0x1000,
+    SPAN_LOG_SHOW_TAG                   = 0x2000,
+    SPAN_LOG_SUPPRESS_LABELLING         = 0x8000
 };
 
 /* Logging severity levels */

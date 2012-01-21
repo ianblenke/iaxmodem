@@ -1,3 +1,11 @@
+1.2.0
+	improve skew behavior, especially for faulty RTC; add "skew" config feature
+	add support for command-dial (ATD...;) in spandsp
+	add support for ATA for CED when off-hook and connected to a call
+	add support for ATD for CNG when off-hook and connected to a call
+	fix the ordering of the seteuid()/setegid() (Julien BLACHE)
+	update spandsp to 20080725 snapshot
+
 1.1.1
 	fix unaligned errors in libiax2 (Gus Bourg)
 	improve training in spandsp V.27ter receive (Steve Underwood)

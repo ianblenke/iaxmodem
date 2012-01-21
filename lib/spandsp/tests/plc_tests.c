@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: plc_tests.c,v 1.20 2007/11/10 11:14:58 steveu Exp $
+ * $Id: plc_tests.c,v 1.25 2008/05/13 13:17:26 steveu Exp $
  */
 
 /*! \page plc_tests_page Packet loss concealment tests
@@ -42,7 +42,7 @@ audio file, called post_plc.wav. This file contains 8000 sample/second
 16 bits/sample linear audio.
 */
 
-#ifdef HAVE_CONFIG_H
+#if defined(HAVE_CONFIG_H)
 #include "config.h"
 #endif
 
@@ -55,7 +55,7 @@ audio file, called post_plc.wav. This file contains 8000 sample/second
 
 #include "spandsp.h"
 
-#define INPUT_FILE_NAME     "../localtests/short_nb_voice.wav"
+#define INPUT_FILE_NAME     "../test-data/local/short_nb_voice.wav"
 #define OUTPUT_FILE_NAME    "post_plc.wav"
 
 int main(int argc, char *argv[])

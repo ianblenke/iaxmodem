@@ -22,10 +22,10 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: vector_float_tests.c,v 1.5 2007/11/10 11:14:59 steveu Exp $
+ * $Id: vector_float_tests.c,v 1.9 2008/05/13 13:17:27 steveu Exp $
  */
 
-#ifdef HAVE_CONFIG_H
+#if defined(HAVE_CONFIG_H)
 #include "config.h"
 #endif
 

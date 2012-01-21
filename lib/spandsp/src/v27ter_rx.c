@@ -10,24 +10,24 @@
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2, as
- * published by the Free Software Foundation.
+ * it under the terms of the GNU Lesser General Public License version 2.1,
+ * as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: v27ter_rx.c,v 1.87 2008/01/09 13:23:35 steveu Exp $
+ * $Id: v27ter_rx.c,v 1.96 2008/07/16 17:01:49 steveu Exp $
  */
 
 /*! \file */
 
-#ifdef HAVE_CONFIG_H
+#if defined(HAVE_CONFIG_H)
 #include <config.h>
 #endif
 
@@ -35,6 +35,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "floating_fudge.h"
 #if defined(HAVE_TGMATH_H)
 #include <tgmath.h>
 #endif
@@ -111,7 +112,7 @@ float v27ter_rx_symbol_timing_correction(v27ter_rx_state_t *s)
 {
     int steps_per_symbol;
     
-    steps_per_symbol = (s->bit_rate == 4800)  ?  PULSESHAPER_4800_COEFF_SETS*5  :  PULSESHAPER_2400_COEFF_SETS*20/3;
+    steps_per_symbol = (s->bit_rate == 4800)  ?  RX_PULSESHAPER_4800_COEFF_SETS*5  :  RX_PULSESHAPER_2400_COEFF_SETS*20/3;
     return (float) s->total_baud_timing_correction/(float) steps_per_symbol;
 }
 /*- End of function --------------------------------------------------------*/
@@ -137,6 +138,15 @@ int v27ter_rx_equalizer_state(v27ter_rx_state_t *s, complexf_t **coeffs)
 }
 /*- End of function --------------------------------------------------------*/
 
+static void report_status_change(v27ter_rx_state_t *s, int status)
+{
+    if (s->status_handler)
+        s->status_handler(s->status_user_data, status);
+    else if (s->put_bit)
+        s->put_bit(s->put_bit_user_data, status);
+}
+/*- End of function --------------------------------------------------------*/
+
 static void equalizer_save(v27ter_rx_state_t *s)
 {
     cvec_copyf(s->eq_coeff_save, s->eq_coeff, V27TER_EQUALIZER_PRE_LEN + 1 + V27TER_EQUALIZER_POST_LEN);
@@ -148,7 +158,7 @@ static void equalizer_restore(v27ter_rx_state_t *s)
     cvec_copyf(s->eq_coeff, s->eq_coeff_save, V27TER_EQUALIZER_PRE_LEN + 1 + V27TER_EQUALIZER_POST_LEN);
     cvec_zerof(s->eq_buf, V27TER_EQUALIZER_MASK);
 
-    s->eq_put_step = (s->bit_rate == 4800)  ?  PULSESHAPER_4800_COEFF_SETS*5/2  :  PULSESHAPER_2400_COEFF_SETS*20/(3*2);
+    s->eq_put_step = (s->bit_rate == 4800)  ?  RX_PULSESHAPER_4800_COEFF_SETS*5/2  :  RX_PULSESHAPER_2400_COEFF_SETS*20/(3*2);
     s->eq_step = 0;
     s->eq_delta = EQUALIZER_DELTA/(V27TER_EQUALIZER_PRE_LEN + 1 + V27TER_EQUALIZER_POST_LEN);
 }
@@ -161,7 +171,7 @@ static void equalizer_reset(v27ter_rx_state_t *s)
     s->eq_coeff[V27TER_EQUALIZER_PRE_LEN] = complex_setf(1.414f, 0.0f);
     cvec_zerof(s->eq_buf, V27TER_EQUALIZER_MASK);
 
-    s->eq_put_step = (s->bit_rate == 4800)  ?  PULSESHAPER_4800_COEFF_SETS*5/2  :  PULSESHAPER_2400_COEFF_SETS*20/(3*2);
+    s->eq_put_step = (s->bit_rate == 4800)  ?  RX_PULSESHAPER_4800_COEFF_SETS*5/2  :  RX_PULSESHAPER_2400_COEFF_SETS*20/(3*2);
     s->eq_step = 0;
     s->eq_delta = EQUALIZER_DELTA/(V27TER_EQUALIZER_PRE_LEN + 1 + V27TER_EQUALIZER_POST_LEN);
 }
@@ -273,7 +283,7 @@ static __inline__ void put_bit(v27ter_rx_state_t *s, int bit)
        go to the application. */
     if (s->training_stage == TRAINING_STAGE_NORMAL_OPERATION)
     {
-        s->put_bit(s->user_data, out_bit);
+        s->put_bit(s->put_bit_user_data, out_bit);
     }
     else
     {
@@ -488,7 +498,7 @@ static __inline__ void process_half_baud(v27ter_rx_state_t *s, const complexf_t 
                span_log(&s->logging, SPAN_LOG_FLOW, "Training failed (sequence failed)\n");
                /* Park this modem */
                s->training_stage = TRAINING_STAGE_PARKED;
-               s->put_bit(s->user_data, PUTBIT_TRAINING_FAILED);
+               report_status_change(s, PUTBIT_TRAINING_FAILED);
                break;
             }
 
@@ -509,6 +519,7 @@ static __inline__ void process_half_baud(v27ter_rx_state_t *s, const complexf_t 
             descramble(s, 1);
             s->training_count = 1;
             s->training_stage = TRAINING_STAGE_TRAIN_ON_ABAB;
+            report_status_change(s, PUTBIT_TRAINING_IN_PROGRESS);
         }
         else if (++s->training_count > V27TER_TRAINING_SEG_3_LEN)
         {
@@ -517,7 +528,7 @@ static __inline__ void process_half_baud(v27ter_rx_state_t *s, const complexf_t 
             span_log(&s->logging, SPAN_LOG_FLOW, "Training failed (sequence failed)\n");
             /* Park this modem */
             s->training_stage = TRAINING_STAGE_PARKED;
-            s->put_bit(s->user_data, PUTBIT_TRAINING_FAILED);
+            report_status_change(s, PUTBIT_TRAINING_FAILED);
         }
         break;
     case TRAINING_STAGE_TRAIN_ON_ABAB:
@@ -554,7 +565,7 @@ static __inline__ void process_half_baud(v27ter_rx_state_t *s, const complexf_t 
             {
                 /* We are up and running */
                 span_log(&s->logging, SPAN_LOG_FLOW, "Training succeeded (constellation mismatch %f)\n", s->training_error);
-                s->put_bit(s->user_data, PUTBIT_TRAINING_SUCCEEDED);
+                report_status_change(s, PUTBIT_TRAINING_SUCCEEDED);
                 /* Apply some lag to the carrier off condition, to ensure the last few bits get pushed through
                    the processing. */
                 s->signal_present = (s->bit_rate == 4800)  ?  90  :  120;
@@ -569,7 +580,7 @@ static __inline__ void process_half_baud(v27ter_rx_state_t *s, const complexf_t 
                 span_log(&s->logging, SPAN_LOG_FLOW, "Training failed (constellation mismatch %f)\n", s->training_error);
                 /* Park this modem */
                 s->training_stage = TRAINING_STAGE_PARKED;
-                s->put_bit(s->user_data, PUTBIT_TRAINING_FAILED);
+                report_status_change(s, PUTBIT_TRAINING_FAILED);
             }
         }
         break;
@@ -653,7 +664,7 @@ int v27ter_rx(v27ter_rx_state_t *s, const int16_t amp[], int len)
                         /* Count down a short delay, to ensure we push the last
                            few bits through the filters before stopping. */
                         v27ter_rx_restart(s, s->bit_rate, FALSE);
-                        s->put_bit(s->user_data, PUTBIT_CARRIER_DOWN);
+                        report_status_change(s, PUTBIT_CARRIER_DOWN);
                         continue;
                     }
 #if defined(IAXMODEM_STUFF)
@@ -672,7 +683,7 @@ int v27ter_rx(v27ter_rx_state_t *s, const int16_t amp[], int len)
 #if defined(IAXMODEM_STUFF)
                 s->carrier_drop_pending = FALSE;
 #endif
-                s->put_bit(s->user_data, PUTBIT_CARRIER_UP);
+                report_status_change(s, PUTBIT_CARRIER_UP);
             }
             /* Only spend effort processing this data if the modem is not
                parked, after training failure. */
@@ -681,38 +692,38 @@ int v27ter_rx(v27ter_rx_state_t *s, const int16_t amp[], int len)
         
             /* Put things into the equalization buffer at T/2 rate. The Gardner algorithm
                will fiddle the step to align this with the symbols. */
-            if ((s->eq_put_step -= PULSESHAPER_4800_COEFF_SETS) <= 0)
+            if ((s->eq_put_step -= RX_PULSESHAPER_4800_COEFF_SETS) <= 0)
             {
                 if (s->training_stage == TRAINING_STAGE_SYMBOL_ACQUISITION)
                 {
                     /* Only AGC during the initial training */
-                    s->agc_scaling = (1.0f/PULSESHAPER_4800_GAIN)*1.414f/sqrtf(power);
+                    s->agc_scaling = (1.0f/RX_PULSESHAPER_4800_GAIN)*1.414f/sqrtf(power);
                 }
                 /* Pulse shape while still at the carrier frequency, using a quadrature
                    pair of filters. This results in a properly bandpass filtered complex
                    signal, which can be brought directly to baseband by complex mixing.
                    No further filtering, to remove mixer harmonics, is needed. */
                 step = -s->eq_put_step;
-                if (step > PULSESHAPER_4800_COEFF_SETS - 1)
-                    step = PULSESHAPER_4800_COEFF_SETS - 1;
-                s->eq_put_step += PULSESHAPER_4800_COEFF_SETS*5/2;
+                if (step > RX_PULSESHAPER_4800_COEFF_SETS - 1)
+                    step = RX_PULSESHAPER_4800_COEFF_SETS - 1;
+                s->eq_put_step += RX_PULSESHAPER_4800_COEFF_SETS*5/2;
 #if defined(SPANDSP_USE_FIXED_POINT)
-                zi.re = (int32_t) pulseshaper_4800[step][0].re*(int32_t) s->rrc_filter[s->rrc_filter_step];
-                zi.im = (int32_t) pulseshaper_4800[step][0].im*(int32_t) s->rrc_filter[s->rrc_filter_step];
+                zi.re = (int32_t) rx_pulseshaper_4800[step][0].re*(int32_t) s->rrc_filter[s->rrc_filter_step];
+                zi.im = (int32_t) rx_pulseshaper_4800[step][0].im*(int32_t) s->rrc_filter[s->rrc_filter_step];
                 for (j = 1;  j < V27TER_RX_4800_FILTER_STEPS;  j++)
                 {
-                    zi.re += (int32_t) pulseshaper_4800[step][j].re*(int32_t) s->rrc_filter[j + s->rrc_filter_step];
-                    zi.im += (int32_t) pulseshaper_4800[step][j].im*(int32_t) s->rrc_filter[j + s->rrc_filter_step];
+                    zi.re += (int32_t) rx_pulseshaper_4800[step][j].re*(int32_t) s->rrc_filter[j + s->rrc_filter_step];
+                    zi.im += (int32_t) rx_pulseshaper_4800[step][j].im*(int32_t) s->rrc_filter[j + s->rrc_filter_step];
                 }
                 sample.re = zi.re*s->agc_scaling;
                 sample.im = zi.im*s->agc_scaling;
 #else
-                zz.re = pulseshaper_4800[step][0].re*s->rrc_filter[s->rrc_filter_step];
-                zz.im = pulseshaper_4800[step][0].im*s->rrc_filter[s->rrc_filter_step];
+                zz.re = rx_pulseshaper_4800[step][0].re*s->rrc_filter[s->rrc_filter_step];
+                zz.im = rx_pulseshaper_4800[step][0].im*s->rrc_filter[s->rrc_filter_step];
                 for (j = 1;  j < V27TER_RX_4800_FILTER_STEPS;  j++)
                 {
-                    zz.re += pulseshaper_4800[step][j].re*s->rrc_filter[j + s->rrc_filter_step];
-                    zz.im += pulseshaper_4800[step][j].im*s->rrc_filter[j + s->rrc_filter_step];
+                    zz.re += rx_pulseshaper_4800[step][j].re*s->rrc_filter[j + s->rrc_filter_step];
+                    zz.im += rx_pulseshaper_4800[step][j].im*s->rrc_filter[j + s->rrc_filter_step];
                 }
                 sample.re = zz.re*s->agc_scaling;
                 sample.im = zz.im*s->agc_scaling;
@@ -778,7 +789,7 @@ int v27ter_rx(v27ter_rx_state_t *s, const int16_t amp[], int len)
                         /* Count down a short delay, to ensure we push the last
                            few bits through the filters before stopping. */
                         v27ter_rx_restart(s, s->bit_rate, FALSE);
-                        s->put_bit(s->user_data, PUTBIT_CARRIER_DOWN);
+                        report_status_change(s, PUTBIT_CARRIER_DOWN);
                         continue;
                     }
 #if defined(IAXMODEM_STUFF)
@@ -797,7 +808,7 @@ int v27ter_rx(v27ter_rx_state_t *s, const int16_t amp[], int len)
 #if defined(IAXMODEM_STUFF)
                 s->carrier_drop_pending = FALSE;
 #endif
-                s->put_bit(s->user_data, PUTBIT_CARRIER_UP);
+                report_status_change(s, PUTBIT_CARRIER_UP);
             }
             /* Only spend effort processing this data if the modem is not
                parked, after training failure. */
@@ -806,38 +817,38 @@ int v27ter_rx(v27ter_rx_state_t *s, const int16_t amp[], int len)
         
             /* Put things into the equalization buffer at T/2 rate. The Gardner algorithm
                will fiddle the step to align this with the symbols. */
-            if ((s->eq_put_step -= PULSESHAPER_2400_COEFF_SETS) <= 0)
+            if ((s->eq_put_step -= RX_PULSESHAPER_2400_COEFF_SETS) <= 0)
             {
                 if (s->training_stage == TRAINING_STAGE_SYMBOL_ACQUISITION)
                 {
                     /* Only AGC during the initial training */
-                    s->agc_scaling = (1.0f/PULSESHAPER_2400_GAIN)*1.414f/sqrtf(power);
+                    s->agc_scaling = (1.0f/RX_PULSESHAPER_2400_GAIN)*1.414f/sqrtf(power);
                 }
                 /* Pulse shape while still at the carrier frequency, using a quadrature
                    pair of filters. This results in a properly bandpass filtered complex
                    signal, which can be brought directly to bandband by complex mixing.
                    No further filtering, to remove mixer harmonics, is needed. */
                 step = -s->eq_put_step;
-                if (step > PULSESHAPER_2400_COEFF_SETS - 1)
-                    step = PULSESHAPER_2400_COEFF_SETS - 1;
-                s->eq_put_step += PULSESHAPER_2400_COEFF_SETS*20/(3*2);
+                if (step > RX_PULSESHAPER_2400_COEFF_SETS - 1)
+                    step = RX_PULSESHAPER_2400_COEFF_SETS - 1;
+                s->eq_put_step += RX_PULSESHAPER_2400_COEFF_SETS*20/(3*2);
 #if defined(SPANDSP_USE_FIXED_POINT)
-                zi.re = (int32_t) pulseshaper_2400[step][0].re*(int32_t) s->rrc_filter[s->rrc_filter_step];
-                zi.im = (int32_t) pulseshaper_2400[step][0].im*(int32_t) s->rrc_filter[s->rrc_filter_step];
+                zi.re = (int32_t) rx_pulseshaper_2400[step][0].re*(int32_t) s->rrc_filter[s->rrc_filter_step];
+                zi.im = (int32_t) rx_pulseshaper_2400[step][0].im*(int32_t) s->rrc_filter[s->rrc_filter_step];
                 for (j = 1;  j < V27TER_RX_2400_FILTER_STEPS;  j++)
                 {
-                    zi.re += (int32_t) pulseshaper_2400[step][j].re*(int32_t) s->rrc_filter[j + s->rrc_filter_step];
-                    zi.im += (int32_t) pulseshaper_2400[step][j].im*(int32_t) s->rrc_filter[j + s->rrc_filter_step];
+                    zi.re += (int32_t) rx_pulseshaper_2400[step][j].re*(int32_t) s->rrc_filter[j + s->rrc_filter_step];
+                    zi.im += (int32_t) rx_pulseshaper_2400[step][j].im*(int32_t) s->rrc_filter[j + s->rrc_filter_step];
                 }
                 sample.re = zi.re*s->agc_scaling;
                 sample.im = zi.im*s->agc_scaling;
 #else
-                zz.re = pulseshaper_2400[step][0].re*s->rrc_filter[s->rrc_filter_step];
-                zz.im = pulseshaper_2400[step][0].im*s->rrc_filter[s->rrc_filter_step];
+                zz.re = rx_pulseshaper_2400[step][0].re*s->rrc_filter[s->rrc_filter_step];
+                zz.im = rx_pulseshaper_2400[step][0].im*s->rrc_filter[s->rrc_filter_step];
                 for (j = 1;  j < V27TER_RX_2400_FILTER_STEPS;  j++)
                 {
-                    zz.re += pulseshaper_2400[step][j].re*s->rrc_filter[j + s->rrc_filter_step];
-                    zz.im += pulseshaper_2400[step][j].im*s->rrc_filter[j + s->rrc_filter_step];
+                    zz.re += rx_pulseshaper_2400[step][j].re*s->rrc_filter[j + s->rrc_filter_step];
+                    zz.im += rx_pulseshaper_2400[step][j].im*s->rrc_filter[j + s->rrc_filter_step];
                 }
                 sample.re = zz.re*s->agc_scaling;
                 sample.im = zz.im*s->agc_scaling;
@@ -860,16 +871,23 @@ int v27ter_rx(v27ter_rx_state_t *s, const int16_t amp[], int len)
 void v27ter_rx_set_put_bit(v27ter_rx_state_t *s, put_bit_func_t put_bit, void *user_data)
 {
     s->put_bit = put_bit;
-    s->user_data = user_data;
+    s->put_bit_user_data = user_data;
 }
 /*- End of function --------------------------------------------------------*/
 
-int v27ter_rx_restart(v27ter_rx_state_t *s, int rate, int old_train)
+void v27ter_rx_set_modem_status_handler(v27ter_rx_state_t *s, modem_tx_status_func_t handler, void *user_data)
+{
+    s->status_handler = handler;
+    s->status_user_data = user_data;
+}
+/*- End of function --------------------------------------------------------*/
+
+int v27ter_rx_restart(v27ter_rx_state_t *s, int bit_rate, int old_train)
 {
     span_log(&s->logging, SPAN_LOG_FLOW, "Restarting V.27ter\n");
-    if (rate != 4800  &&  rate != 2400)
+    if (bit_rate != 4800  &&  bit_rate != 2400)
         return -1;
-    s->bit_rate = rate;
+    s->bit_rate = bit_rate;
 
 #if defined(SPANDSP_USE_FIXED_POINT)
     memset(s->rrc_filter, 0, sizeof(s->rrc_filter));
@@ -907,7 +925,7 @@ int v27ter_rx_restart(v27ter_rx_state_t *s, int rate, int old_train)
     else
     {
         s->carrier_phase_rate = dds_phase_ratef(CARRIER_NOMINAL_FREQ);
-        s->agc_scaling = 0.005f/PULSESHAPER_4800_GAIN;
+        s->agc_scaling = 0.005f/RX_PULSESHAPER_4800_GAIN;
         equalizer_reset(s);
     }
     s->eq_skip = 0;
@@ -922,7 +940,7 @@ int v27ter_rx_restart(v27ter_rx_state_t *s, int rate, int old_train)
 }
 /*- End of function --------------------------------------------------------*/
 
-v27ter_rx_state_t *v27ter_rx_init(v27ter_rx_state_t *s, int rate, put_bit_func_t put_bit, void *user_data)
+v27ter_rx_state_t *v27ter_rx_init(v27ter_rx_state_t *s, int bit_rate, put_bit_func_t put_bit, void *user_data)
 {
     if (s == NULL)
     {
@@ -934,9 +952,9 @@ v27ter_rx_state_t *v27ter_rx_init(v27ter_rx_state_t *s, int rate, put_bit_func_t
     span_log_set_protocol(&s->logging, "V.27ter RX");
     v27ter_rx_signal_cutoff(s, -45.5f);
     s->put_bit = put_bit;
-    s->user_data = user_data;
+    s->put_bit_user_data = user_data;
 
-    v27ter_rx_restart(s, rate, FALSE);
+    v27ter_rx_restart(s, bit_rate, FALSE);
     return s;
 }
 /*- End of function --------------------------------------------------------*/
@@ -948,7 +966,7 @@ int v27ter_rx_free(v27ter_rx_state_t *s)
 }
 /*- End of function --------------------------------------------------------*/
 
-void v27ter_rx_set_qam_report_handler(v27ter_rx_state_t *s, qam_report_handler_t *handler, void *user_data)
+void v27ter_rx_set_qam_report_handler(v27ter_rx_state_t *s, qam_report_handler_t handler, void *user_data)
 {
     s->qam_report = handler;
     s->qam_user_data = user_data;

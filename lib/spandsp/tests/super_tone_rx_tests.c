@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: super_tone_rx_tests.c,v 1.23 2007/11/10 11:14:58 steveu Exp $
+ * $Id: super_tone_rx_tests.c,v 1.28 2008/05/13 13:17:26 steveu Exp $
  */
 
 /*! \file */
@@ -31,7 +31,7 @@
 \section super_tone_rx_tests_page_sec_1 What does it do?
 */
 
-#ifdef HAVE_CONFIG_H
+#if defined(HAVE_CONFIG_H)
 #include "config.h"
 #endif
 
@@ -59,8 +59,8 @@
 
 #define IN_FILE_NAME    "super_tone.wav"
 
-#define MITEL_DIR       "../itutests/mitel/"
-#define BELLCORE_DIR	"../itutests/bellcore/"
+#define MITEL_DIR       "../test-data/mitel/"
+#define BELLCORE_DIR	"../test-data/bellcore/"
 
 const char *bellcore_files[] =
 {

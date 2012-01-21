@@ -10,24 +10,24 @@
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2, as
- * published by the Free Software Foundation.
+ * it under the terms of the GNU Lesser General Public License version 2.1,
+ * as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: tone_generate.c,v 1.39 2007/12/13 11:31:32 steveu Exp $
+ * $Id: tone_generate.c,v 1.43 2008/07/02 14:48:26 steveu Exp $
  */
 
 /*! \file */
 
-#ifdef HAVE_CONFIG_H
+#if defined(HAVE_CONFIG_H)
 #include "config.h"
 #endif
 
@@ -37,6 +37,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <fcntl.h>
+#include "floating_fudge.h"
 #if defined(HAVE_TGMATH_H)
 #include <tgmath.h>
 #endif
@@ -145,7 +146,7 @@ int tone_gen(tone_gen_state_t *s, int16_t amp[], int max_samples)
                     /* There must be two, and only two tones */
                     xamp = dds_modf(&s->phase[0], -s->tone[0].phase_rate, s->tone[0].gain, 0)
                          *(1.0f + dds_modf(&s->phase[1], s->tone[1].phase_rate, s->tone[1].gain, 0));
-                    amp[samples] = (int16_t) rintf(xamp);
+                    amp[samples] = (int16_t) lrintf(xamp);
                 }
             }
             else
@@ -163,7 +164,7 @@ int tone_gen(tone_gen_state_t *s, int16_t amp[], int max_samples)
                        However, we are normally generating well controlled tones,
                        that cannot clip. So, the overhead of doing saturation is
                        a waste of valuable time. */
-                    amp[samples] = (int16_t) rintf(xamp);
+                    amp[samples] = (int16_t) lrintf(xamp);
                 }
             }
         }

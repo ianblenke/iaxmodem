@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: at_interpreter_tests.c,v 1.11 2007/11/10 11:14:57 steveu Exp $
+ * $Id: at_interpreter_tests.c,v 1.17 2008/06/29 03:28:48 steveu Exp $
  */
 
 /*! \file */
@@ -32,7 +32,7 @@
 These tests exercise all the commands which should be understood by the AT interpreter.
 */
 
-#ifdef HAVE_CONFIG_H
+#if defined(HAVE_CONFIG_H)
 #include "config.h"
 #endif
 
@@ -339,7 +339,7 @@ static const struct command_response_s general_test_seq[] =
     {"AT+VRX\r", "\r\nOK\r\n"},                                     /* V.253 10.1.3 - Voice receive state */
     {"AT+VSD\r", "\r\nOK\r\n"},                                     /* V.253 10.2.7 - Silence detection (QUIET and SILENCE) */
     {"AT+VSID=12345\r", "\r\nOK\r\n"},                              /* Extension - Set the originating number */
-    {"AT+vsid?\r", "\r\n12345\r\n\r\nOK\r\n"},                      /* Extension - Set the originating number */
+    {"AT+VSID?\r", "\r\n12345\r\n\r\nOK\r\n"},
     {"AT+VSM\r", "\r\nOK\r\n"},                                     /* V.253 10.2.8 - Compression method selection */
     {"AT+VSP\r", "\r\nOK\r\n"},                                     /* V.253 10.5.1 - Voice speakerphone state */
     {"AT+VTA\r", "\r\nOK\r\n"},                                     /* V.253 10.5.4 - Train acoustic echo-canceller */ 
@@ -350,7 +350,7 @@ static const struct command_response_s general_test_seq[] =
     {"AT+VTX\r", "\r\nOK\r\n"},                                     /* V.253 10.1.6 - Transmit data state */
     {"AT+WS46\r", "\r\nOK\r\n"},                                    /* 3GPP TS 27.007 5.9 - PCCA STD-101 [17] select wireless network */
     {"ATA\r", "\r\nERROR\r\n"},                                     /* V.250 6.3.5 - Answer */ 
-    {"ATDT1234567890ABCDPSTW*#+,!@\r", ""},                         /* V.250 6.3.1 - Dial */ 
+    {"ATDT -1234567890ABCDPSTW*#+,!@\r", ""},                       /* V.250 6.3.1 - Dial */ 
     {"ATE1\r", "\r\nOK\r\n"},                                       /* V.250 6.2.4 - Command echo */ 
     {"ATE0\r", "ATE0\r\r\nOK\r\n"},                                 /* V.250 6.2.4 - Command echo */ 
     {"ATH\r", "\r\nOK\r\n"},                                        /* V.250 6.3.6 - Hook control */ 

@@ -10,24 +10,24 @@
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2, as
- * published by the Free Software Foundation.
+ * it under the terms of the GNU Lesser General Public License version 2.1,
+ * as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: vector_float.c,v 1.5 2006/11/19 14:07:26 steveu Exp $
+ * $Id: vector_float.c,v 1.11 2008/07/02 14:48:26 steveu Exp $
  */
 
 /*! \file */
 
-#ifdef HAVE_CONFIG_H
+#if defined(HAVE_CONFIG_H)
 #include <config.h>
 #endif
 
@@ -35,6 +35,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include "floating_fudge.h"
 #if defined(HAVE_TGMATH_H)
 #include <tgmath.h>
 #endif
@@ -44,7 +45,6 @@
 #include <assert.h>
 
 #include "spandsp/telephony.h"
-#include "spandsp/logging.h"
 #include "spandsp/vector_float.h"
 
 void vec_copyf(float z[], const float x[], int n)
@@ -273,6 +273,35 @@ void vec_scalar_mull(long double z[], const long double x[], long double y, int 
 
     for (i = 0;  i < n;  i++)
         z[i] = x[i]*y;
+}
+/*- End of function --------------------------------------------------------*/
+#endif
+
+void vec_mulf(float z[], const float x[], const float y[], int n)
+{
+    int i;
+
+    for (i = 0;  i < n;  i++)
+        z[i] = x[i]*y[i];
+}
+/*- End of function --------------------------------------------------------*/
+
+void vec_mul(double z[], const double x[], const double y[], int n)
+{
+    int i;
+
+    for (i = 0;  i < n;  i++)
+        z[i] = x[i]*y[i];
+}
+/*- End of function --------------------------------------------------------*/
+
+#if defined(HAVE_LONG_DOUBLE)
+void vec_mull(long double z[], const long double x[], const long double y[], int n)
+{
+    int i;
+
+    for (i = 0;  i < n;  i++)
+        z[i] = x[i]*y[i];
 }
 /*- End of function --------------------------------------------------------*/
 #endif

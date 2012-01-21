@@ -10,24 +10,24 @@
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2, as
- * published by the Free Software Foundation.
+ * it under the terms of the GNU Lesser General Public License version 2.1,
+ * as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: logging.c,v 1.22 2006/11/30 15:41:47 steveu Exp $
+ * $Id: logging.c,v 1.26 2008/05/13 13:17:22 steveu Exp $
  */
 
 /*! \file */
 
-#ifdef HAVE_CONFIG_H
+#if defined(HAVE_CONFIG_H)
 #include <config.h>
 #endif
 
@@ -51,6 +51,7 @@ static void default_message_handler(int level, const char *text);
 static message_handler_func_t __span_message = *default_message_handler;
 static error_handler_func_t __span_error = NULL;
 
+/* Note that this list *must* match the enum definition in logging.h */
 static const char *severities[] =
 {
     "NONE",
@@ -100,31 +101,29 @@ int span_log(logging_state_t *s, int level, const char *format, ...)
                 gettimeofday(&nowx, NULL);
                 now = nowx.tv_sec;
                 tim = gmtime(&now);
-                snprintf(msg + len,
-                         1024 - len,
-                         "%04d/%02d/%02d %02d:%02d:%02d.%03d ",
-                         tim->tm_year + 1900,
-                         tim->tm_mon + 1,
-                         tim->tm_mday,
-                         tim->tm_hour,
-                         tim->tm_min,
-                         tim->tm_sec,
-                         (int) nowx.tv_usec/1000);
-                len += (int) strlen(msg + len);
+                len += snprintf(msg + len,
+                                1024 - len,
+                                "%04d/%02d/%02d %02d:%02d:%02d.%03d ",
+                                tim->tm_year + 1900,
+                                tim->tm_mon + 1,
+                                tim->tm_mday,
+                                tim->tm_hour,
+                                tim->tm_min,
+                                tim->tm_sec,
+                                (int) nowx.tv_usec/1000);
             }
             /*endif*/
             if ((s->level & SPAN_LOG_SHOW_SAMPLE_TIME))
             {
                 now = s->elapsed_samples/s->samples_per_second;
                 tim = gmtime(&now);
-                snprintf(msg + len,
-                         1024 - len,
-                         "%02d:%02d:%02d.%03d ",
-                         tim->tm_hour,
-                         tim->tm_min,
-                         tim->tm_sec,
-                         (int) (s->elapsed_samples%s->samples_per_second)*1000/s->samples_per_second);
-                len += (int) strlen(msg + len);
+                len += snprintf(msg + len,
+                                1024 - len,
+                                "%02d:%02d:%02d.%03d ",
+                                tim->tm_hour,
+                                tim->tm_min,
+                                tim->tm_sec,
+                                (int) (s->elapsed_samples%s->samples_per_second)*1000/s->samples_per_second);
             }
             /*endif*/
             if ((s->level & SPAN_LOG_SHOW_SEVERITY)  &&  (level & SPAN_LOG_SEVERITY_MASK) <= SPAN_LOG_DEBUG_3)

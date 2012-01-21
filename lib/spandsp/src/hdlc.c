@@ -10,24 +10,24 @@
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2, as
- * published by the Free Software Foundation.
+ * it under the terms of the GNU Lesser General Public License version 2.1,
+ * as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: hdlc.c,v 1.55 2007/12/20 17:07:24 steveu Exp $
+ * $Id: hdlc.c,v 1.60 2008/05/13 13:17:22 steveu Exp $
  */
 
 /*! \file */
 
-#ifdef HAVE_CONFIG_H
+#if defined(HAVE_CONFIG_H)
 #include <config.h>
 #endif
 
@@ -50,13 +50,15 @@ static void rx_special_condition(hdlc_rx_state_t *s, int condition)
     case PUTBIT_CARRIER_UP:
     case PUTBIT_TRAINING_SUCCEEDED:
         /* Reset the HDLC receiver. */
+        s->raw_bit_stream = 0;
         s->len = 0;
         s->num_bits = 0;
         s->flags_seen = 0;
         s->framing_ok_announced = FALSE;
         /* Fall through */
-    case PUTBIT_CARRIER_DOWN:
+    case PUTBIT_TRAINING_IN_PROGRESS:
     case PUTBIT_TRAINING_FAILED:
+    case PUTBIT_CARRIER_DOWN:
     case PUTBIT_END_OF_DATA:
         s->frame_handler(s->user_data, NULL, condition, TRUE);
         break;
@@ -200,7 +202,7 @@ static __inline__ void hdlc_rx_put_bit_core(hdlc_rx_state_t *s)
            flag or abort */
         if ((s->raw_bit_stream & 0x4000))
             rx_flag_or_abort(s);
-            return;
+        return;
     }
     s->num_bits++;
     if (s->flags_seen < s->framing_ok_threshold)

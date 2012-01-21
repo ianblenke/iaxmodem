@@ -10,22 +10,22 @@
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2, as
- * published by the Free Software Foundation.
+ * it under the terms of the GNU Lesser General Public License version 2.1,
+ * as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: bert.c,v 1.23 2007/11/26 13:28:59 steveu Exp $
+ * $Id: bert.c,v 1.27 2008/05/13 13:17:22 steveu Exp $
  */
 
-#ifdef HAVE_CONFIG_H
+#if defined(HAVE_CONFIG_H)
 #include "config.h"
 #endif
 
@@ -187,6 +187,9 @@ void bert_put_bit(bert_state_t *s, int bit)
         /* Special conditions */
         switch (bit)
         {
+        case PUTBIT_TRAINING_IN_PROGRESS:
+            span_log(&s->logging, SPAN_LOG_FLOW, "Training in progress\n");
+            break;
         case PUTBIT_TRAINING_FAILED:
             span_log(&s->logging, SPAN_LOG_FLOW, "Training failed\n");
             break;

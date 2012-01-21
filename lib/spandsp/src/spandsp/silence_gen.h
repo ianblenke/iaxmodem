@@ -10,19 +10,19 @@
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2, as
- * published by the Free Software Foundation.
+ * it under the terms of the GNU Lesser General Public License version 2.1,
+ * as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: silence_gen.h,v 1.8 2007/12/13 11:31:33 steveu Exp $
+ * $Id: silence_gen.h,v 1.11 2008/07/16 17:54:23 steveu Exp $
  */
 
 #if !defined(_SPANDSP_SILENCE_GEN_H_)
@@ -30,6 +30,11 @@
 
 typedef struct
 {
+    /*! \brief The callback function used to report status changes. */
+    modem_tx_status_func_t status_handler;
+    /*! \brief A user specified opaque pointer passed to the status function. */
+    void *status_user_data;
+
     int remaining_samples;
     int total_samples;
 } silence_gen_state_t;
@@ -84,6 +89,13 @@ int silence_gen_remainder(silence_gen_state_t *s);
     \return The number of samples generated.
 */
 int silence_gen_generated(silence_gen_state_t *s);
+
+/*! Change the status reporting function associated with a silence generator context.
+    \brief Change the status reporting function associated with a silence generator context.
+    \param s The silence generator context.
+    \param handler The callback routine used to report status changes.
+    \param user_data An opaque pointer. */
+void silence_gen_status_handler(silence_gen_state_t *s, modem_tx_status_func_t handler, void *user_data);
 
 /*! Initialise a timed silence generator context.
     \brief Initialise a timed silence generator context.

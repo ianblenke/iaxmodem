@@ -10,19 +10,19 @@
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2, as
- * published by the Free Software Foundation.
+ * it under the terms of the GNU Lesser General Public License version 2.1,
+ * as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: t4.h,v 1.47 2007/12/14 13:27:30 steveu Exp $
+ * $Id: t4.h,v 1.52 2008/07/22 13:48:15 steveu Exp $
  */
 
 /*! \file */
@@ -177,6 +177,9 @@ typedef enum
 */
 typedef struct
 {
+    /*! \brief The same structure is used for T.4 transmit and receive. This variable
+               records which mode is in progress. */
+    int rx;
     /* "Background" information about the FAX, which can be stored in a TIFF file. */
     /*! \brief The vendor of the machine which produced the TIFF file. */ 
     const char *vendor;
@@ -221,6 +224,8 @@ typedef struct
     int bytes_per_row;
     /*! \brief The size of the image in the image buffer, in bytes. */
     int image_size;
+    /*! \brief The size of the compressed image on the line side, in bits. */
+    int line_image_size;
     /*! \brief The current size of the image buffer. */
     int image_buffer_size;
     /*! \brief A point to the image buffer. */
@@ -260,6 +265,8 @@ typedef struct
     uint32_t rx_bitstream;
     /*! \brief The number of bits currently in rx_bitstream. */
     int rx_bits;
+    /*! \brief The number of bits to be skipped before trying to match the next code word. */
+    int rx_skip_bits;
 
     /*! \brief This variable is set if we are treating the current row as a 2D encoded
                one. */
@@ -268,12 +275,10 @@ typedef struct
     int its_black;
     /*! \brief The current length of the current row. */
     int row_len;
-    /*! \brief This variable is used to record the fact we have seen at least one EOL
-               since we started decoding. We will not try to interpret the received
-               data as an image until we have seen the first EOL. */
-    int first_eol_seen;
     /*! \brief This variable is used to count the consecutive EOLS we have seen. If it
-               reaches six, this is the end of the image. */
+               reaches six, this is the end of the image. It is initially set to -1 for
+               1D and 2D decoding, as an indicator that we must wait for the first EOL,
+               before decodin any image data. */
     int consecutive_eols;
 
     /*! \brief Black and white run-lengths for the current row. */
@@ -358,8 +363,8 @@ typedef struct
     int y_resolution;
     /*! \brief The type of compression used between the FAX machines */
     int encoding;
-    /*! \brief The size of the image, in bytes */
-    int image_size;
+    /*! \brief The size of the image on the line, in bytes */
+    int line_image_size;
 } t4_stats_t;
     
 #if defined(__cplusplus)

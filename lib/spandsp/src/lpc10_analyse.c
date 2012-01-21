@@ -10,26 +10,26 @@
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2, as
- * published by the Free Software Foundation.
+ * it under the terms of the GNU Lesser General Public License version 2.1,
+ * as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * This code is based on the U.S. Department of Defense reference
  * implementation of the LPC-10 2400 bps Voice Coder. They do not
  * exert copyright claims on their code, and it may be freely used.
  *
- * $Id: lpc10_analyse.c,v 1.13 2007/01/03 14:15:35 steveu Exp $
+ * $Id: lpc10_analyse.c,v 1.19 2008/07/02 14:48:25 steveu Exp $
  */
 
-#ifdef HAVE_CONFIG_H
+#if defined(HAVE_CONFIG_H)
 #include <config.h>
 #endif
 
@@ -37,6 +37,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include <memory.h>
+#include "floating_fudge.h"
 #if defined(HAVE_TGMATH_H)
 #include <tgmath.h>
 #endif
@@ -78,13 +79,13 @@ static void remove_dc_bias(float speech[], int len, float sigout[])
 /*- End of function --------------------------------------------------------*/
 
 static void eval_amdf(float speech[],
-                       int32_t lpita,
-                       const int32_t tau[], 
-                       int32_t ltau,
-                       int32_t maxlag,
-                       float amdf[],
-                       int32_t *minptr,
-                       int32_t *maxptr)
+                      int32_t lpita,
+                      const int32_t tau[], 
+                      int32_t ltau,
+                      int32_t maxlag,
+                      float amdf[],
+                      int32_t *minptr,
+                      int32_t *maxptr)
 {
     float sum;
     int i;
@@ -307,13 +308,13 @@ static void dynamic_pitch_tracking(lpc10_encode_state_t *s,
 
 /* Detection of onsets in (or slightly preceding) the futuremost frame of speech. */
 static void onset(lpc10_encode_state_t *s,
-                   float *pebuf,
-                   int32_t osbuf[],
-                   int32_t *osptr,
-                   int32_t oslen,
-                   int32_t sbufl,
-                   int32_t sbufh,
-                   int32_t lframe)
+                  float *pebuf,
+                  int32_t osbuf[],
+                  int32_t *osptr,
+                  int32_t oslen,
+                  int32_t sbufl,
+                  int32_t sbufh,
+                  int32_t lframe)
 {
     int32_t i;
     float r1;

@@ -10,25 +10,24 @@
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2, as
- * published by the Free Software Foundation.
- *
+ * it under the terms of the GNU Lesser General Public License version 2.1,
+ * as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: bit_operations.c,v 1.10 2007/06/17 12:42:48 steveu Exp $
+ * $Id: bit_operations.c,v 1.15 2008/06/28 01:13:08 steveu Exp $
  */
 
 /*! \file */
 
-#ifdef HAVE_CONFIG_H
+#if defined(HAVE_CONFIG_H)
 #include "config.h"
 #endif
 
@@ -81,7 +80,7 @@ uint64_t bit_reverse_8bytes(uint64_t x)
 
 void bit_reverse(uint8_t to[], const uint8_t from[], int len)
 {
-#if defined(__sparc__)  ||  defined(__sparc)
+#if defined(SPANDSP_MISALIGNED_ACCESS_FAILS)
     int i;
 #else
     const uint8_t *y1;
@@ -96,9 +95,10 @@ void bit_reverse(uint8_t to[], const uint8_t from[], int len)
 #endif
 #endif
 
-#if defined(__sparc__)  ||  defined(__sparc)
-    /* This code work 8 bits at a time, so it works on machines where misalignment
-       is either desperately slow or fails */
+#if defined(SPANDSP_MISALIGNED_ACCESS_FAILS)
+    /* This code works byte by byte, so it works on machines where misalignment
+       is either desperately slow (its a bit slow on practically any machine, but
+       some machines make it desparately slow) or fails. */
     for (i = 0;  i < len;  i++)
         to[i] = bit_reverse8(from[i]);
 #else

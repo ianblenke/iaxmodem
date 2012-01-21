@@ -10,19 +10,19 @@
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2, as
- * published by the Free Software Foundation.
+ * it under the terms of the GNU Lesser General Public License version 2.1,
+ * as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: vector_float.h,v 1.7 2007/04/08 08:16:18 steveu Exp $
+ * $Id: vector_float.h,v 1.10 2008/04/17 14:27:01 steveu Exp $
  */
 
 #if !defined(_SPANDSP_VECTOR_FLOAT_H_)
@@ -95,6 +95,14 @@ void vec_scalar_mul(double z[], const double x[], double y, int n);
 
 #if defined(HAVE_LONG_DOUBLE)
 void vec_scalar_mull(long double z[], const long double x[], long double y, int n);
+#endif
+
+void vec_mulf(float z[], const float x[], const float y[], int n);
+
+void vec_mul(double z[], const double x[], const double y[], int n);
+
+#if defined(HAVE_LONG_DOUBLE)
+void vec_mull(long double z[], const long double x[], const long double y[], int n);
 #endif
 
 float vec_dot_prodf(const float x[], const float y[], int n);

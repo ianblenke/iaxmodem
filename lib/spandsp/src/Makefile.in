@@ -38,14 +38,19 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-noinst_PROGRAMS = at_dictionary_gen$(EXEEXT) \
+noinst_PROGRAMS = make_at_dictionary$(EXEEXT) \
 	make_modem_filter$(EXEEXT)
 subdir = src
 DIST_COMMON = $(nobase_include_HEADERS) $(noinst_HEADERS) \
 	$(srcdir)/Makefile.am $(srcdir)/Makefile.in \
 	$(srcdir)/spandsp.h.in $(top_srcdir)/config-h.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/configure.ac
+am__aclocal_m4_deps = $(top_srcdir)/config/ax_compiler_vendor.m4 \
+	$(top_srcdir)/config/ax_check_real_file.m4 \
+	$(top_srcdir)/config/ax_fixed_point_machine.m4 \
+	$(top_srcdir)/config/ax_misaligned_access_fails.m4 \
+	$(top_srcdir)/config/ax_c99_features.m4 \
+	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(install_sh) -d
@@ -74,16 +79,17 @@ am_libspandsp_la_OBJECTS = adsi.lo async.lo at_interpreter.lo awgn.lo \
 	lpc10_voicing.lo modem_echo.lo modem_connect_tones.lo noise.lo \
 	oki_adpcm.lo playout.lo plc.lo power_meter.lo queue.lo \
 	schedule.lo sig_tone.lo silence_gen.lo super_tone_rx.lo \
-	super_tone_tx.lo t4.lo t30.lo t31.lo t35.lo t38_core.lo \
-	t38_gateway.lo t38_terminal.lo testcpuid.lo time_scale.lo \
-	tone_detect.lo tone_generate.lo v17rx.lo v17tx.lo v22bis_rx.lo \
-	v22bis_tx.lo v27ter_rx.lo v27ter_tx.lo v29rx.lo v29tx.lo \
-	v42.lo v42bis.lo v8.lo vector_float.lo vector_int.lo
+	super_tone_tx.lo t4.lo t30.lo t30_api.lo t30_logging.lo t31.lo \
+	t35.lo t38_core.lo t38_gateway.lo t38_terminal.lo testcpuid.lo \
+	time_scale.lo tone_detect.lo tone_generate.lo v17rx.lo \
+	v17tx.lo v22bis_rx.lo v22bis_tx.lo v27ter_rx.lo v27ter_tx.lo \
+	v29rx.lo v29tx.lo v42.lo v42bis.lo v8.lo vector_float.lo \
+	vector_int.lo
 libspandsp_la_OBJECTS = $(am_libspandsp_la_OBJECTS)
 PROGRAMS = $(noinst_PROGRAMS)
-at_dictionary_gen_SOURCES = at_dictionary_gen.c
-at_dictionary_gen_OBJECTS = at_dictionary_gen.$(OBJEXT)
-at_dictionary_gen_LDADD = $(LDADD)
+make_at_dictionary_SOURCES = make_at_dictionary.c
+make_at_dictionary_OBJECTS = make_at_dictionary.$(OBJEXT)
+make_at_dictionary_LDADD = $(LDADD)
 am_make_modem_filter_OBJECTS = make_modem_filter.$(OBJEXT) \
 	filter_tools.$(OBJEXT)
 make_modem_filter_OBJECTS = $(am_make_modem_filter_OBJECTS)
@@ -99,9 +105,9 @@ LTCOMPILE = $(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) \
 CCLD = $(CC)
 LINK = $(LIBTOOL) --tag=CC --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
 	$(AM_LDFLAGS) $(LDFLAGS) -o $@
-SOURCES = $(libspandsp_la_SOURCES) at_dictionary_gen.c \
+SOURCES = $(libspandsp_la_SOURCES) make_at_dictionary.c \
 	$(make_modem_filter_SOURCES)
-DIST_SOURCES = $(libspandsp_la_SOURCES) at_dictionary_gen.c \
+DIST_SOURCES = $(libspandsp_la_SOURCES) make_at_dictionary.c \
 	$(make_modem_filter_SOURCES)
 nobase_includeHEADERS_INSTALL = $(install_sh_DATA)
 nodist_includeHEADERS_INSTALL = $(INSTALL_HEADER)
@@ -124,18 +130,20 @@ CCDEPMODE = @CCDEPMODE@
 CC_FOR_BUILD = @CC_FOR_BUILD@
 CFLAGS = @CFLAGS@
 COMP_VENDOR_CFLAGS = @COMP_VENDOR_CFLAGS@
+COMP_VENDOR_LDFLAGS = @COMP_VENDOR_LDFLAGS@
 COND_DOC_FALSE = @COND_DOC_FALSE@
 COND_DOC_TRUE = @COND_DOC_TRUE@
-COND_ITUTESTS_FALSE = @COND_ITUTESTS_FALSE@
-COND_ITUTESTS_TRUE = @COND_ITUTESTS_TRUE@
 COND_MMX_FALSE = @COND_MMX_FALSE@
 COND_MMX_TRUE = @COND_MMX_TRUE@
 COND_SSE_FALSE = @COND_SSE_FALSE@
 COND_SSE_TRUE = @COND_SSE_TRUE@
+COND_TESTDATA_FALSE = @COND_TESTDATA_FALSE@
+COND_TESTDATA_TRUE = @COND_TESTDATA_TRUE@
 COND_TESTS_FALSE = @COND_TESTS_FALSE@
 COND_TESTS_TRUE = @COND_TESTS_TRUE@
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
+CPPFLAGS_FOR_BUILD = @CPPFLAGS_FOR_BUILD@
 CXX = @CXX@
 CXXCPP = @CXXCPP@
 CXXDEPMODE = @CXXDEPMODE@
@@ -143,6 +151,7 @@ CXXFLAGS = @CXXFLAGS@
 CYGPATH_W = @CYGPATH_W@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
+DSYMUTIL = @DSYMUTIL@
 ECHO = @ECHO@
 ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
@@ -151,6 +160,7 @@ EGREP = @EGREP@
 EXEEXT = @EXEEXT@
 F77 = @F77@
 FFLAGS = @FFLAGS@
+GREP = @GREP@
 INSERT_INTTYPES_HEADER = @INSERT_INTTYPES_HEADER@
 INSERT_MATH_HEADER = @INSERT_MATH_HEADER@
 INSERT_STDINT_HEADER = @INSERT_STDINT_HEADER@
@@ -166,6 +176,7 @@ LIBTOOL = @LIBTOOL@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
 MAKEINFO = @MAKEINFO@
+NMEDIT = @NMEDIT@
 OBJEXT = @OBJEXT@
 PACKAGE = @PACKAGE@
 PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
@@ -181,16 +192,14 @@ SHELL = @SHELL@
 SPANDSP_LT_AGE = @SPANDSP_LT_AGE@
 SPANDSP_LT_CURRENT = @SPANDSP_LT_CURRENT@
 SPANDSP_LT_REVISION = @SPANDSP_LT_REVISION@
+SPANDSP_MISALIGNED_ACCESS_FAILS = @SPANDSP_MISALIGNED_ACCESS_FAILS@
 SPANDSP_USE_FIXED_POINT = @SPANDSP_USE_FIXED_POINT@
 STRIP = @STRIP@
 TESTLIBS = @TESTLIBS@
 VERSION = @VERSION@
-ac_ct_AR = @ac_ct_AR@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_CXX = @ac_ct_CXX@
 ac_ct_F77 = @ac_ct_F77@
-ac_ct_RANLIB = @ac_ct_RANLIB@
-ac_ct_STRIP = @ac_ct_STRIP@
 am__fastdepCC_FALSE = @am__fastdepCC_FALSE@
 am__fastdepCC_TRUE = @am__fastdepCC_TRUE@
 am__fastdepCXX_FALSE = @am__fastdepCXX_FALSE@
@@ -207,28 +216,36 @@ build_cpu = @build_cpu@
 build_os = @build_os@
 build_vendor = @build_vendor@
 datadir = @datadir@
+datarootdir = @datarootdir@
+docdir = @docdir@
+dvidir = @dvidir@
 exec_prefix = @exec_prefix@
 host = @host@
 host_alias = @host_alias@
 host_cpu = @host_cpu@
 host_os = @host_os@
 host_vendor = @host_vendor@
+htmldir = @htmldir@
 includedir = @includedir@
 infodir = @infodir@
 install_sh = @install_sh@
 libdir = @libdir@
 libexecdir = @libexecdir@
+localedir = @localedir@
 localstatedir = @localstatedir@
 mandir = @mandir@
 mkdir_p = @mkdir_p@
 oldincludedir = @oldincludedir@
+pdfdir = @pdfdir@
 prefix = @prefix@
 program_transform_name = @program_transform_name@
+psdir = @psdir@
 sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 AM_CFLAGS = $(COMP_VENDOR_CFLAGS)
+AM_LDFLAGS = $(COMP_VENDOR_LDFLAGS)
 MAINTAINERCLEANFILES = Makefile.in
 INCLUDES = -I$(top_builddir)
 lib_LTLIBRARIES = libspandsp.la
@@ -283,6 +300,8 @@ libspandsp_la_SOURCES = adsi.c \
                         super_tone_tx.c \
                         t4.c \
                         t30.c \
+                        t30_api.c \
+                        t30_logging.c \
                         t31.c \
                         t35.c \
                         t38_core.c \
@@ -308,96 +327,92 @@ libspandsp_la_SOURCES = adsi.c \
 
 libspandsp_la_LDFLAGS = -version-info @SPANDSP_LT_CURRENT@:@SPANDSP_LT_REVISION@:@SPANDSP_LT_AGE@
 nobase_include_HEADERS = spandsp/adsi.h \
-                        spandsp/async.h \
-                        spandsp/arctan2.h \
-                        spandsp/at_interpreter.h \
-                        spandsp/awgn.h \
-                        spandsp/bell_r2_mf.h \
-                        spandsp/bert.h \
-                        spandsp/biquad.h \
-                        spandsp/bit_operations.h \
-                        spandsp/bitstream.h \
-                        spandsp/crc.h \
-                        spandsp/complex.h \
-                        spandsp/complex_filters.h \
-                        spandsp/complex_vector_float.h \
-                        spandsp/dc_restore.h \
-                        spandsp/dds.h \
-                        spandsp/dtmf.h \
-                        spandsp/echo.h \
-                        spandsp/fax.h \
-                        spandsp/fir.h \
-                        spandsp/fsk.h \
-                        spandsp/g168models.h \
-                        spandsp/g711.h \
-                        spandsp/g722.h \
-                        spandsp/g726.h \
-                        spandsp/gsm0610.h \
-                        spandsp/hdlc.h \
-                        spandsp/ima_adpcm.h \
-                        spandsp/logging.h \
-                        spandsp/lpc10.h \
-                        spandsp/modem_echo.h \
-                        spandsp/modem_connect_tones.h \
-                        spandsp/noise.h \
-                        spandsp/oki_adpcm.h \
-                        spandsp/playout.h \
-                        spandsp/plc.h \
-                        spandsp/power_meter.h \
-                        spandsp/queue.h \
-                        spandsp/schedule.h \
-                        spandsp/sig_tone.h \
-                        spandsp/silence_gen.h \
-                        spandsp/super_tone_rx.h \
-                        spandsp/super_tone_tx.h \
-                        spandsp/t4.h \
-                        spandsp/t30.h \
-                        spandsp/t30_fcf.h \
-                        spandsp/t31.h \
-                        spandsp/t35.h \
-                        spandsp/t38_core.h \
-                        spandsp/t38_gateway.h \
-                        spandsp/t38_terminal.h \
-                        spandsp/telephony.h \
-                        spandsp/time_scale.h \
-                        spandsp/timing.h \
-                        spandsp/tone_detect.h \
-                        spandsp/tone_generate.h \
-                        spandsp/v17rx.h \
-                        spandsp/v17tx.h \
-                        spandsp/v22bis.h \
-                        spandsp/v27ter_rx.h \
-                        spandsp/v27ter_tx.h \
-                        spandsp/v29rx.h \
-                        spandsp/v29tx.h \
-                        spandsp/v42.h \
-                        spandsp/v42bis.h \
-                        spandsp/v8.h \
-                        spandsp/vector_float.h \
-                        spandsp/vector_int.h \
-                        spandsp/version.h
+                         spandsp/async.h \
+                         spandsp/arctan2.h \
+                         spandsp/at_interpreter.h \
+                         spandsp/awgn.h \
+                         spandsp/bell_r2_mf.h \
+                         spandsp/bert.h \
+                         spandsp/biquad.h \
+                         spandsp/bit_operations.h \
+                         spandsp/bitstream.h \
+                         spandsp/crc.h \
+                         spandsp/complex.h \
+                         spandsp/complex_filters.h \
+                         spandsp/complex_vector_float.h \
+                         spandsp/dc_restore.h \
+                         spandsp/dds.h \
+                         spandsp/dtmf.h \
+                         spandsp/echo.h \
+                         spandsp/fax.h \
+                         spandsp/fax_modems.h \
+                         spandsp/fir.h \
+                         spandsp/fsk.h \
+                         spandsp/g168models.h \
+                         spandsp/g711.h \
+                         spandsp/g722.h \
+                         spandsp/g726.h \
+                         spandsp/gsm0610.h \
+                         spandsp/hdlc.h \
+                         spandsp/ima_adpcm.h \
+                         spandsp/logging.h \
+                         spandsp/lpc10.h \
+                         spandsp/modem_echo.h \
+                         spandsp/modem_connect_tones.h \
+                         spandsp/noise.h \
+                         spandsp/oki_adpcm.h \
+                         spandsp/playout.h \
+                         spandsp/plc.h \
+                         spandsp/power_meter.h \
+                         spandsp/queue.h \
+                         spandsp/schedule.h \
+                         spandsp/sig_tone.h \
+                         spandsp/silence_gen.h \
+                         spandsp/super_tone_rx.h \
+                         spandsp/super_tone_tx.h \
+                         spandsp/t4.h \
+                         spandsp/t30.h \
+                         spandsp/t30_api.h \
+                         spandsp/t30_fcf.h \
+                         spandsp/t30_logging.h \
+                         spandsp/t31.h \
+                         spandsp/t35.h \
+                         spandsp/t38_core.h \
+                         spandsp/t38_gateway.h \
+                         spandsp/t38_terminal.h \
+                         spandsp/telephony.h \
+                         spandsp/time_scale.h \
+                         spandsp/timing.h \
+                         spandsp/tone_detect.h \
+                         spandsp/tone_generate.h \
+                         spandsp/v17rx.h \
+                         spandsp/v17tx.h \
+                         spandsp/v22bis.h \
+                         spandsp/v27ter_rx.h \
+                         spandsp/v27ter_tx.h \
+                         spandsp/v29rx.h \
+                         spandsp/v29tx.h \
+                         spandsp/v42.h \
+                         spandsp/v42bis.h \
+                         spandsp/v8.h \
+                         spandsp/vector_float.h \
+                         spandsp/vector_int.h \
+                         spandsp/version.h
 
 nodist_include_HEADERS = spandsp.h
 noinst_HEADERS = faxfont.h \
                         filter_tools.h \
                         gsm0610_local.h \
                         lpc10_encdecs.h \
+                        t30_local.h \
                         t4_states.h \
                         v17rx_constellation_maps.h \
-                        v17rx_fixed_rrc.h \
-                        v17rx_floating_rrc.h \
-                        v22bis_rx_1200_fixed_rrc.h \
-                        v22bis_rx_2400_fixed_rrc.h \
-                        v22bis_rx_1200_floating_rrc.h \
-                        v22bis_rx_2400_floating_rrc.h \
-                        v27ter_rx_2400_fixed_rrc.h \
-                        v27ter_rx_4800_fixed_rrc.h \
-                        v27ter_rx_2400_floating_rrc.h \
-                        v27ter_rx_4800_floating_rrc.h \
-                        v29rx_fixed_rrc.h \
-                        v29rx_floating_rrc.h
+                        v17tx_constellation_maps.h \
+                        v29tx_constellation_maps.h
 
-make_modem_filter_SOURCES = make_modem_filter.c filter_tools.c
+make_modem_filter_SOURCES = make_modem_filter.c \
+                            filter_tools.c
+
 DSP = libspandsp.dsp
 VCPROJ = libspandsp.vcproj
 WIN32SOURCES = $(libspandsp_la_SOURCES) msvc/gettimeofday.c
@@ -493,6 +508,12 @@ clean-noinstPROGRAMS:
 	  echo " rm -f $$p $$f"; \
 	  rm -f $$p $$f ; \
 	done
+make_at_dictionary$(EXEEXT): $(make_at_dictionary_OBJECTS) $(make_at_dictionary_DEPENDENCIES) 
+	@rm -f make_at_dictionary$(EXEEXT)
+	$(LINK) $(make_at_dictionary_LDFLAGS) $(make_at_dictionary_OBJECTS) $(make_at_dictionary_LDADD) $(LIBS)
+make_modem_filter$(EXEEXT): $(make_modem_filter_OBJECTS) $(make_modem_filter_DEPENDENCIES) 
+	@rm -f make_modem_filter$(EXEEXT)
+	$(LINK) $(make_modem_filter_LDFLAGS) $(make_modem_filter_OBJECTS) $(make_modem_filter_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -502,7 +523,6 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/adsi.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/async.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/at_dictionary_gen.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/at_interpreter.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/awgn.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bell_r2_mf.Plo@am__quote@
@@ -538,6 +558,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lpc10_encode.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lpc10_placev.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lpc10_voicing.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/make_at_dictionary.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/make_modem_filter.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/modem_connect_tones.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/modem_echo.Plo@am__quote@
@@ -553,6 +574,8 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/super_tone_rx.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/super_tone_tx.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/t30.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/t30_api.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/t30_logging.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/t31.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/t35.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/t38_core.Plo@am__quote@
@@ -826,18 +849,15 @@ uninstall-am: uninstall-info-am uninstall-libLTLIBRARIES \
 	uninstall-nodist_includeHEADERS
 
 
-# We need to run at_dictionary_gen, so it generates the
+# We need to run make_at_dictionary, so it generates the
 # at_interpreter_dictionary.h file
 
 at_interpreter.$(OBJEXT): at_interpreter_dictionary.h
 
 at_interpreter.lo: at_interpreter_dictionary.h
 
-at_interpreter_dictionary.h: at_dictionary_gen$(EXEEXT)
-	./at_dictionary_gen$(EXEEXT) >at_interpreter_dictionary.h
-
-at_dictionary_gen$(EXEEXT): at_dictionary_gen.c config.h
-	$(CC_FOR_BUILD) -o $@ $<
+at_interpreter_dictionary.h: make_at_dictionary$(EXEEXT)
+	./make_at_dictionary$(EXEEXT) >at_interpreter_dictionary.h
 
 v17rx.$(OBJEXT): v17rx_fixed_rrc.h v17rx_floating_rrc.h
 
@@ -954,9 +974,6 @@ v29tx_fixed_rrc.h: make_modem_filter$(EXEEXT)
 
 v29tx_floating_rrc.h: make_modem_filter$(EXEEXT)
 	./make_modem_filter$(EXEEXT) -m V.29 -t >v29tx_floating_rrc.h
-
-make_modem_filter$(EXEEXT): make_modem_filter.c filter_tools.c filter_tools.h config.h
-	$(CC_FOR_BUILD) -I. -o $@ make_modem_filter.c filter_tools.c -lm
 
 $(DSP): msvc/msvcproj.head msvc/msvcproj.foot Makefile.am
 	echo "creating $(DSP)"

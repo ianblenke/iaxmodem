@@ -25,7 +25,7 @@ Currently supported platforms are GNU/Linux on x86 hardware.
 
 The libiax2 source was pulled from iaxclient SVN on December 23, 2007.
 
-The spandsp source is spandsp-0.0.4 snapshot 20080110.
+The spandsp source is spandsp-0.0.5 snapshot 20080725.
 
 IAXmodem should usually be installed either on the same machine as the
 Asterisk server or on a system that is very close to the Asterisk server

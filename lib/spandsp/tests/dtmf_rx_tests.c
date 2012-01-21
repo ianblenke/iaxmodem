@@ -23,7 +23,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: dtmf_rx_tests.c,v 1.33 2007/11/10 11:14:57 steveu Exp $
+ * $Id: dtmf_rx_tests.c,v 1.39 2008/06/13 14:46:52 steveu Exp $
  */
 
 /*
@@ -84,7 +84,7 @@ and it is their right to do as they wish with it. Currently I see no indication
 they wish to give it away for free. 
 */
 
-#ifdef HAVE_CONFIG_H
+#if defined(HAVE_CONFIG_H)
 #include "config.h"
 #endif
 
@@ -115,10 +115,12 @@ they wish to give it away for free.
 #define DEFAULT_DTMF_TX_ON_TIME     50
 #define DEFAULT_DTMF_TX_OFF_TIME    50
 
+#define SAMPLES_PER_CHUNK           160
+
 #define ALL_POSSIBLE_DIGITS         "123A456B789C*0#D"
 
-#define MITEL_DIR                   "../itutests/mitel/"
-#define BELLCORE_DIR                "../itutests/bellcore/"
+#define MITEL_DIR                   "../test-data/mitel/"
+#define BELLCORE_DIR                "../test-data/bellcore/"
 
 const char *bellcore_files[] =
 {
@@ -317,7 +319,7 @@ static void mitel_cm7291_side_1_tests(void)
 
     dtmf_rx_init(&dtmf_state, NULL, NULL);
     if (use_dialtone_filter)
-        dtmf_rx_parms(&dtmf_state, TRUE, -1, -1);
+        dtmf_rx_parms(&dtmf_state, TRUE, -1, -1, -99);
 
     /* Test 1: Mitel's test 1 isn't really a test. Its a calibration step,
        which has no meaning here. */
@@ -533,6 +535,13 @@ static void mitel_cm7291_side_1_tests(void)
         nplus += dtmf_rx_get(&dtmf_state, buf, 128);
     }
     printf("    Dynamic range = %ddB\n", nplus);
+    /* We ought to set some pass/fail condition, even if Mitel did not. If
+       we don't, regression testing is weakened. */
+    if (nplus < 35)
+    {
+        printf("    Failed\n");
+        exit(2);
+    }
     printf("    Passed\n");
 
     /* Test 6: Guard time
@@ -617,7 +626,7 @@ static void mitel_cm7291_side_2_and_bellcore_tests(void)
 
     dtmf_rx_init(&dtmf_state, NULL, NULL);
     if (use_dialtone_filter)
-        dtmf_rx_parms(&dtmf_state, TRUE, -1, -1);
+        dtmf_rx_parms(&dtmf_state, TRUE, -1, -1, -99);
 
     /* The remainder of the Mitel tape is the talk-off test */
     /* Here we use the Bellcore test tapes (much tougher), in six
@@ -699,7 +708,7 @@ static void dial_tone_tolerance_tests(void)
 
     dtmf_rx_init(&dtmf_state, NULL, NULL);
     if (use_dialtone_filter)
-        dtmf_rx_parms(&dtmf_state, TRUE, -1, -1);
+        dtmf_rx_parms(&dtmf_state, TRUE, -1, -1, -99);
 
     /* Test dial tone tolerance */
     printf("Test: Dial tone tolerance.\n");
@@ -752,7 +761,7 @@ static void callback_function_tests(void)
     callback_roll = 0;
     dtmf_rx_init(&dtmf_state, digit_delivery, (void *) 0x12345678);
     if (use_dialtone_filter)
-        dtmf_rx_parms(&dtmf_state, TRUE, -1, -1);
+        dtmf_rx_parms(&dtmf_state, TRUE, -1, -1, -99);
     my_dtmf_gen_init(0.0f, DEFAULT_DTMF_TX_LEVEL, 0.0f, DEFAULT_DTMF_TX_LEVEL, DEFAULT_DTMF_TX_ON_TIME, DEFAULT_DTMF_TX_OFF_TIME);
     for (i = 1;  i < 10;  i++)
     {
@@ -778,7 +787,7 @@ static void callback_function_tests(void)
     dtmf_rx_init(&dtmf_state, NULL, NULL);
     dtmf_rx_set_realtime_callback(&dtmf_state, digit_status, (void *) 0x12345678);
     if (use_dialtone_filter)
-        dtmf_rx_parms(&dtmf_state, TRUE, -1, -1);
+        dtmf_rx_parms(&dtmf_state, TRUE, -1, -1, -99);
     my_dtmf_gen_init(0.0f, DEFAULT_DTMF_TX_LEVEL, 0.0f, DEFAULT_DTMF_TX_LEVEL, DEFAULT_DTMF_TX_ON_TIME, DEFAULT_DTMF_TX_OFF_TIME);
     step = 0;
     for (i = 1;  i < 10;  i++)
@@ -786,7 +795,7 @@ static void callback_function_tests(void)
         len = 0;
         for (j = 0;  j < i;  j++)
             len += my_dtmf_generate(amp + len, ALL_POSSIBLE_DIGITS);
-        for (sample = 0, j = 160;  sample < len;  sample += 160, j = ((len - sample) >= 160)  ?  160  :  (len - sample))
+        for (sample = 0, j = SAMPLES_PER_CHUNK;  sample < len;  sample += SAMPLES_PER_CHUNK, j = ((len - sample) >= SAMPLES_PER_CHUNK)  ?  SAMPLES_PER_CHUNK  :  (len - sample))
         {
             dtmf_rx(&dtmf_state, &amp[sample], j);
             if (!callback_ok)
@@ -806,7 +815,7 @@ static void callback_function_tests(void)
 
 static void decode_test(const char *test_file)
 {
-    int16_t amp[160];
+    int16_t amp[SAMPLES_PER_CHUNK];
     AFfilehandle inhandle;
     dtmf_rx_state_t dtmf_state;
     char buf[128 + 1];
@@ -816,7 +825,7 @@ static void decode_test(const char *test_file)
 
     dtmf_rx_init(&dtmf_state, NULL, NULL);
     if (use_dialtone_filter)
-        dtmf_rx_parms(&dtmf_state, TRUE, -1, -1);
+        dtmf_rx_parms(&dtmf_state, TRUE, -1, -1, -99);
 
     /* We will decode the audio from a wave file. */
     
@@ -827,7 +836,7 @@ static void decode_test(const char *test_file)
     }
     
     total = 0;
-    while ((samples = afReadFrames(inhandle, AF_DEFAULT_TRACK, amp, 160)) > 0)
+    while ((samples = afReadFrames(inhandle, AF_DEFAULT_TRACK, amp, SAMPLES_PER_CHUNK)) > 0)
     {
         codec_munge(munge, amp, samples);
         dtmf_rx(&dtmf_state, amp, samples);

@@ -1,7 +1,7 @@
 ##
 ## SpanDSP - a series of DSP components for telephony
 ##
-## Makefile.am -- Process this file with automake to produce Makefile.in
+## Makefile.am - Process this file with automake to produce Makefile.in
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License version 2, as
@@ -16,9 +16,10 @@
 ## along with this program; if not, write to the Free Software
 ## Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 ##
-## $Id: Makefile.am,v 1.93 2007/12/21 18:40:11 steveu Exp $
+## $Id: Makefile.am,v 1.99 2008/07/15 14:28:20 steveu Exp $
 
 AM_CFLAGS = $(COMP_VENDOR_CFLAGS)
+AM_LDFLAGS = $(COMP_VENDOR_LDFLAGS)
 
 LIBS += $(TESTLIBS)
 
@@ -86,6 +87,7 @@ noinst_PROGRAMS =   adsi_tests \
                     time_scale_tests \
                     tone_detect_tests \
                     tone_generate_tests \
+                    tsb85_tests \
                     v17_tests \
                     v22bis_tests \
                     v27ter_tests \
@@ -96,9 +98,11 @@ noinst_PROGRAMS =   adsi_tests \
                     vector_float_tests \
                     vector_int_tests \
                     testadsi \
-                    testfax
+                    testfax \
+                    tsb85_tests
 
 noinst_HEADERS =    echo_monitor.h \
+                    fax_tester.h \
                     line_model_monitor.h \
                     media_monitor.h \
                     modem_monitor.h
@@ -202,8 +206,8 @@ noise_tests_LDADD = $(LIBDIR) -lspandsp
 oki_adpcm_tests_SOURCES = oki_adpcm_tests.c
 oki_adpcm_tests_LDADD = $(LIBDIR) -lspandsp
 
-playout_tests_SOURCES = playout_tests.c
-playout_tests_LDADD = $(LIBDIR) -lspandsp
+playout_tests_SOURCES = playout_tests.c media_monitor.cpp
+playout_tests_LDADD = -L$(top_builddir)/spandsp-sim -lspandsp-sim $(LIBDIR) -lspandsp
 
 plc_tests_SOURCES = plc_tests.c
 plc_tests_LDADD = $(LIBDIR) -lspandsp
@@ -264,6 +268,9 @@ tone_detect_tests_LDADD = $(LIBDIR) -lspandsp
 
 tone_generate_tests_SOURCES = tone_generate_tests.c
 tone_generate_tests_LDADD = $(LIBDIR) -lspandsp
+
+tsb85_tests_SOURCES = tsb85_tests.c fax_tester.c
+tsb85_tests_LDADD = $(LIBDIR) -lspandsp
 
 v17_tests_SOURCES = v17_tests.c line_model_monitor.cpp modem_monitor.cpp
 v17_tests_LDADD = -L$(top_builddir)/spandsp-sim -lspandsp-sim $(LIBDIR) -lspandsp

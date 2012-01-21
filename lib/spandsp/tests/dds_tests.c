@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: dds_tests.c,v 1.20 2007/11/10 11:14:57 steveu Exp $
+ * $Id: dds_tests.c,v 1.24 2008/05/13 13:17:25 steveu Exp $
  */
 
 /*! \file */
@@ -35,7 +35,7 @@
 ???.
 */
 
-#ifdef HAVE_CONFIG_H
+#if defined(HAVE_CONFIG_H)
 #include "config.h"
 #endif
 

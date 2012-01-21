@@ -10,19 +10,19 @@
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2, as
- * published by the Free Software Foundation.
+ * it under the terms of the GNU Lesser General Public License version 2.1,
+ * as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: v8.h,v 1.19 2007/04/30 13:13:36 steveu Exp $
+ * $Id: v8.h,v 1.22 2008/05/14 15:41:25 steveu Exp $
  */
  
 /*! \file */
@@ -112,8 +112,8 @@ typedef struct
     fsk_tx_state_t v21tx;
     fsk_rx_state_t v21rx;
     queue_state_t *tx_queue;
-    modem_connect_tones_tx_state_t ec_dis_tx;
-    modem_connect_tones_rx_state_t ec_dis_rx;
+    modem_connect_tones_tx_state_t ansam_tx;
+    modem_connect_tones_rx_state_t ansam_rx;
 
     v8_result_handler_t *result_handler;
     void *result_handler_user_data;

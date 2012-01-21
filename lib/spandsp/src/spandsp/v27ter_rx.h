@@ -10,19 +10,19 @@
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2, as
- * published by the Free Software Foundation.
+ * it under the terms of the GNU Lesser General Public License version 2.1,
+ * as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: v27ter_rx.h,v 1.43 2007/12/13 11:31:33 steveu Exp $
+ * $Id: v27ter_rx.h,v 1.47 2008/07/16 14:23:48 steveu Exp $
  */
 
 /*! \file */
@@ -72,10 +72,16 @@ typedef struct
     /*! \brief The callback function used to put each bit received. */
     put_bit_func_t put_bit;
     /*! \brief A user specified opaque pointer passed to the put_bit routine. */
-    void *user_data;
+    void *put_bit_user_data;
+
+    /*! \brief The callback function used to report modem status changes. */
+    modem_rx_status_func_t status_handler;
+    /*! \brief A user specified opaque pointer passed to the status function. */
+    void *status_user_data;
+
     /*! \brief A callback function which may be enabled to report every symbol's
                constellation position. */
-    qam_report_handler_t *qam_report;
+    qam_report_handler_t qam_report;
     /*! \brief A user specified opaque pointer passed to the qam_report callback
                routine. */
     void *qam_user_data;
@@ -187,19 +193,19 @@ extern "C"
 /*! Initialise a V.27ter modem receive context.
     \brief Initialise a V.27ter modem receive context.
     \param s The modem context.
-    \param rate The bit rate of the modem. Valid values are 2400 and 4800.
+    \param bit_rate The bit rate of the modem. Valid values are 2400 and 4800.
     \param put_bit The callback routine used to put the received data.
     \param user_data An opaque pointer passed to the put_bit routine.
     \return A pointer to the modem context, or NULL if there was a problem. */
-v27ter_rx_state_t *v27ter_rx_init(v27ter_rx_state_t *s, int rate, put_bit_func_t put_bit, void *user_data);
+v27ter_rx_state_t *v27ter_rx_init(v27ter_rx_state_t *s, int bit_rate, put_bit_func_t put_bit, void *user_data);
 
 /*! Reinitialise an existing V.27ter modem receive context.
     \brief Reinitialise an existing V.27ter modem receive context.
     \param s The modem context.
-    \param rate The bit rate of the modem. Valid values are 2400 and 4800.
+    \param bit_rate The bit rate of the modem. Valid values are 2400 and 4800.
     \param old_train TRUE if a previous trained values are to be reused.
     \return 0 for OK, -1 for bad parameter */
-int v27ter_rx_restart(v27ter_rx_state_t *s, int rate, int old_train);
+int v27ter_rx_restart(v27ter_rx_state_t *s, int bit_rate, int old_train);
 
 /*! Free a V.27ter modem receive context.
     \brief Free a V.27ter modem receive context.
@@ -213,6 +219,13 @@ int v27ter_rx_free(v27ter_rx_state_t *s);
     \param put_bit The callback routine used to handle received bits.
     \param user_data An opaque pointer. */
 void v27ter_rx_set_put_bit(v27ter_rx_state_t *s, put_bit_func_t put_bit, void *user_data);
+
+/*! Change the modem status report function associated with a V.27ter modem receive context.
+    \brief Change the modem status report function associated with a V.27ter modem receive context.
+    \param s The modem context.
+    \param handler The callback routine used to report modem status changes.
+    \param user_data An opaque pointer. */
+void v27ter_rx_set_modem_status_handler(v27ter_rx_state_t *s, modem_rx_status_func_t handler, void *user_data);
 
 /*! Process a block of received V.27ter modem audio samples.
     \brief Process a block of received V.27ter modem audio samples.
@@ -253,7 +266,7 @@ void v27ter_rx_signal_cutoff(v27ter_rx_state_t *s, float cutoff);
     \param s The modem context.
     \param handler The handler routine.
     \param user_data An opaque pointer passed to the handler routine. */
-void v27ter_rx_set_qam_report_handler(v27ter_rx_state_t *s, qam_report_handler_t *handler, void *user_data);
+void v27ter_rx_set_qam_report_handler(v27ter_rx_state_t *s, qam_report_handler_t handler, void *user_data);
 
 #if defined(__cplusplus)
 }

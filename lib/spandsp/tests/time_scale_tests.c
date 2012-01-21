@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: time_scale_tests.c,v 1.16 2007/11/26 13:29:00 steveu Exp $
+ * $Id: time_scale_tests.c,v 1.21 2008/05/13 13:17:26 steveu Exp $
  */
 
 /*! \page time_scale_tests_page Time scaling tests
@@ -36,7 +36,7 @@ time scale of its contents, and write the resulting audio to post_time_scale.wav
 This file also contains 8000 sample/second 16 bits/sample linear audio.
 */
 
-#ifdef HAVE_CONFIG_H
+#if defined(HAVE_CONFIG_H)
 #include "config.h"
 #endif
 
@@ -49,7 +49,7 @@ This file also contains 8000 sample/second 16 bits/sample linear audio.
 
 #define BLOCK_LEN       160
 
-#define IN_FILE_NAME    "../localtests/short_nb_voice.wav"
+#define IN_FILE_NAME    "../test-data/local/short_nb_voice.wav"
 #define OUT_FILE_NAME   "post_time_scaling.wav"
 
 int main(int argc, char *argv[])

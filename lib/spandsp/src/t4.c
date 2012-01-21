@@ -12,19 +12,19 @@
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2, as
- * published by the Free Software Foundation.
+ * it under the terms of the GNU Lesser General Public License version 2.1,
+ * as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: t4.c,v 1.104 2007/12/14 13:27:30 steveu Exp $
+ * $Id: t4.c,v 1.112 2008/07/22 13:48:15 steveu Exp $
  */
 
 /*
@@ -63,15 +63,16 @@
 #include <config.h>
 #endif
 
-#include <stdio.h>
+#include <stdlib.h>
 #include <inttypes.h>
 #include <limits.h>
-#include <unistd.h>
+#include <stdio.h>
 #include <fcntl.h>
-#include <stdlib.h>
+#include <unistd.h>
 #include <time.h>
 #include <memory.h>
 #include <string.h>
+#include "floating_fudge.h"
 #if defined(HAVE_TGMATH_H)
 #include <tgmath.h>
 #endif
@@ -243,6 +244,16 @@ static int set_tiff_directory_info(t4_state_t *s)
 }
 /*- End of function --------------------------------------------------------*/
 
+static void update_row_bit_info(t4_state_t *s)
+{
+    if (s->row_bits > s->max_row_bits)
+        s->max_row_bits = s->row_bits;
+    if (s->row_bits < s->min_row_bits)
+        s->min_row_bits = s->row_bits;
+    s->row_bits = 0;
+}
+/*- End of function --------------------------------------------------------*/
+
 static int test_resolution(int res_unit, float actual, float expected)
 {
     if (res_unit == RESUNIT_INCH)
@@ -385,7 +396,13 @@ static int close_tiff_output_file(t4_state_t *s)
     TIFFClose(s->tiff_file);
     s->tiff_file = NULL;
     if (s->file)
+    {
+        /* Try not to leave a file behind, if we didn't receive any pages to
+           put in it. */
+        if (s->pages_transferred == 0)
+            remove(s->file);
         free((char *) s->file);
+    }
     s->file = NULL;
     return 0;
 }
@@ -761,8 +778,9 @@ int t4_rx_end_page(t4_state_t *s)
         TIFFWriteDirectory(s->tiff_file);
     }
     s->rx_bits = 0;
+    s->rx_skip_bits = 0;
     s->rx_bitstream = 0;
-    s->consecutive_eols = 0;
+    s->consecutive_eols = 5;
 
     s->image_size = 0;
     return 0;
@@ -771,42 +789,76 @@ int t4_rx_end_page(t4_state_t *s)
 
 static __inline__ void drop_rx_bits(t4_state_t *s, int bits)
 {
+    /* Only remove one bit right now. The rest need to be removed step by step,
+       checking for a misaligned EOL along the way. */
     s->row_bits += bits;
+    s->rx_skip_bits += (bits - 1);
+    s->rx_bits--;
+    s->rx_bitstream >>= 1;
+}
+/*- End of function --------------------------------------------------------*/
+
+static __inline__ void force_drop_rx_bits(t4_state_t *s, int bits)
+{
+    /* This should only be called to drop the bits of an EOL, as that is the
+       only place where it is safe to drop them all at once. */
+    s->row_bits += bits;
+    s->rx_skip_bits = 0;
     s->rx_bits -= bits;
     s->rx_bitstream >>= bits;
 }
 /*- End of function --------------------------------------------------------*/
 
-static int t4_rx_put_bits(t4_state_t *s, uint32_t bit_string, int quantity)
+static int rx_put_bits(t4_state_t *s, uint32_t bit_string, int quantity)
 {
     int bits;
-    int i;
 
     /* We decompress bit by bit, as the data stream is received. We need to
        scan continuously for EOLs, so we might as well work this way. */
+    s->line_image_size += quantity;
     s->rx_bitstream |= (bit_string << s->rx_bits);
+    /* The longest item we need to scan for is 13 bits long (a 2D EOL), so we
+       need a minimum of 13 bits in the buffer to proceed with any bit stream
+       analysis. */
     if ((s->rx_bits += quantity) < 13)
         return FALSE;
-    if (!s->first_eol_seen)
+    if (s->consecutive_eols)
     {
-        /* Do not let anything through to the decoder, until an EOL arrives. For
-           T6 coding this condition should have been forced TRUE at the very start. */
-        while ((s->rx_bitstream & 0xFFF) != 0x800)
+        /* Check if the image has already terminated */
+        if (s->consecutive_eols >= 5)
+            return TRUE;
+        if (s->consecutive_eols < 0)
         {
-            s->rx_bitstream >>= 1;
-            if (--s->rx_bits < 13)
-                return FALSE;
+            /* We are waiting for the very first EOL (1D or 2D only). */
+            while ((s->rx_bitstream & 0xFFF) != 0x800)
+            {
+                s->rx_bitstream >>= 1;
+                if (--s->rx_bits < 13)
+                    return FALSE;
+            }
+            s->consecutive_eols = 0;
+            if (s->line_encoding == T4_COMPRESSION_ITU_T4_1D)
+            {
+                s->row_is_2d = FALSE;
+                force_drop_rx_bits(s, 12);
+            }
+            else
+            {
+                s->row_is_2d = !(s->rx_bitstream & 0x1000);
+                force_drop_rx_bits(s, 13);
+            }
+            /* We can proceed to processing the bit stream as an image now */
         }
-        i = (s->line_encoding == T4_COMPRESSION_ITU_T4_1D)  ?  12  :  13;
-        drop_rx_bits(s, i);
-        s->first_eol_seen = TRUE;
-        return FALSE;
     }
-    /* Check if the image has already terminated */
-    if (s->consecutive_eols >= 5)
-        return TRUE;
+
     while (s->rx_bits >= 13)
     {
+        /* We need to check for EOLs bit by bit through the whole stream. If
+           we just try looking between code words, we will miss an EOL when a bit
+           error has throw the code words completely out of step. The can mean
+           recovery takes many lines, and the image gets really messed up. */
+        /* Although EOLs are not inserted at the end of each row of a T.6 image,
+           they are still perfectly valid, and can terminate an image. */
         if ((s->rx_bitstream & 0x0FFF) == 0x0800)
         {
             STATE_TRACE("EOL\n");
@@ -822,25 +874,30 @@ static int t4_rx_put_bits(t4_state_t *s, uint32_t bit_string, int quantity)
                 s->consecutive_eols = 0;
                 if (put_decoded_row(s))
                     return TRUE;
-                if (s->row_bits > s->max_row_bits)
-                    s->max_row_bits = s->row_bits;
-                if (s->row_bits < s->min_row_bits)
-                    s->min_row_bits = s->row_bits;
-                s->row_bits = 0;
+                update_row_bit_info(s);
             }
             if (s->line_encoding == T4_COMPRESSION_ITU_T4_1D)
             {
-                drop_rx_bits(s, 12);
+                force_drop_rx_bits(s, 12);
             }
             else
             {
                 s->row_is_2d = !(s->rx_bitstream & 0x1000);
-                drop_rx_bits(s, 13);
+                force_drop_rx_bits(s, 13);
             }
             s->its_black = FALSE;
             s->black_white = 0;
             s->run_length = 0;
             s->row_len = 0;
+            continue;
+        }
+        if (s->rx_skip_bits)
+        {
+            /* We are clearing out the remaining bits of the last code word we
+               absorbed. */
+            s->rx_skip_bits--;
+            s->rx_bits--;
+            s->rx_bitstream >>= 1;
             continue;
         }
         if (s->row_is_2d  &&  s->black_white == 0)
@@ -1011,11 +1068,7 @@ static int t4_rx_put_bits(t4_state_t *s, uint32_t bit_string, int quantity)
                 STATE_TRACE("EOL T.6\n");
                 if (s->run_length > 0)
                     add_run_to_row(s);
-                if (s->row_bits > s->max_row_bits)
-                    s->max_row_bits = s->row_bits;
-                if (s->row_bits < s->min_row_bits)
-                    s->min_row_bits = s->row_bits;
-                s->row_bits = 0;
+                update_row_bit_info(s);
                 if (put_decoded_row(s))
                     return TRUE;
                 s->its_black = FALSE;
@@ -1031,13 +1084,13 @@ static int t4_rx_put_bits(t4_state_t *s, uint32_t bit_string, int quantity)
 
 int t4_rx_put_bit(t4_state_t *s, int bit)
 {
-    return t4_rx_put_bits(s, bit & 1, 1);
+    return rx_put_bits(s, bit & 1, 1);
 }
 /*- End of function --------------------------------------------------------*/
 
 int t4_rx_put_byte(t4_state_t *s, uint8_t byte)
 {
-    return t4_rx_put_bits(s, byte & 0xFF, 8);
+    return rx_put_bits(s, byte & 0xFF, 8);
 }
 /*- End of function --------------------------------------------------------*/
 
@@ -1049,7 +1102,7 @@ int t4_rx_put_chunk(t4_state_t *s, const uint8_t buf[], int len)
     for (i = 0;  i < len;  i++)
     {
         byte = buf[i];
-        if (t4_rx_put_bits(s, byte & 0xFF, 8))
+        if (rx_put_bits(s, byte & 0xFF, 8))
             return TRUE;
     }
     return FALSE;
@@ -1069,7 +1122,8 @@ t4_state_t *t4_rx_init(t4_state_t *s, const char *file, int output_encoding)
     memset(s, 0, sizeof(*s));
     span_log_init(&s->logging, SPAN_LOG_NONE, NULL);
     span_log_set_protocol(&s->logging, "T.4");
-
+    s->rx = TRUE;
+    
     span_log(&s->logging, SPAN_LOG_FLOW, "Start rx document\n");
 
     if (open_tiff_output_file(s, file) < 0)
@@ -1144,22 +1198,25 @@ int t4_rx_start_page(t4_state_t *s)
     memset(s->ref_runs, 0, run_space);
 
     s->rx_bits = 0;
+    s->rx_skip_bits = 0;
     s->rx_bitstream = 0;
     s->row_bits = 0;
     s->min_row_bits = INT_MAX;
     s->max_row_bits = 0;
 
     s->row_is_2d = (s->line_encoding == T4_COMPRESSION_ITU_T6);
-    s->first_eol_seen = (s->line_encoding == T4_COMPRESSION_ITU_T6);
+    /* We start at -1 EOLs for 1D and 2D decoding, as an indication we are waiting for the
+       first EOL. */
+    s->consecutive_eols = (s->line_encoding == T4_COMPRESSION_ITU_T6)  ?  0  :  -1;
 
     s->bad_rows = 0;
     s->longest_bad_row_run = 0;
     s->curr_bad_row_run = 0;
     s->image_length = 0;
-    s->consecutive_eols = 0;
     s->tx_bitstream = 0;
     s->tx_bits = 8;
     s->image_size = 0;
+    s->line_image_size = 0;
     s->last_row_starts_at = 0;
 
     s->row_len = 0;
@@ -1198,6 +1255,8 @@ int t4_rx_delete(t4_state_t *s)
 
 int t4_rx_end(t4_state_t *s)
 {
+    if (!s->rx)
+        return -1;
     if (s->tiff_file)
         close_tiff_output_file(s);
     free_buffers(s);
@@ -1321,7 +1380,7 @@ static __inline__ int put_1d_span(t4_state_t *s, int32_t span, const t4_run_tabl
  * Write an EOL code to the output stream.  We also handle writing the tag
  * bit for the next scanline when doing 2D encoding.
  */
-static void t4_encode_eol(t4_state_t *s)
+static void encode_eol(t4_state_t *s)
 {
     uint32_t code;
     int length;
@@ -1343,24 +1402,20 @@ static void t4_encode_eol(t4_state_t *s)
         if (s->row_bits + length < s->min_bits_per_row)
             put_encoded_bits(s, 0, s->min_bits_per_row - (s->row_bits + length));
         put_encoded_bits(s, code, length);
-        if (s->row_bits > s->max_row_bits)
-            s->max_row_bits = s->row_bits;
-        if (s->row_bits < s->min_row_bits)
-            s->min_row_bits = s->row_bits;
+        update_row_bit_info(s);
     }
     else
     {
         /* We don't pad zero length rows. They are the consecutive EOLs which end a page. */
         put_encoded_bits(s, code, length);
     }
-    s->row_bits = 0;
 }
 /*- End of function --------------------------------------------------------*/
 
 /*
  * 2D-encode a row of pixels.  Consult ITU specification T.4 for the algorithm.
  */
-static void t4_encode_2d_row(t4_state_t *s)
+static void encode_2d_row(t4_state_t *s)
 {
     static const t4_run_table_entry_t codes[] =
     {
@@ -1550,7 +1605,7 @@ static void t4_encode_2d_row(t4_state_t *s)
  * a sequence of all-white or all-black spans
  * of pixels encoded with Huffman codes.
  */
-static void t4_encode_1d_row(t4_state_t *s)
+static void encode_1d_row(t4_state_t *s)
 {
     int i;
 
@@ -1568,7 +1623,7 @@ static void t4_encode_1d_row(t4_state_t *s)
 }
 /*- End of function --------------------------------------------------------*/
 
-static int t4_encode_row(t4_state_t *s)
+static int encode_row(t4_state_t *s)
 {
     switch (s->line_encoding)
     {
@@ -1577,18 +1632,20 @@ static int t4_encode_row(t4_state_t *s)
            throw it in here. T.6 is only used with error correction,
            so it does not need independantly compressed (i.e. 1D) lines
            to recover from data errors. It doesn't need EOLs, either. */
-        t4_encode_2d_row(s);
+        if (s->row_bits)
+            update_row_bit_info(s);
+        encode_2d_row(s);
         break;
     case T4_COMPRESSION_ITU_T4_2D:
-        t4_encode_eol(s);
+        encode_eol(s);
         if (s->row_is_2d)
         {
-            t4_encode_2d_row(s);
+            encode_2d_row(s);
             s->rows_to_next_1d_row--;
         }
         else
         {
-            t4_encode_1d_row(s);
+            encode_1d_row(s);
             s->row_is_2d = TRUE;
         }
         if (s->rows_to_next_1d_row <= 0)
@@ -1600,8 +1657,8 @@ static int t4_encode_row(t4_state_t *s)
         break;
     default:
     case T4_COMPRESSION_ITU_T4_1D:
-        t4_encode_eol(s);
-        t4_encode_1d_row(s);
+        encode_eol(s);
+        encode_1d_row(s);
         break;
     }
     s->row++;
@@ -1624,6 +1681,7 @@ t4_state_t *t4_tx_init(t4_state_t *s, const char *file, int start_page, int stop
     memset(s, 0, sizeof(*s));
     span_log_init(&s->logging, SPAN_LOG_NONE, NULL);
     span_log_set_protocol(&s->logging, "T.4");
+    s->rx = FALSE;
 
     span_log(&s->logging, SPAN_LOG_FLOW, "Start tx document\n");
 
@@ -1804,7 +1862,7 @@ int t4_tx_start_page(t4_state_t *s)
                 s->row_buf[row_bufptr++] = 0;
             for (i = 0;  i < repeats;  i++)
             {
-                if (t4_encode_row(s))
+                if (encode_row(s))
                     return -1;
             }
         }
@@ -1820,7 +1878,7 @@ int t4_tx_start_page(t4_state_t *s)
             }
             if (len == 0)
                 break;
-            if (t4_encode_row(s))
+            if (encode_row(s))
                 return -1;
         }
         s->image_length = row;
@@ -1836,28 +1894,29 @@ int t4_tx_start_page(t4_state_t *s)
                 span_log(&s->logging, SPAN_LOG_WARNING, "%s: Read error at row %d.\n", s->file, row);
                 break;
             }
-            if (t4_encode_row(s))
+            if (encode_row(s))
                 return -1;
         }
     }
-    if (s->line_encoding != T4_COMPRESSION_ITU_T6)
+    if (s->line_encoding == T4_COMPRESSION_ITU_T6)
+    {
+        /* Attach an EOFB (end of facsimile block) to the end of the page */
+        encode_eol(s);
+        encode_eol(s);
+    }
+    else
     {
         /* Attach a return to control (RTC == 6 x EOLs) to the end of the page */
         s->row_is_2d = FALSE;
         for (i = 0;  i < 6;  i++)
-            t4_encode_eol(s);
-    }
-    else
-    {
-        /* Attach an EOFB (end of facsimile block) to the end of the page */
-        t4_encode_eol(s);
-        t4_encode_eol(s);
+            encode_eol(s);
     }
 
     /* Force any partial byte in progress to flush */
     put_encoded_bits(s, 0, 7);
     s->bit_pos = 7;
     s->bit_ptr = 0;
+    s->line_image_size = s->image_size*8;
 
     return 0;
 }
@@ -1888,7 +1947,6 @@ int t4_tx_restart_page(t4_state_t *s)
 {
     s->bit_pos = 7;
     s->bit_ptr = 0;
-    s->row_bits = 0;
     return 0;
 }
 /*- End of function --------------------------------------------------------*/
@@ -1959,6 +2017,8 @@ int t4_tx_delete(t4_state_t *s)
 
 int t4_tx_end(t4_state_t *s)
 {
+    if (s->rx)
+        return -1;
     if (s->tiff_file)
         close_tiff_input_file(s);
     free_buffers(s);
@@ -2039,7 +2099,7 @@ void t4_get_transfer_statistics(t4_state_t *s, t4_stats_t *t)
     t->x_resolution = s->x_resolution;
     t->y_resolution = s->y_resolution;
     t->encoding = s->line_encoding;
-    t->image_size = s->image_size;
+    t->line_image_size = s->line_image_size/8;
 }
 /*- End of function --------------------------------------------------------*/
 

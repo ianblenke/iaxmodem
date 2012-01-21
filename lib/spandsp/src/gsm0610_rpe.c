@@ -10,32 +10,33 @@
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2, as
- * published by the Free Software Foundation.
+ * it under the terms of the GNU Lesser General Public License version 2.1,
+ * as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * This code is based on the widely used GSM 06.10 code available from
  * http://kbs.cs.tu-berlin.de/~jutta/toast.html
  *
- * $Id: gsm0610_rpe.c,v 1.14 2007/08/20 15:22:22 steveu Exp $
+ * $Id: gsm0610_rpe.c,v 1.21 2008/07/02 14:48:25 steveu Exp $
  */
 
 /*! \file */
 
-#ifdef HAVE_CONFIG_H
+#if defined(HAVE_CONFIG_H)
 #include <config.h>
 #endif
 
 #include <assert.h>
 #include <inttypes.h>
+#include "floating_fudge.h"
 #if defined(HAVE_TGMATH_H)
 #include <tgmath.h>
 #endif
@@ -60,9 +61,16 @@ static void weighting_filter(const int16_t *e,     // signal [-5..0.39.44] IN
 #if defined(__GNUC__)  &&  defined(__i386__)
     /* Table 4.4   Coefficients of the weighting filter */
     /* This must be padded to a multiple of 4 for MMX to work */
-    static const int16_t gsm_H[12] =
+    static const union
     {
-        -134, -374, 0, 2054, 5741, 8192, 5741, 2054, 0, -374, -134, 0
+        int16_t gsm_H[12];
+        uint64_t x[3];
+    } gsm_H =
+    {
+        {
+            -134, -374, 0, 2054, 5741, 8192, 5741, 2054, 0, -374, -134, 0
+        }
+
     };
 
     __asm__ __volatile__(
@@ -101,7 +109,7 @@ static void weighting_filter(const int16_t *e,     // signal [-5..0.39.44] IN
         " jle 1b;\n"
         " emms;\n"
         :
-        : "c" (e), "D" (x), [gsm_H] "X" (*((int64_t *) gsm_H)), [gsm_H8] "X" (*((int64_t *) (gsm_H + 4))), [gsm_H16] "X" (*((int64_t *) (gsm_H + 8)))
+        : "c" (e), "D" (x), [gsm_H] "X" (gsm_H.x[0]), [gsm_H8] "X" (gsm_H.x[1]), [gsm_H16] "X" (gsm_H.x[2])
         : "eax", "edx", "esi"
     );
 #else
@@ -432,7 +440,9 @@ static void apcm_inverse_quantization(int16_t xMc[13],
        samples to obtain the xMp[0..12] array.  Table 4.6 is used to get
        the mantissa of xmaxc (FAC[0..7]).
     */
+#if 0
     assert(mant >= 0  &&  mant <= 7);
+#endif
 
     temp1 = gsm_FAC[mant];          /* See 4.2-15 for mant */
     temp2 = gsm_sub(6, exp);        /* See 4.2-15 for exp */

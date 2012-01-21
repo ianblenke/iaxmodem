@@ -11,19 +11,19 @@
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2, as
- * published by the Free Software Foundation.
+ * it under the terms of the GNU Lesser General Public License version 2.1,
+ * as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: modem_connect_tones.h,v 1.11 2007/12/13 11:31:32 steveu Exp $
+ * $Id: modem_connect_tones.h,v 1.17 2008/05/14 15:41:25 steveu Exp $
  */
  
 /*! \file */
@@ -31,14 +31,17 @@
 #if !defined(_SPANDSP_MODEM_CONNECT_TONES_H_)
 #define _SPANDSP_MODEM_CONNECT_TONES_H_
 
-/*! \page modem_connect_tones_page Echo cancellor disable tone detection
+/*! \page modem_connect_tones_page Modem connect tone detection
 
 \section modem_connect_tones_page_sec_1 What does it do?
 Some telephony terminal equipment, such as modems, require a channel which is as
 clear as possible. They use their own echo cancellation. If the network is also
-performing echo cancellation the two cancellors can end of squabbling about the
+performing echo cancellation the two cancellors can end up squabbling about the
 nature of the channel, with bad results. A special tone is defined which should
-cause the network to disable any echo cancellation processes. 
+cause the network to disable any echo cancellation processes. This is the echo
+canceller disable tone.
+
+The tone detector's design assumes the channel is free of any DC component.
 
 \section modem_connect_tones_page_sec_2 How does it work?
 A sharp notch filter is implemented as a single bi-quad section. The presence of
@@ -47,17 +50,32 @@ with the unfiltered energy. If the notch filtered energy is much lower than the
 unfiltered energy, then a large proportion of the energy must be at the notch
 frequency. This type of detector may seem less intuitive than using a narrow
 bandpass filter to isolate the energy at the notch freqency. However, a sharp
-bandpass implemented as an IIR filter rings badly, The reciprocal notch filter
-is very well behaved. 
+bandpass implemented as an IIR filter rings badly. The reciprocal notch filter
+is very well behaved for our purpose. 
 */
 
 enum
 {
-    MODEM_CONNECT_TONES_FAX_CNG,
-    MODEM_CONNECT_TONES_FAX_CED,
-    MODEM_CONNECT_TONES_EC_DISABLE,
-    /*! \brief The version of EC disable with some 15Hz AM content, as in V.8 */
-    MODEM_CONNECT_TONES_EC_DISABLE_MOD,
+    MODEM_CONNECT_TONES_NONE = 0,
+    /*! \brief CNG tone is a pure 1100Hz tone, in 0.5s bursts, with 3s silences in between. The
+               bursts repeat for as long as is required. */
+    MODEM_CONNECT_TONES_FAX_CNG = 1,
+    /*! \brief CED tone is a pure continuous 2100Hz+-15Hz tone for 3.3s+-0.7s. We might see FAX preamble
+               instead of CED, of the FAX machine does not answer with CED. */
+    MODEM_CONNECT_TONES_FAX_CED = 2,
+    /*! \brief ANS tone is a pure continuous 2100Hz+-15Hz tone for 3.3s+-0.7s. Nothing else is searched for. */
+    MODEM_CONNECT_TONES_ANS = 3,
+    /*! \brief ANS with phase reversals tone is a 2100Hz+-15Hz tone for 3.3s+-0.7s, with a 180 degree phase
+               jump every 450ms+-25ms. */
+    MODEM_CONNECT_TONES_ANS_PR = 4,
+    /*! \brief The ANSam tone is a version of ANS with 20% of 15Hz+-0.1Hz AM modulation, as per V.8 */
+    MODEM_CONNECT_TONES_ANSAM = 5,
+    /*! \brief The ANSam with phase reversals tone is a version of ANS_PR with 20% of 15Hz+-0.1Hz AM modulation,
+               as per V.8 */
+    MODEM_CONNECT_TONES_ANSAM_PR = 6,
+    /*! \brief FAX preamble in a string of V.21 HDLC flag octets. This is only valid as a result of tone
+               detection. It should not be specified as a tone type to transmit or receive. */
+    MODEM_CONNECT_TONES_FAX_PREAMBLE = 7
 };
 
 /*!
@@ -67,13 +85,14 @@ enum
 typedef struct
 {
     int tone_type;
-    
-    tone_gen_state_t tone_tx;
-    uint32_t tone_phase;
+
     int32_t tone_phase_rate;
+    uint32_t tone_phase;
     int level;
     /*! \brief Countdown to the next phase hop */
     int hop_timer;
+    /*! \brief Maximum duration timer */
+    int duration_timer;
     uint32_t mod_phase;
     int32_t mod_phase_rate;
     int mod_level;
@@ -92,21 +111,35 @@ typedef struct
     /*! \brief An opaque pointer passed to tone_callback. */
     void *callback_data;
 
+    /*! \brief The notch filter state. */
     float z1;
     float z2;
+    /*! \brief The in notch power estimate */
     int notch_level;
+    /*! \brief The total channel power estimate */
     int channel_level;
-    /*! \brief TRUE is the tone is currently present in the audio. */
+    /*! \brief Sample counter for the small chunks of samples, after which a test is conducted. */
+    int chunk_remainder;
+    /*! \brief TRUE is the tone is currently confirmed present in the audio. */
     int tone_present;
+    /*! \brief */
+    int tone_on;
+    /*! \brief A millisecond counter, to time the duration of tone sections. */
     int tone_cycle_duration;
+    /*! \brief A count of the number of good cycles of tone reversal seen. */
     int good_cycles;
+    /*! \brief TRUE if the tone has been seen since the last time the user tested for it */
     int hit;
     /*! \brief A V.21 FSK modem context used when searching for FAX preamble. */
     fsk_rx_state_t v21rx;
-    int one_zero_weight[2];
-    int odd_even;
-    /*! \brief TRUE if V.21 HDLC preamble is being detected. */
-    int preamble_on;
+    /*! \brief The raw (stuffed) bit stream buffer. */
+    unsigned int raw_bit_stream;
+    /*! \brief The current number of bits in the octet in progress. */
+    int num_bits;
+    /*! \brief Number of consecutive flags seen so far. */
+    int flags_seen;
+    /*! \brief TRUE if framing OK has been announced. */
+    int framing_ok_announced;
 } modem_connect_tones_rx_state_t;
 
 #if defined(__cplusplus)

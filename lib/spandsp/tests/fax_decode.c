@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: fax_decode.c,v 1.38 2007/11/26 13:58:06 steveu Exp $
+ * $Id: fax_decode.c,v 1.44 2008/07/22 13:48:16 steveu Exp $
  */
 
 /*! \page fax_decode_page FAX decoder
@@ -33,7 +33,7 @@
 ???.
 */
 
-#ifdef HAVE_CONFIG_H
+#if defined(HAVE_CONFIG_H)
 #include "config.h"
 #endif
 
@@ -97,7 +97,7 @@ int fast_trained = FAX_NONE;
 uint8_t ecm_data[256][260];
 int16_t ecm_len[256];
 
-int line_encoding = T4_COMPRESSION_ITU_T4_2D;
+int line_encoding = T4_COMPRESSION_ITU_T4_1D;
 int x_resolution = T4_X_RESOLUTION_R8;
 int y_resolution = T4_Y_RESOLUTION_STANDARD;
 int image_width = 1728;
@@ -277,6 +277,7 @@ static void t4_begin(void)
 {
     int i;
 
+    //printf("Begin T.4 - %d %d %d %d\n", line_encoding, x_resolution, y_resolution, image_width);
     t4_rx_set_rx_encoding(&t4_state, line_encoding);
     t4_rx_set_x_resolution(&t4_state, x_resolution);
     t4_rx_set_y_resolution(&t4_state, y_resolution);

@@ -10,19 +10,19 @@
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2, as
- * published by the Free Software Foundation.
+ * it under the terms of the GNU Lesser General Public License version 2.1,
+ * as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: v29rx.h,v 1.51 2007/12/13 11:31:33 steveu Exp $
+ * $Id: v29rx.h,v 1.55 2008/07/16 14:23:48 steveu Exp $
  */
 
 /*! \file */
@@ -128,7 +128,7 @@ therefore, only tests that bits starting at bit 24 are really ones.
 
 #define V29_RX_FILTER_STEPS     27
 
-typedef void (qam_report_handler_t)(void *user_data, const complexf_t *constel, const complexf_t *target, int symbol);
+typedef void (*qam_report_handler_t)(void *user_data, const complexf_t *constel, const complexf_t *target, int symbol);
 
 /*!
     V.29 modem receive side descriptor. This defines the working state for a
@@ -141,10 +141,16 @@ typedef struct
     /*! \brief The callback function used to put each bit received. */
     put_bit_func_t put_bit;
     /*! \brief A user specified opaque pointer passed to the put_bit routine. */
-    void *user_data;
+    void *put_bit_user_data;
+
+    /*! \brief The callback function used to report modem status changes. */
+    modem_rx_status_func_t status_handler;
+    /*! \brief A user specified opaque pointer passed to the status function. */
+    void *status_user_data;
+
     /*! \brief A callback function which may be enabled to report every symbol's
                constellation position. */
-    qam_report_handler_t *qam_report;
+    qam_report_handler_t qam_report;
     /*! \brief A user specified opaque pointer passed to the qam_report callback
                routine. */
     void *qam_user_data;
@@ -271,19 +277,19 @@ extern "C"
 /*! Initialise a V.29 modem receive context.
     \brief Initialise a V.29 modem receive context.
     \param s The modem context.
-    \param rate The bit rate of the modem. Valid values are 4800, 7200 and 9600.
+    \param bit_rate The bit rate of the modem. Valid values are 4800, 7200 and 9600.
     \param put_bit The callback routine used to put the received data.
     \param user_data An opaque pointer passed to the put_bit routine.
     \return A pointer to the modem context, or NULL if there was a problem. */
-v29_rx_state_t *v29_rx_init(v29_rx_state_t *s, int rate, put_bit_func_t put_bit, void *user_data);
+v29_rx_state_t *v29_rx_init(v29_rx_state_t *s, int bit_rate, put_bit_func_t put_bit, void *user_data);
 
 /*! Reinitialise an existing V.29 modem receive context.
     \brief Reinitialise an existing V.29 modem receive context.
     \param s The modem context.
-    \param rate The bit rate of the modem. Valid values are 4800, 7200 and 9600.
+    \param bit_rate The bit rate of the modem. Valid values are 4800, 7200 and 9600.
     \param old_train TRUE if a previous trained values are to be reused.
     \return 0 for OK, -1 for bad parameter */
-int v29_rx_restart(v29_rx_state_t *s, int rate, int old_train);
+int v29_rx_restart(v29_rx_state_t *s, int bit_rate, int old_train);
 
 /*! Free a V.29 modem receive context.
     \brief Free a V.29 modem receive context.
@@ -297,6 +303,13 @@ int v29_rx_free(v29_rx_state_t *s);
     \param put_bit The callback routine used to handle received bits.
     \param user_data An opaque pointer. */
 void v29_rx_set_put_bit(v29_rx_state_t *s, put_bit_func_t put_bit, void *user_data);
+
+/*! Change the modem status report function associated with a V.29 modem receive context.
+    \brief Change the modem status report function associated with a V.29 modem receive context.
+    \param s The modem context.
+    \param handler The callback routine used to report modem status changes.
+    \param user_data An opaque pointer. */
+void v29_rx_set_modem_status_handler(v29_rx_state_t *s, modem_rx_status_func_t handler, void *user_data);
 
 /*! Process a block of received V.29 modem audio samples.
     \brief Process a block of received V.29 modem audio samples.
@@ -337,7 +350,7 @@ void v29_rx_signal_cutoff(v29_rx_state_t *s, float cutoff);
     \param s The modem context.
     \param handler The handler routine.
     \param user_data An opaque pointer passed to the handler routine. */
-void v29_rx_set_qam_report_handler(v29_rx_state_t *s, qam_report_handler_t *handler, void *user_data);
+void v29_rx_set_qam_report_handler(v29_rx_state_t *s, qam_report_handler_t handler, void *user_data);
 
 #if defined(__cplusplus)
 }

@@ -10,26 +10,24 @@
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2, as
- * published by the Free Software Foundation.
+ * it under the terms of the GNU Lesser General Public License version 2.1,
+ * as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: v17rx.c,v 1.100 2008/01/09 15:17:14 steveu Exp $
+ * $Id: v17rx.c,v 1.112 2008/07/17 19:12:27 steveu Exp $
  */
 
 /*! \file */
 
-/* THIS IS A WORK IN PROGRESS - KIND OF FUNCTIONAL, BUT NOT ROBUST! */
-
-#ifdef HAVE_CONFIG_H
+#if defined(HAVE_CONFIG_H)
 #include <config.h>
 #endif
 
@@ -37,6 +35,7 @@
 #include <inttypes.h>
 #include <string.h>
 #include <stdio.h>
+#include "floating_fudge.h"
 #if defined(HAVE_TGMATH_H)
 #include <tgmath.h>
 #endif
@@ -59,6 +58,7 @@
 #include "spandsp/v17tx.h"
 #include "spandsp/v17rx.h"
 
+#include "v17tx_constellation_maps.h"
 #include "v17rx_constellation_maps.h"
 #if defined(SPANDSP_USE_FIXED_POINT)
 #include "v17rx_fixed_rrc.h"
@@ -109,13 +109,13 @@ enum
 
 float v17_rx_carrier_frequency(v17_rx_state_t *s)
 {
-    return dds_frequency(s->carrier_phase_rate);
+    return dds_frequencyf(s->carrier_phase_rate);
 }
 /*- End of function --------------------------------------------------------*/
 
 float v17_rx_symbol_timing_correction(v17_rx_state_t *s)
 {
-    return (float) s->total_baud_timing_correction/((float) PULSESHAPER_COEFF_SETS*10.0f/3.0f);
+    return (float) s->total_baud_timing_correction/((float) RX_PULSESHAPER_COEFF_SETS*10.0f/3.0f);
 }
 /*- End of function --------------------------------------------------------*/
 
@@ -140,6 +140,15 @@ int v17_rx_equalizer_state(v17_rx_state_t *s, complexf_t **coeffs)
 }
 /*- End of function --------------------------------------------------------*/
 
+static void report_status_change(v17_rx_state_t *s, int status)
+{
+    if (s->status_handler)
+        s->status_handler(s->status_user_data, status);
+    else if (s->put_bit)
+        s->put_bit(s->put_bit_user_data, status);
+}
+/*- End of function --------------------------------------------------------*/
+
 static void equalizer_save(v17_rx_state_t *s)
 {
     cvec_copyf(s->eq_coeff_save, s->eq_coeff, V17_EQUALIZER_PRE_LEN + 1 + V17_EQUALIZER_POST_LEN);
@@ -151,7 +160,7 @@ static void equalizer_restore(v17_rx_state_t *s)
     cvec_copyf(s->eq_coeff, s->eq_coeff_save, V17_EQUALIZER_PRE_LEN + 1 + V17_EQUALIZER_POST_LEN);
     cvec_zerof(s->eq_buf, V17_EQUALIZER_MASK);
 
-    s->eq_put_step = PULSESHAPER_COEFF_SETS*10/(3*2) - 1;
+    s->eq_put_step = RX_PULSESHAPER_COEFF_SETS*10/(3*2) - 1;
     s->eq_step = 0;
     s->eq_delta = EQUALIZER_SLOW_ADAPT_RATIO*EQUALIZER_DELTA/(V17_EQUALIZER_PRE_LEN + 1 + V17_EQUALIZER_POST_LEN);
 }
@@ -164,7 +173,7 @@ static void equalizer_reset(v17_rx_state_t *s)
     s->eq_coeff[V17_EQUALIZER_PRE_LEN] = complex_setf(3.0f, 0.0f);
     cvec_zerof(s->eq_buf, V17_EQUALIZER_MASK);
 
-    s->eq_put_step = PULSESHAPER_COEFF_SETS*10/(3*2) - 1;
+    s->eq_put_step = RX_PULSESHAPER_COEFF_SETS*10/(3*2) - 1;
     s->eq_step = 0;
     s->eq_delta = EQUALIZER_DELTA/(V17_EQUALIZER_PRE_LEN + 1 + V17_EQUALIZER_POST_LEN);
 }
@@ -268,7 +277,7 @@ static __inline__ void put_bit(v17_rx_state_t *s, int bit)
     if (s->training_stage == TRAINING_STAGE_NORMAL_OPERATION)
     {
         out_bit = descramble(s, bit);
-        s->put_bit(s->user_data, out_bit);
+        s->put_bit(s->put_bit_user_data, out_bit);
     }
     else if (s->training_stage == TRAINING_STAGE_TEST_ONES)
     {
@@ -512,35 +521,17 @@ static void process_half_baud(v17_rx_state_t *s, const complexf_t *sample)
     /* A little integration will now filter away much of the HF noise */
     s->baud_phase -= p;
 
-#if 0
-    if (s->training_stage  &&  s->training_stage < TRAINING_STAGE_WAIT_FOR_CDBA)
-        s->baud_balance += (s->baud_phase < 0)  ?  -160  :  160;
-    else
-        s->baud_balance += (s->baud_phase < 0)  ?  -1  :  1;
-
-    //printf("v = %10.5f %5d - %f %f %d %d\n", v, i, p, s->baud_phase, s->total_baud_timing_correction, s->baud_balance);
-
-    if (abs(s->baud_balance) > 16)
+    if (fabsf(s->baud_phase) > 100.0f)
     {
-        s->eq_put_step += (s->baud_balance >> 4);
-        s->total_baud_timing_correction += (s->baud_balance >> 4);
-        s->baud_balance = 0;
-    }
-#else
-    i = 0;
-    if (s->baud_phase > 1000.0f)
-        i = 15;
-    else if (s->baud_phase < -1000.0f)
-        i = -15;
-    else if (s->baud_phase > 100.0f)
-        i = 1;
-    else if (s->baud_phase < -100.0f)
-        i = -1;
-    //printf("v = %10.5f %5d - %f %f %d\n", v, i, p, s->baud_phase, s->total_baud_timing_correction);
+        if (s->baud_phase > 0.0f)
+            i = (s->baud_phase > 1000.0f)  ?  15  :  1;
+        else
+            i = (s->baud_phase < -1000.0f)  ?  -15  :  -1;
+        //printf("v = %10.5f %5d - %f %f %d\n", v, i, p, s->baud_phase, s->total_baud_timing_correction);
 
-    s->eq_put_step += i;
-    s->total_baud_timing_correction += i;
-#endif
+        s->eq_put_step += i;
+        s->total_baud_timing_correction += i;
+    }
 
     z = equalizer_get(s);
 
@@ -674,7 +665,7 @@ static void process_half_baud(v17_rx_state_t *s, const complexf_t *sample)
                 /* Park this modem */
                 s->agc_scaling_save = 0.0f;
                 s->training_stage = TRAINING_STAGE_PARKED;
-                s->put_bit(s->user_data, PUTBIT_TRAINING_FAILED);
+                report_status_change(s, PUTBIT_TRAINING_FAILED);
                 break;
             }
 
@@ -693,6 +684,7 @@ static void process_half_baud(v17_rx_state_t *s, const complexf_t *sample)
             descramble(s, 1);
             s->training_count = 1;
             s->training_stage = TRAINING_STAGE_COARSE_TRAIN_ON_CDBA;
+            report_status_change(s, PUTBIT_TRAINING_IN_PROGRESS);
             break;
         }
         if (++s->training_count > V17_TRAINING_SEG_1_LEN)
@@ -703,7 +695,7 @@ static void process_half_baud(v17_rx_state_t *s, const complexf_t *sample)
             /* Park this modem */
             s->agc_scaling_save = 0.0f;
             s->training_stage = TRAINING_STAGE_PARKED;
-            s->put_bit(s->user_data, PUTBIT_TRAINING_FAILED);
+            report_status_change(s, PUTBIT_TRAINING_FAILED);
         }
         break;
     case TRAINING_STAGE_COARSE_TRAIN_ON_CDBA:
@@ -775,7 +767,7 @@ static void process_half_baud(v17_rx_state_t *s, const complexf_t *sample)
                 /* Park this modem */
                 s->agc_scaling_save = 0.0f;
                 s->training_stage = TRAINING_STAGE_PARKED;
-                s->put_bit(s->user_data, PUTBIT_TRAINING_FAILED);
+                report_status_change(s, PUTBIT_TRAINING_FAILED);
             }
         }
         break;
@@ -814,7 +806,7 @@ static void process_half_baud(v17_rx_state_t *s, const complexf_t *sample)
                of a real training sequence. Note that this might be TEP. */
             span_log(&s->logging, SPAN_LOG_FLOW, "Training failed (sequence failed)\n");
             /* Park this modem */
-            s->put_bit(s->user_data, PUTBIT_TRAINING_FAILED);
+            report_status_change(s, PUTBIT_TRAINING_FAILED);
             s->training_stage = TRAINING_STAGE_PARKED;
         }
         break;
@@ -844,12 +836,13 @@ static void process_half_baud(v17_rx_state_t *s, const complexf_t *sample)
             {
                 s->training_count = 0;
                 s->training_stage = TRAINING_STAGE_TCM_WINDUP;
+                report_status_change(s, PUTBIT_TRAINING_IN_PROGRESS);
             }
             else
             {
                 span_log(&s->logging, SPAN_LOG_FLOW, "Short training failed (convergence failed)\n");
                 /* Park this modem */
-                s->put_bit(s->user_data, PUTBIT_TRAINING_FAILED);
+                report_status_change(s, PUTBIT_TRAINING_FAILED);
                 s->training_stage = TRAINING_STAGE_PARKED;
             }
         }
@@ -890,7 +883,7 @@ static void process_half_baud(v17_rx_state_t *s, const complexf_t *sample)
             {
                 /* We are up and running */
                 span_log(&s->logging, SPAN_LOG_FLOW, "Training succeeded (constellation mismatch %f)\n", s->training_error);
-                s->put_bit(s->user_data, PUTBIT_TRAINING_SUCCEEDED);
+                report_status_change(s, PUTBIT_TRAINING_SUCCEEDED);
                 /* Apply some lag to the carrier off condition, to ensure the last few bits get pushed through
                    the processing. */
                 s->signal_present = 60;
@@ -906,7 +899,7 @@ static void process_half_baud(v17_rx_state_t *s, const complexf_t *sample)
                 /* Park this modem */
                 if (!s->short_train)
                     s->agc_scaling_save = 0.0f;
-                s->put_bit(s->user_data, PUTBIT_TRAINING_FAILED);
+                report_status_change(s, PUTBIT_TRAINING_FAILED);
                 s->training_stage = TRAINING_STAGE_PARKED;
             }
         }
@@ -923,7 +916,7 @@ static void process_half_baud(v17_rx_state_t *s, const complexf_t *sample)
 }
 /*- End of function --------------------------------------------------------*/
 
-void v17_rx(v17_rx_state_t *s, const int16_t amp[], int len)
+int v17_rx(v17_rx_state_t *s, const int16_t amp[], int len)
 {
     int i;
     int j;
@@ -986,7 +979,7 @@ void v17_rx(v17_rx_state_t *s, const int16_t amp[], int len)
                     /* Count down a short delay, to ensure we push the last
                        few bits through the filters before stopping. */
                     v17_rx_restart(s, s->bit_rate, s->short_train);
-                    s->put_bit(s->user_data, PUTBIT_CARRIER_DOWN);
+                    report_status_change(s, PUTBIT_CARRIER_DOWN);
                     continue;
                 }
 #if defined(IAXMODEM_STUFF)
@@ -1005,27 +998,27 @@ void v17_rx(v17_rx_state_t *s, const int16_t amp[], int len)
 #if defined(IAXMODEM_STUFF)
             s->carrier_drop_pending = FALSE;
 #endif
-            s->put_bit(s->user_data, PUTBIT_CARRIER_UP);
+            report_status_change(s, PUTBIT_CARRIER_UP);
         }
         if (s->training_stage == TRAINING_STAGE_PARKED)
             continue;
         /* Only spend effort processing this data if the modem is not
            parked, after training failure. */
-        s->eq_put_step -= PULSESHAPER_COEFF_SETS;
+        s->eq_put_step -= RX_PULSESHAPER_COEFF_SETS;
         step = -s->eq_put_step;
-        if (step > PULSESHAPER_COEFF_SETS - 1)
-            step = PULSESHAPER_COEFF_SETS - 1;
+        if (step > RX_PULSESHAPER_COEFF_SETS - 1)
+            step = RX_PULSESHAPER_COEFF_SETS - 1;
         if (step < 0)
-            step += PULSESHAPER_COEFF_SETS;
+            step += RX_PULSESHAPER_COEFF_SETS;
 #if defined(SPANDSP_USE_FIXED_POINT)
-        zi.re = (int32_t) pulseshaper[step][0].re*(int32_t) s->rrc_filter[s->rrc_filter_step];
+        zi.re = (int32_t) rx_pulseshaper[step][0].re*(int32_t) s->rrc_filter[s->rrc_filter_step];
         for (j = 1;  j < V17_RX_FILTER_STEPS;  j++)
-            zi.re += (int32_t) pulseshaper[step][j].re*(int32_t) s->rrc_filter[j + s->rrc_filter_step];
+            zi.re += (int32_t) rx_pulseshaper[step][j].re*(int32_t) s->rrc_filter[j + s->rrc_filter_step];
         sample.re = zi.re*s->agc_scaling;
 #else
-        zz.re = pulseshaper[step][0].re*s->rrc_filter[s->rrc_filter_step];
+        zz.re = rx_pulseshaper[step][0].re*s->rrc_filter[s->rrc_filter_step];
         for (j = 1;  j < V17_RX_FILTER_STEPS;  j++)
-            zz.re += pulseshaper[step][j].re*s->rrc_filter[j + s->rrc_filter_step];
+            zz.re += rx_pulseshaper[step][j].re*s->rrc_filter[j + s->rrc_filter_step];
         sample.re = zz.re*s->agc_scaling;
 #endif
 
@@ -1045,26 +1038,26 @@ void v17_rx(v17_rx_state_t *s, const int16_t amp[], int len)
         {
             /* Only AGC until we have locked down the setting. */
             if (s->agc_scaling_save == 0.0f)
-                s->agc_scaling = (1.0f/PULSESHAPER_GAIN)*2.17f/sqrtf(power);
+                s->agc_scaling = (1.0f/RX_PULSESHAPER_GAIN)*2.17f/sqrtf(power);
             /* Pulse shape while still at the carrier frequency, using a quadrature
                pair of filters. This results in a properly bandpass filtered complex
                signal, which can be brought directly to baseband by complex mixing.
                No further filtering, to remove mixer harmonics, is needed. */
             step = -s->eq_put_step;
-            if (step > PULSESHAPER_COEFF_SETS - 1)
-                step = PULSESHAPER_COEFF_SETS - 1;
+            if (step > RX_PULSESHAPER_COEFF_SETS - 1)
+                step = RX_PULSESHAPER_COEFF_SETS - 1;
 #if defined(SPANDSP_USE_FIXED_POINT)
-            zi.im = (int32_t) pulseshaper[step][0].im*(int32_t) s->rrc_filter[s->rrc_filter_step];
+            zi.im = (int32_t) rx_pulseshaper[step][0].im*(int32_t) s->rrc_filter[s->rrc_filter_step];
             for (j = 1;  j < V17_RX_FILTER_STEPS;  j++)
-                zi.im += (int32_t) pulseshaper[step][j].im*(int32_t) s->rrc_filter[j + s->rrc_filter_step];
+                zi.im += (int32_t) rx_pulseshaper[step][j].im*(int32_t) s->rrc_filter[j + s->rrc_filter_step];
             sample.im = zi.im*s->agc_scaling;
 #else
-            zz.im = pulseshaper[step][0].im*s->rrc_filter[s->rrc_filter_step];
+            zz.im = rx_pulseshaper[step][0].im*s->rrc_filter[s->rrc_filter_step];
             for (j = 1;  j < V17_RX_FILTER_STEPS;  j++)
-                zz.im += pulseshaper[step][j].im*s->rrc_filter[j + s->rrc_filter_step];
+                zz.im += rx_pulseshaper[step][j].im*s->rrc_filter[j + s->rrc_filter_step];
             sample.im = zz.im*s->agc_scaling;
 #endif
-            s->eq_put_step += PULSESHAPER_COEFF_SETS*10/(3*2);
+            s->eq_put_step += RX_PULSESHAPER_COEFF_SETS*10/(3*2);
             /* Shift to baseband - since this is done in a full complex form, the
                result is clean, and requires no further filtering, apart from the
                equalizer. */
@@ -1075,22 +1068,30 @@ void v17_rx(v17_rx_state_t *s, const int16_t amp[], int len)
         }
         dds_advancef(&(s->carrier_phase), s->carrier_phase_rate);
     }
+    return 0;
 }
 /*- End of function --------------------------------------------------------*/
 
 void v17_rx_set_put_bit(v17_rx_state_t *s, put_bit_func_t put_bit, void *user_data)
 {
     s->put_bit = put_bit;
-    s->user_data = user_data;
+    s->put_bit_user_data = user_data;
 }
 /*- End of function --------------------------------------------------------*/
 
-int v17_rx_restart(v17_rx_state_t *s, int rate, int short_train)
+void v17_rx_set_modem_status_handler(v17_rx_state_t *s, modem_tx_status_func_t handler, void *user_data)
+{
+    s->status_handler = handler;
+    s->status_user_data = user_data;
+}
+/*- End of function --------------------------------------------------------*/
+
+int v17_rx_restart(v17_rx_state_t *s, int bit_rate, int short_train)
 {
     int i;
 
-    span_log(&s->logging, SPAN_LOG_FLOW, "Restarting V.17, %dbps, %s training\n", rate, (short_train)  ?  "short"  :  "long");
-    switch (rate)
+    span_log(&s->logging, SPAN_LOG_FLOW, "Restarting V.17, %dbps, %s training\n", bit_rate, (short_train)  ?  "short"  :  "long");
+    switch (bit_rate)
     {
     case 14400:
         s->constellation = v17_14400_constellation;
@@ -1115,7 +1116,7 @@ int v17_rx_restart(v17_rx_state_t *s, int rate, int short_train)
     default:
         return -1;
     }
-    s->bit_rate = rate;
+    s->bit_rate = bit_rate;
 #if defined(SPANDSP_USE_FIXED_POINT)
     memset(s->rrc_filter, 0, sizeof(s->rrc_filter));
 #else
@@ -1145,7 +1146,7 @@ int v17_rx_restart(v17_rx_state_t *s, int rate, int short_train)
        initial paths to merge at the zero states. */
     for (i = 0;  i < 8;  i++)
 #if defined(SPANDSP_USE_FIXED_POINTx)
-        s->distances[i] = 99 * DIST_FACTOR * DIST_FACTOR; // or 0xFFFFFFFF?
+        s->distances[i] = 99*DIST_FACTOR*DIST_FACTOR;
 #else
         s->distances[i] = 99.0f;
 #endif
@@ -1171,7 +1172,7 @@ int v17_rx_restart(v17_rx_state_t *s, int rate, int short_train)
     {
         s->carrier_phase_rate = dds_phase_ratef(CARRIER_NOMINAL_FREQ);
         s->agc_scaling_save = 0.0f;
-        s->agc_scaling = 0.0017f/PULSESHAPER_GAIN;
+        s->agc_scaling = 0.0017f/RX_PULSESHAPER_GAIN;
         equalizer_reset(s);
         s->carrier_track_i = 5000.0f;
         s->carrier_track_p = 40000.0f;
@@ -1194,7 +1195,7 @@ int v17_rx_restart(v17_rx_state_t *s, int rate, int short_train)
 }
 /*- End of function --------------------------------------------------------*/
 
-v17_rx_state_t *v17_rx_init(v17_rx_state_t *s, int rate, put_bit_func_t put_bit, void *user_data)
+v17_rx_state_t *v17_rx_init(v17_rx_state_t *s, int bit_rate, put_bit_func_t put_bit, void *user_data)
 {
     if (s == NULL)
     {
@@ -1205,14 +1206,14 @@ v17_rx_state_t *v17_rx_init(v17_rx_state_t *s, int rate, put_bit_func_t put_bit,
     span_log_init(&s->logging, SPAN_LOG_NONE, NULL);
     span_log_set_protocol(&s->logging, "V.17 RX");
     s->put_bit = put_bit;
-    s->user_data = user_data;
+    s->put_bit_user_data = user_data;
     s->short_train = FALSE;
     v17_rx_signal_cutoff(s, -45.5f);
-    s->agc_scaling = 0.0017f/PULSESHAPER_GAIN;
+    s->agc_scaling = 0.0017f/RX_PULSESHAPER_GAIN;
     s->agc_scaling_save = 0.0f;
     s->carrier_phase_rate_save = dds_phase_ratef(CARRIER_NOMINAL_FREQ);
 
-    v17_rx_restart(s, rate, s->short_train);
+    v17_rx_restart(s, bit_rate, s->short_train);
     return s;
 }
 /*- End of function --------------------------------------------------------*/
@@ -1224,7 +1225,7 @@ int v17_rx_free(v17_rx_state_t *s)
 }
 /*- End of function --------------------------------------------------------*/
 
-void v17_rx_set_qam_report_handler(v17_rx_state_t *s, qam_report_handler_t *handler, void *user_data)
+void v17_rx_set_qam_report_handler(v17_rx_state_t *s, qam_report_handler_t handler, void *user_data)
 {
     s->qam_report = handler;
     s->qam_user_data = user_data;

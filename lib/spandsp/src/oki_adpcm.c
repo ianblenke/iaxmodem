@@ -9,30 +9,30 @@
  *
  * Copyright (C) 2001, 2004 Steve Underwood
  *
- * The actual OKI ADPCM encode and decode method is derived from freely
- * available code, whose exact origins seem uncertain.
- *
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2, as
- * published by the Free Software Foundation.
+ * it under the terms of the GNU Lesser General Public License version 2.1,
+ * as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: oki_adpcm.c,v 1.22 2006/11/28 16:59:56 steveu Exp $
+ * The actual OKI ADPCM encode and decode method is derived from freely
+ * available code, whose exact origins seem uncertain.
+ *
+ * $Id: oki_adpcm.c,v 1.27 2008/05/13 13:17:23 steveu Exp $
  */
 
 /*! \file */
 
-#ifdef HAVE_CONFIG_H
+#if defined(HAVE_CONFIG_H)
 #include <config.h>
 #endif
 
@@ -275,6 +275,9 @@ int oki_adpcm_decode(oki_adpcm_state_t *s,
     int samples;
     float z;
 
+#if (_MSC_VER >= 1400) 
+    __analysis_assume(s->phase >= 0  &&  s->phase <= 4);
+#endif
     samples = 0;
     if (s->bit_rate == 32000)
     {

@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: fax_tests.c,v 1.76 2007/12/29 05:35:32 steveu Exp $
+ * $Id: fax_tests.c,v 1.91 2008/07/25 13:56:54 steveu Exp $
  */
 
 /*! \page fax_tests_page FAX tests
@@ -30,7 +30,7 @@
 \section fax_tests_page_sec_2 How does it work?
 */
 
-#ifdef HAVE_CONFIG_H
+#if defined(HAVE_CONFIG_H)
 #include "config.h"
 #endif
 
@@ -45,7 +45,7 @@
 
 #define SAMPLES_PER_CHUNK       160
 
-#define INPUT_TIFF_FILE_NAME    "../itutests/fax/itutests.tif"
+#define INPUT_TIFF_FILE_NAME    "../test-data/itu/fax/itutests.tif"
 
 #define OUTPUT_FILE_NAME_WAVE   "fax_tests.wav"
 
@@ -68,24 +68,39 @@ int use_receiver_not_ready = FALSE;
 int test_local_interrupt = FALSE;
 int t30_state_to_wreck = -1;
 
-static void phase_b_handler(t30_state_t *s, void *user_data, int result)
+static int phase_b_handler(t30_state_t *s, void *user_data, int result)
 {
     int i;
+    const char *u;
     
     i = (intptr_t) user_data;
+    if ((u = t30_get_rx_ident(s)))
+        printf("%d: Phase B: remote ident '%s'\n", i, u);
+    if ((u = t30_get_rx_sub_address(s)))
+        printf("%d: Phase B: remote sub-address '%s'\n", i, u);
+    if ((u = t30_get_rx_polled_sub_address(s)))
+        printf("%d: Phase B: remote polled sub-address '%s'\n", i, u);
+    if ((u = t30_get_rx_selective_polling_address(s)))
+        printf("%d: Phase B: remote selective polling address '%s'\n", i, u);
+    if ((u = t30_get_rx_sender_ident(s)))
+        printf("%d: Phase B: remote sender ident '%s'\n", i, u);
+    if ((u = t30_get_rx_password(s)))
+        printf("%d: Phase B: remote password '%s'\n", i, u);
     printf("%d: Phase B handler on channel %d - (0x%X) %s\n", i, i, result, t30_frametype(result));
+    return T30_ERR_OK;
 }
 /*- End of function --------------------------------------------------------*/
 
-static void phase_d_handler(t30_state_t *s, void *user_data, int result)
+static int phase_d_handler(t30_state_t *s, void *user_data, int result)
 {
     int i;
     t30_stats_t t;
-    char ident[21];
+    const char *u;
 
     i = (intptr_t) user_data;
-    printf("%d: Phase D handler on channel %d - (0x%X) %s\n", i, i, result, t30_frametype(result));
     t30_get_transfer_statistics(s, &t);
+
+    printf("%d: Phase D handler on channel %d - (0x%X) %s\n", i, i, result, t30_frametype(result));
     printf("%d: Phase D: bit rate %d\n", i, t.bit_rate);
     printf("%d: Phase D: ECM %s\n", i, (t.error_correcting_mode)  ?  "on"  :  "off");
     printf("%d: Phase D: pages transferred %d\n", i, t.pages_transferred);
@@ -95,12 +110,11 @@ static void phase_d_handler(t30_state_t *s, void *user_data, int result)
     printf("%d: Phase D: bad rows %d\n", i, t.bad_rows);
     printf("%d: Phase D: longest bad row run %d\n", i, t.longest_bad_row_run);
     printf("%d: Phase D: compression type %d\n", i, t.encoding);
-    printf("%d: Phase D: image size %d\n", i, t.image_size);
-    t30_get_local_ident(s, ident);
-    printf("%d: Phase D: local ident '%s'\n", i, ident);
-    t30_get_far_ident(s, ident);
-    printf("%d: Phase D: remote ident '%s'\n", i, ident);
-
+    printf("%d: Phase D: image size %d bytes\n", i, t.image_size);
+    if ((u = t30_get_tx_ident(s)))
+        printf("%d: Phase D: local ident '%s'\n", i, u);
+    if ((u = t30_get_rx_ident(s)))
+        printf("%d: Phase D: remote ident '%s'\n", i, u);
     printf("%d: Phase D: bits per row - min %d, max %d\n", i, s->t4.min_row_bits, s->t4.max_row_bits);
 
     if (use_receiver_not_ready)
@@ -129,6 +143,7 @@ static void phase_d_handler(t30_state_t *s, void *user_data, int result)
             }
         }
     }
+    return T30_ERR_OK;
 }
 /*- End of function --------------------------------------------------------*/
 
@@ -137,7 +152,6 @@ static void phase_e_handler(t30_state_t *s, void *user_data, int result)
     int i;
     t30_stats_t t;
     const char *u;
-    char ident[21];
     
     i = (intptr_t) user_data;
     printf("%d: Phase E handler on channel %d - (%d) %s\n", i, i, result, t30_completion_code_to_str(result));    
@@ -152,18 +166,35 @@ static void phase_e_handler(t30_state_t *s, void *user_data, int result)
     printf("%d: Phase E: longest bad row run %d\n", i, t.longest_bad_row_run);
     printf("%d: Phase E: coding method %s\n", i, t4_encoding_to_str(t.encoding));
     printf("%d: Phase E: image size %d bytes\n", i, t.image_size);
-    t30_get_local_ident(s, ident);
-    printf("%d: Phase E: local ident '%s'\n", i, ident);
-    t30_get_far_ident(s, ident);
-    printf("%d: Phase E: remote ident '%s'\n", i, ident);
-    if ((u = t30_get_far_country(s)))
+    //printf("%d: Phase E: local ident '%s'\n", i, info->ident);
+    if ((u = t30_get_rx_ident(s)))
+        printf("%d: Phase E: remote ident '%s'\n", i, u);
+    if ((u = t30_get_rx_country(s)))
         printf("%d: Phase E: Remote was made in '%s'\n", i, u);
-    if ((u = t30_get_far_vendor(s)))
+    if ((u = t30_get_rx_vendor(s)))
         printf("%d: Phase E: Remote was made by '%s'\n", i, u);
-    if ((u = t30_get_far_model(s)))
+    if ((u = t30_get_rx_model(s)))
         printf("%d: Phase E: Remote is model '%s'\n", i, u);
     machines[i].succeeded = (result == T30_ERR_OK)  &&  (t.pages_transferred == 12);
     machines[i].done = TRUE;
+}
+/*- End of function --------------------------------------------------------*/
+
+static void real_time_frame_handler(t30_state_t *s,
+                                    void *user_data,
+                                    int direction,
+                                    const uint8_t *msg,
+                                    int len)
+{
+    int i;
+    
+    i = (intptr_t) user_data;
+    printf("%d: Real time frame handler on channel %d - %s, %s, length = %d\n",
+           i,
+           i,
+           (direction)  ?  "line->T.30"  : "T.30->line",
+           t30_frametype(msg[2]),
+           len);
 }
 /*- End of function --------------------------------------------------------*/
 
@@ -201,10 +232,12 @@ int main(int argc, char *argv[])
     int polled_mode;
     int reverse_flow;
     int use_page_limits;
+    int supported_modems;
     time_t start_time;
     time_t end_time;
     char *page_header_info;
     int opt;
+    t30_state_t *t30;
 
     log_audio = FALSE;
     input_tiff_file_name = INPUT_TIFF_FILE_NAME;
@@ -218,7 +251,8 @@ int main(int argc, char *argv[])
     use_transmit_on_idle = TRUE;
     use_receiver_not_ready = FALSE;
     use_page_limits = FALSE;
-    while ((opt = getopt(argc, argv, "ehH:i:I:lprRtTw:")) != -1)
+    supported_modems = T30_SUPPORT_V27TER | T30_SUPPORT_V29 | T30_SUPPORT_V17;
+    while ((opt = getopt(argc, argv, "ehH:i:I:lm:prRtTw:")) != -1)
     {
         switch (opt)
         {
@@ -239,6 +273,9 @@ int main(int argc, char *argv[])
             break;
         case 'l':
             log_audio = TRUE;
+            break;
+        case 'm':
+            supported_modems = atoi(optarg);
             break;
         case 'p':
             polled_mode = TRUE;
@@ -310,23 +347,31 @@ int main(int argc, char *argv[])
             fax_init(&mc->fax, (mc->chan & 1)  ?  FALSE  :  TRUE);
         fax_set_transmit_on_idle(&mc->fax, use_transmit_on_idle);
         fax_set_tep_mode(&mc->fax, use_tep);
-        t30_set_local_ident(&mc->fax.t30_state, buf);
-        t30_set_local_sub_address(&mc->fax.t30_state, "1234");
-        t30_set_local_password(&mc->fax.t30_state, "12345678");
-        t30_set_far_password(&mc->fax.t30_state, "12345678");
-        t30_set_header_info(&mc->fax.t30_state, page_header_info);
-        t30_set_local_nsf(&mc->fax.t30_state, (const uint8_t *) "\x50\x00\x00\x00Spandsp\x00", 12);
-        t30_set_ecm_capability(&mc->fax.t30_state, use_ecm);
+        t30 = fax_get_t30_state(&mc->fax);
+        t30_set_tx_ident(t30, buf);
+        t30_set_tx_sub_address(t30, "Sub-address");
+        t30_set_tx_sender_ident(t30, "Sender ID");
+        t30_set_tx_password(t30, "Password");
+        t30_set_tx_polled_sub_address(t30, "Polled sub-address");
+        t30_set_tx_selective_polling_address(t30, "Selective polling address");
+        t30_set_tx_page_header_info(t30, page_header_info);
+        t30_set_tx_nsf(t30, (const uint8_t *) "\x50\x00\x00\x00Spandsp\x00", 12);
+        t30_set_ecm_capability(t30, use_ecm);
+        t30_set_supported_t30_features(t30,
+                                       T30_SUPPORT_IDENTIFICATION
+                                     | T30_SUPPORT_SELECTIVE_POLLING
+                                     | T30_SUPPORT_SUB_ADDRESSING);
+
         if ((mc->chan & 1))
-            mc->fax.t30_state.local_min_scan_time_code = 4;
-        t30_set_supported_image_sizes(&mc->fax.t30_state,
+            t30->local_min_scan_time_code = 4;
+        t30_set_supported_image_sizes(t30,
                                       T30_SUPPORT_US_LETTER_LENGTH
                                     | T30_SUPPORT_US_LEGAL_LENGTH
                                     | T30_SUPPORT_UNLIMITED_LENGTH
                                     | T30_SUPPORT_215MM_WIDTH
                                     | T30_SUPPORT_255MM_WIDTH
                                     | T30_SUPPORT_303MM_WIDTH);
-        t30_set_supported_resolutions(&mc->fax.t30_state,
+        t30_set_supported_resolutions(t30,
                                       T30_SUPPORT_STANDARD_RESOLUTION
                                     | T30_SUPPORT_FINE_RESOLUTION
                                     | T30_SUPPORT_SUPERFINE_RESOLUTION
@@ -339,22 +384,22 @@ int main(int argc, char *argv[])
                                     | T30_SUPPORT_300_600_RESOLUTION
                                     | T30_SUPPORT_400_800_RESOLUTION
                                     | T30_SUPPORT_600_1200_RESOLUTION);
-        //t30_set_supported_modems(&mc->fax.t30_state, T30_SUPPORT_V27TER);
+        t30_set_supported_modems(t30, supported_modems);
         if (use_ecm)
-            t30_set_supported_compressions(&mc->fax.t30_state, T30_SUPPORT_T4_1D_COMPRESSION | T30_SUPPORT_T4_2D_COMPRESSION | T30_SUPPORT_T6_COMPRESSION);
+            t30_set_supported_compressions(t30, T30_SUPPORT_T4_1D_COMPRESSION | T30_SUPPORT_T4_2D_COMPRESSION | T30_SUPPORT_T6_COMPRESSION);
         if ((mc->chan & 1))
         {
             if (polled_mode)
             {
                 if (use_page_limits)
-                    t30_set_tx_file(&mc->fax.t30_state, input_tiff_file_name, 3, 6);
+                    t30_set_tx_file(t30, input_tiff_file_name, 3, 6);
                 else
-                    t30_set_tx_file(&mc->fax.t30_state, input_tiff_file_name, -1, -1);
+                    t30_set_tx_file(t30, input_tiff_file_name, -1, -1);
             }
             else
             {
                 sprintf(buf, "fax_tests_%d.tif", (mc->chan + 1)/2);
-                t30_set_rx_file(&mc->fax.t30_state, buf, -1);
+                t30_set_rx_file(t30, buf, -1);
             }
         }
         else
@@ -362,25 +407,26 @@ int main(int argc, char *argv[])
             if (polled_mode)
             {
                 sprintf(buf, "fax_tests_%d.tif", (mc->chan + 1)/2);
-                t30_set_rx_file(&mc->fax.t30_state, buf, -1);
+                t30_set_rx_file(t30, buf, -1);
             }
             else
             {
                 if (use_page_limits)
-                    t30_set_tx_file(&mc->fax.t30_state, input_tiff_file_name, 3, 6);
+                    t30_set_tx_file(t30, input_tiff_file_name, 3, 6);
                 else
-                    t30_set_tx_file(&mc->fax.t30_state, input_tiff_file_name, -1, -1);
+                    t30_set_tx_file(t30, input_tiff_file_name, -1, -1);
             }
         }
-        t30_set_phase_b_handler(&mc->fax.t30_state, phase_b_handler, (void *) (intptr_t) mc->chan);
-        t30_set_phase_d_handler(&mc->fax.t30_state, phase_d_handler, (void *) (intptr_t) mc->chan);
-        t30_set_phase_e_handler(&mc->fax.t30_state, phase_e_handler, (void *) (intptr_t) mc->chan);
-        t30_set_document_handler(&mc->fax.t30_state, document_handler, (void *) (intptr_t) mc->chan);
+        t30_set_phase_b_handler(t30, phase_b_handler, (void *) (intptr_t) mc->chan);
+        t30_set_phase_d_handler(t30, phase_d_handler, (void *) (intptr_t) mc->chan);
+        t30_set_phase_e_handler(t30, phase_e_handler, (void *) (intptr_t) mc->chan);
+        t30_set_real_time_frame_handler(t30, real_time_frame_handler, (void *) (intptr_t) mc->chan);
+        t30_set_document_handler(t30, document_handler, (void *) (intptr_t) mc->chan);
         sprintf(mc->tag, "FAX-%d", j + 1);
-        span_log_set_level(&mc->fax.t30_state.logging, SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_SHOW_TAG | SPAN_LOG_SHOW_SAMPLE_TIME | SPAN_LOG_FLOW);
-        span_log_set_tag(&mc->fax.t30_state.logging, mc->tag);
-        span_log_set_level(&mc->fax.v29_rx.logging, SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_SHOW_TAG | SPAN_LOG_SHOW_SAMPLE_TIME | SPAN_LOG_FLOW);
-        span_log_set_tag(&mc->fax.v29_rx.logging, mc->tag);
+        span_log_set_level(&t30->logging, SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_SHOW_TAG | SPAN_LOG_SHOW_SAMPLE_TIME | SPAN_LOG_FLOW);
+        span_log_set_tag(&t30->logging, mc->tag);
+        span_log_set_level(&mc->fax.fe.modems.v29_rx.logging, SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_SHOW_TAG | SPAN_LOG_SHOW_SAMPLE_TIME | SPAN_LOG_FLOW);
+        span_log_set_tag(&mc->fax.fe.modems.v29_rx.logging, mc->tag);
         span_log_set_level(&mc->fax.logging, SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_SHOW_TAG | SPAN_LOG_SHOW_SAMPLE_TIME | SPAN_LOG_FLOW);
         span_log_set_tag(&mc->fax.logging, mc->tag);
         memset(mc->amp, 0, sizeof(mc->amp));
@@ -417,8 +463,8 @@ int main(int argc, char *argv[])
                     mc->len = SAMPLES_PER_CHUNK;
                 }
             }
-            span_log_bump_samples(&mc->fax.t30_state.logging, mc->len);
-            span_log_bump_samples(&mc->fax.v29_rx.logging, mc->len);
+            span_log_bump_samples(&mc->fax.t30.logging, mc->len);
+            span_log_bump_samples(&mc->fax.fe.modems.v29_rx.logging, mc->len);
             span_log_bump_samples(&mc->fax.logging, mc->len);
 
             if (log_audio)
@@ -431,7 +477,7 @@ int main(int argc, char *argv[])
             if (use_line_hits)
             {
                 /* TODO: This applies very crude line hits. improve it */
-                if (mc->fax.t30_state.state == 22)
+                if (mc->fax.t30.state == 22)
                 {
                     if (++mc->error_delay == 100)
                     {
@@ -442,7 +488,7 @@ int main(int argc, char *argv[])
                     }
                 }    
             }
-            if (mc->fax.t30_state.state == t30_state_to_wreck)
+            if (mc->fax.t30.state == t30_state_to_wreck)
                 memset(machines[j ^ 1].amp, 0, sizeof(int16_t)*SAMPLES_PER_CHUNK);
             if (fax_rx(&mc->fax, machines[j ^ 1].amp, SAMPLES_PER_CHUNK))
                 break;

@@ -10,19 +10,19 @@
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2, as
- * published by the Free Software Foundation.
+ * it under the terms of the GNU Lesser General Public License version 2.1,
+ * as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: async.h,v 1.12 2007/12/13 11:31:32 steveu Exp $
+ * $Id: async.h,v 1.16 2008/07/17 14:27:11 steveu Exp $
  */
 
 /*! \file */
@@ -79,6 +79,14 @@ enum
     PUTBIT_OCTET_REPORT = -10
 };
 
+enum
+{
+    /*! \brief The data source for a transmitter is exhausted. */
+    MODEM_TX_STATUS_DATA_EXHAUSTED = -1,
+    /*! \brief The transmitter has completed its task, and shut down. */
+    MODEM_TX_STATUS_SHUTDOWN_COMPLETE = -2
+};
+
 /*! Message put function for data pumps */
 typedef void (*put_msg_func_t)(void *user_data, const uint8_t *msg, int len);
 
@@ -96,6 +104,12 @@ typedef void (*put_bit_func_t)(void *user_data, int bit);
 
 /*! Bit get function for data pumps */
 typedef int (*get_bit_func_t)(void *user_data);
+
+/*! Completion callback function for tx data pumps */
+typedef int (*modem_tx_status_func_t)(void *user_data, int status);
+
+/*! Completion callback function for rx data pumps */
+typedef int (*modem_rx_status_func_t)(void *user_data, int status);
 
 enum
 {

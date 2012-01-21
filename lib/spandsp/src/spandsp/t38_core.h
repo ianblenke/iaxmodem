@@ -10,19 +10,19 @@
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2, as
- * published by the Free Software Foundation.
+ * it under the terms of the GNU Lesser General Public License version 2.1,
+ * as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: t38_core.h,v 1.22 2007/12/14 13:41:17 steveu Exp $
+ * $Id: t38_core.h,v 1.28 2008/06/19 13:27:45 steveu Exp $
  */
 
 /*! \file */
@@ -241,10 +241,24 @@ struct t38_core_state_s
     /*! This is the version number of ITU-T Rec. T.38. New versions shall be
         compatible with previous versions. */
     int t38_version;
-    
+
     /*! The fastest data rate supported by the T.38 channel. */
     int fastest_image_data_rate;
-    
+
+    /*! \brief The number of times an indicator packet will be sent. Numbers greater than one
+               will increase reliability for UDP transmission. Zero is valid, to suppress all
+               indicator packets for TCP transmission. */
+    int indicator_tx_count;
+
+    /*! \brief The number of times a data packet which does not end transmission will be sent.
+               Numbers greater than one will increase reliability for UDP transmission. Zero
+               is not valid. */
+    int data_tx_count;
+
+    /*! \brief The number of times a data packet which ends transmission will be sent. Numbers
+               greater than one will increase reliability for UDP transmission. Zero is not valid. */
+    int data_end_tx_count;
+
     /*! TRUE if IFP packet sequence numbers are relevant. For some transports, like TPKT
         over TCP they are not relevent. */
     int check_sequence_numbers;
@@ -262,6 +276,8 @@ struct t38_core_state_s
     int current_rx_field_type;
     /*! The current transmit indicator - i.e. the last indicator transmitted */
     int current_tx_indicator;
+    /*! The bit rate for V.34 operation */
+    int v34_rate;
 
     /*! A count of missing receive packets. This count might not be accurate if the
         received packet numbers jump wildly. */
@@ -278,17 +294,34 @@ extern "C"
 /*! \brief Convert the code for an indicator to a short text name.
     \param indicator The type of indicator.
     \return A pointer to a short text name for the indicator. */
-const char *t38_indicator(int indicator);
+const char *t38_indicator_to_str(int indicator);
 
 /*! \brief Convert the code for a type of data to a short text name.
     \param data_type The data type.
     \return A pointer to a short text name for the data type. */
-const char *t38_data_type(int data_type);
+const char *t38_data_type_to_str(int data_type);
 
 /*! \brief Convert the code for a type of data field to a short text name.
     \param field_type The field type.
     \return A pointer to a short text name for the field type. */
-const char *t38_field_type(int field_type);
+const char *t38_field_type_to_str(int field_type);
+
+/*! \brief Convert the code for a CM profile code to text description.
+    \param profile The profile code from a CM message.
+    \return A pointer to a short text description of the profile. */
+const char *t38_cm_profile_to_str(int profile);
+
+/*! \brief Convert a JM message code to text description.
+    \param data The data field of the message.
+    \param len The length of the data field.
+    \return A pointer to a short text description of the profile. */
+const char *t38_jm_to_str(const uint8_t *data, int len);
+
+/*! \brief Convert a V34rate message to an actual bit rate.
+    \param data The data field of the message.
+    \param len The length of the data field.
+    \return The bit rate, or -1 for a bad message. */
+int t38_v34rate_to_bps(const uint8_t *data, int len);
 
 /*! \brief Send an indicator packet
     \param s The T.38 context.

@@ -139,6 +139,8 @@ static int iax2debug = 0;
 static int dspdebug = 0;
 static int nodaemon = 0;
 static int commalen = 2;
+static int defskew = 0;
+static int skew;
 
 struct modem {
     int pid;
@@ -413,6 +415,12 @@ setconfigline(char *line)
 	nodaemon = 1;
 	printlog(LOG_INFO, "This modem is exempt from daemon use.\n");
     }
+    if (strncasecmp(line, "skew", 4) == 0) {
+	line += 4;
+	while (*line == '\t' || *line == ' ') line++;
+	defskew = atoi(line);
+	printlog(LOG_INFO, "Setting skew = %d\n", defskew);
+    }
 }
 
 void
@@ -477,9 +485,14 @@ at_tx_handler(at_state_t *s, void *user_data, const uint8_t *buf, size_t len)
 static int
 t31_call_control_handler(t31_state_t *s, void *user_data, int op, const char *num)
 {
+    int info = 0;
     switch (op) {
 	case AT_MODEM_CONTROL_CALL:
 	    /* Dialing */
+	    if (modemstate == MODEM_CONNECTED && num[0] == '\0') {	// play CNG for an off-hook call
+		t31_call_event(s, AT_CALL_EVENT_CONNECTED);
+		break;
+	    }
 	    if (modemstate != MODEM_ONHOOK && modemstate != MODEM_OFFHOOK) return -1;
 	    if (!strchr(num, '%')) {
 		session[0] = iax_session_new();
@@ -505,9 +518,14 @@ t31_call_control_handler(t31_state_t *s, void *user_data, int op, const char *nu
 	    } else if (modemstate != MODEM_RINGING) {
 		return -1;
 	    }
+	    info = 1;		// indicator to not play CED
 	    /* pass a ringing modem through... */
 	case AT_MODEM_CONTROL_ANSWER:
 	    /* Answering */
+	    if (modemstate == MODEM_CONNECTED) {	// play CED for an off-hook call
+		t31_call_event(s, AT_CALL_EVENT_ANSWERED);
+		break;
+	    }
 	    if (modemstate != MODEM_RINGING) return -1;
 	    printlog(LOG_INFO, "Answering\n");
 
@@ -518,10 +536,10 @@ t31_call_control_handler(t31_state_t *s, void *user_data, int op, const char *nu
 	    ioctl(aslave, TIOCMSET, &tioflags);
 
 	    iax_answer(session[0]);
-	    t31_call_event(s, AT_CALL_EVENT_ANSWERED);
+	    if (!info) t31_call_event(s, AT_CALL_EVENT_ANSWERED);
 	    modemstate = MODEM_CONNECTED;
 	    gettimeofday(&nextaudio, NULL);
-	    nextaudio.tv_usec += VOIP_PACKET_LENGTH;
+	    nextaudio.tv_usec += (VOIP_PACKET_LENGTH + skew);
 	    if (nextaudio.tv_usec >= 1000000) {
 		nextaudio.tv_sec += 1;
 		nextaudio.tv_usec -= 1000000;
@@ -856,8 +874,8 @@ iaxmodem(const char *config, int nondaemon)
     }
 
     /* Root privileges not needed anymore, drop privs. */
-    seteuid(uucp_uid);
     setegid(uucp_gid);
+    seteuid(uucp_uid);
     
     if ((port = iax_init(port) < 0)) {
 	printlog(LOG_ERROR, "Fatal error: failed to initialize iax with port %d\n", port);
@@ -891,12 +909,13 @@ iaxmodem(const char *config, int nondaemon)
      */
     if (dspdebug) {
 	t31_state.logging.level = SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_FLOW;
-	t31_state.v17_rx.logging.level = SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_FLOW;
-	t31_state.v29_rx.logging.level = SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_FLOW;
-	t31_state.v27ter_rx.logging.level = SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_FLOW;
+	t31_state.audio.modems.v17_rx.logging.level = SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_FLOW;
+	t31_state.audio.modems.v29_rx.logging.level = SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_FLOW;
+	t31_state.audio.modems.v27ter_rx.logging.level = SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_FLOW;
     }
 
-    int selectfd, selectretval, selectblock, avail, audiobalance = 0, skew = 0;
+    int selectfd, selectretval, selectblock, avail, audiobalance = 0;
+    skew = defskew;
     struct timeval tv;
     fd_set select_rfds;
     for (;;) {
@@ -933,7 +952,7 @@ iaxmodem(const char *config, int nondaemon)
 	}
 	if (modemstate == MODEM_CONNECTED) {
 	    tv.tv_sec = 0;
-	    tv.tv_usec = timediff(nextaudio, now) - (window + skew);
+	    tv.tv_usec = timediff(nextaudio, now) - window;
 	} else if (modemstate == MODEM_RINGING) {
 	    tv.tv_sec = 5; tv.tv_usec = 0;	/* ring every 5 seconds */
 	    timeradd(&lastring, &tv, &tv);
@@ -1009,8 +1028,8 @@ iaxmodem(const char *config, int nondaemon)
 	/*
 	 * Is it time to send more audio?  (This comes first for a reason, as it's our priority.)
 	 */
-	if (modemstate == MODEM_CONNECTED && timediff(nextaudio, now) <= (window + skew)) {
-	    nextaudio.tv_usec += VOIP_PACKET_LENGTH;
+	if (modemstate == MODEM_CONNECTED && timediff(nextaudio, now) <= window) {
+	    nextaudio.tv_usec += (VOIP_PACKET_LENGTH + skew);
 	    if (nextaudio.tv_usec >= 1000000) {
 		nextaudio.tv_sec += 1;
 		nextaudio.tv_usec -= 1000000;
@@ -1035,11 +1054,14 @@ iaxmodem(const char *config, int nondaemon)
 		if (audiobalance > 5) {
 		    /*
 		     * We seem to be getting ahead in our audio transmissions, relative
-		     * to the audio receptions.  So we lengthen the time (shorten the window)
-		     * between our transmissions, hoping to improve the ratio.
+		     * to the audio receptions.  So we lengthen the time between transmissions
+		     * (by increasing our perception of VOIP_PACKET_LENGTH), hoping to improve the ratio.
+		     *
+		     * We are deliberately less-sensitive to getting ahead than we are to getting behind
+		     * because having a little bit of buffer in-front of us is better than not.
 		     */
 		    audiobalance = 0;	/* don't try to make up */
-		    skew -= 50;
+		    skew += 10;
 		    printlog(LOG_INFO, "Adjusting skew to %d.\n", skew);
 		}
 		if (codec == AST_FORMAT_SLINEAR) {
@@ -1061,16 +1083,16 @@ iaxmodem(const char *config, int nondaemon)
 	 *
 	 * We don't overfill the buffer...
 	 */
-	avail = DSP_BUFSIZE - t31_state.tx_in_bytes + t31_state.tx_out_bytes - 1;
+	avail = DSP_BUFSIZE - t31_state.tx.in_bytes + t31_state.tx.out_bytes - 1;
 	if (avail < 0) {
 	    avail = 0;
-	    printlog(LOG_INFO, "strange... tx_in_bytes: %d, tx_out_bytes: %d, DSP_BUFSIZE: %d\n", t31_state.tx_in_bytes, t31_state.tx_out_bytes, DSP_BUFSIZE);
+	    printlog(LOG_INFO, "strange... tx.in_bytes: %d, tx.out_bytes: %d, DSP_BUFSIZE: %d\n", t31_state.tx.in_bytes, t31_state.tx.out_bytes, DSP_BUFSIZE);
 	} else if (avail > DSP_BUFSIZE) {
 	    avail = DSP_BUFSIZE;
-	    printlog(LOG_INFO, "strange... tx_in_bytes: %d, tx_out_bytes: %d, DSP_BUFSIZE: %d\n", t31_state.tx_in_bytes, t31_state.tx_out_bytes, DSP_BUFSIZE);
+	    printlog(LOG_INFO, "strange... tx.in_bytes: %d, tx.out_bytes: %d, DSP_BUFSIZE: %d\n", t31_state.tx.in_bytes, t31_state.tx.out_bytes, DSP_BUFSIZE);
 	}
 	if ((modemstate != MODEM_CONNECTED && selectretval && FD_ISSET(amaster, &select_rfds)) ||
-	    (modemstate == MODEM_CONNECTED && !t31_state.tx_holding && avail)) {
+	    (modemstate == MODEM_CONNECTED && !t31_state.tx.holding && avail)) {
 	    ssize_t len;
 	    do {
 		len = read(amaster, modembuf, avail);
@@ -1164,14 +1186,14 @@ iaxmodem(const char *config, int nondaemon)
 			printlog(LOG_INFO, "Remote answered.\n");
 			t31_call_event(&t31_state, AT_CALL_EVENT_CONNECTED);
 			gettimeofday(&nextaudio, NULL);
-			nextaudio.tv_usec += VOIP_PACKET_LENGTH;
+			nextaudio.tv_usec += (VOIP_PACKET_LENGTH + skew);
 			if (nextaudio.tv_usec >= 1000000) {
 			    nextaudio.tv_sec += 1;
 			    nextaudio.tv_usec -= 1000000;
 			}
 			modemstate = MODEM_CONNECTED;
 			audiobalance = 0;
-			skew = 0;
+			skew = defskew;
 			if (record) {
 			    if (dspaudiofd > 0) {
 				close(dspaudiofd);
@@ -1219,7 +1241,7 @@ iaxmodem(const char *config, int nondaemon)
 			    }
 			}
 			audiobalance = 0;
-			skew = 0;
+			skew = defskew;
 			last_ts = 0;
 			phonestate = PHONE_CONNECTED;
 			modemstate = MODEM_RINGING;
@@ -1329,14 +1351,17 @@ iaxmodem(const char *config, int nondaemon)
 
 			if (modemstate == MODEM_CONNECTED) {
 			    audiobalance--;
-			    if (audiobalance < -5) {
+			    if (audiobalance < -1) {
 				/*
 				 * We seem to be getting behind in our audio transmissions, relative
-				 * to the audio receptions.  So we increase the window for our 
-				 * transmissions, hoping to improve the ratio.
+				 * to the audio receptions.  So we decrease our perception of VOIP_PACKET_LENGTH,
+				 * hoping to improve the ratio.
+				 *
+				 * We are deliberately very sensitive to getting behind because in many cases
+				 * this will result in missing audio (possibly an unintended carrier drop).
 				 */
 				audiobalance = 0;	/* don't try to make up */
-				skew += 50;
+				skew -= 10;
 				printlog(LOG_INFO, "Adjusting skew to %d.\n", skew);
 			    }
 			}
@@ -1375,7 +1400,7 @@ iaxmodem(const char *config, int nondaemon)
 		    case IAX_EVENT_TRANSFER:
 			last_ts = 0;
 			audiobalance = 0;
-			skew = 0;
+			skew = defskew;
 			printlog(LOG_INFO, "Call transfer occurred.\n");
 			session[0] = iaxevent->session;
 			break;

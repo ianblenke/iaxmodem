@@ -10,26 +10,26 @@
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2, as
- * published by the Free Software Foundation.
+ * it under the terms of the GNU Lesser General Public License version 2.1,
+ * as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * This code is based on the U.S. Department of Defense reference
  * implementation of the LPC-10 2400 bps Voice Coder. They do not
  * exert copyright claims on their code, and it may be freely used.
  *
- * $Id: lpc10_voicing.c,v 1.7 2006/11/30 15:41:47 steveu Exp $
+ * $Id: lpc10_voicing.c,v 1.14 2008/07/02 14:48:25 steveu Exp $
  */
 
-#ifdef HAVE_CONFIG_H
+#if defined(HAVE_CONFIG_H)
 #include <config.h>
 #endif
 
@@ -37,6 +37,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include <memory.h>
+#include "floating_fudge.h"
 #if defined(HAVE_TGMATH_H)
 #include <tgmath.h>
 #endif
@@ -51,19 +52,19 @@
 #include "lpc10_encdecs.h"
 
 static void vparms(int32_t vwin[],
-                    float *inbuf,
-                    float *lpbuf,
-                    const int32_t buflim[],
-                    int32_t half,
-                    float *dither,
-                    int32_t *mintau,
-                    int32_t *zc, 
-                    int32_t *lbe,
-                    int32_t *fbe,
-                    float *qs,
-                    float *rc1,
-                    float *ar_b,
-                    float *ar_f)
+                   float *inbuf,
+                   float *lpbuf,
+                   const int32_t buflim[],
+                   int32_t half,
+                   float *dither,
+                   int32_t *mintau,
+                   int32_t *zc, 
+                   int32_t *lbe,
+                   int32_t *fbe,
+                   float *qs,
+                   float *rc1,
+                   float *ar_b,
+                   float *ar_f)
 {
     int32_t inbuf_offset;
     int32_t lpbuf_offset;
@@ -250,6 +251,9 @@ void lpc10_voicing(lpc10_encode_state_t *s,
     int32_t lbe;
     float snr2;
 
+#if (_MSC_VER >= 1400) 
+    __analysis_assume(half >= 0  &&  half < 2);
+#endif
     inbuf_offset = 0;
     lpbuf_offset = 0;
     if (inbuf)
