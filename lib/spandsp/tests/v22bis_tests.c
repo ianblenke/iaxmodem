@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: v22bis_tests.c,v 1.39 2007/04/03 12:59:33 steveu Exp $
+ * $Id: v22bis_tests.c,v 1.44 2007/12/29 04:16:29 steveu Exp $
  */
 
 /*! \page v22bis_tests_page V.22bis modem tests
@@ -45,20 +45,12 @@ display of modem status is maintained.
 #define ENABLE_GUI
 #endif
 
-#include <inttypes.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <fcntl.h>
+#include <unistd.h>
 #include <string.h>
-#if defined(HAVE_TGMATH_H)
-#include <tgmath.h>
-#endif
-#if defined(HAVE_MATH_H)
-#include <math.h>
-#endif
-#include <assert.h>
 #include <audiofile.h>
-#include <tiffio.h>
 
 #include "spandsp.h"
 #include "spandsp-sim.h"
@@ -198,8 +190,16 @@ static void qam_report(void *user_data, const complexf_t *constel, const complex
 #endif
         fpower = (constel->re - target->re)*(constel->re - target->re)
                + (constel->im - target->im)*(constel->im - target->im);
-        s->smooth_power = 0.95*s->smooth_power + 0.05*fpower;
-        printf("%8d [%8.4f, %8.4f] [%8.4f, %8.4f] %8.4f %8.4f\n", s->symbol_no, constel->re, constel->im, target->re, target->im, fpower, s->smooth_power);
+        s->smooth_power = 0.95f*s->smooth_power + 0.05f*fpower;
+        printf("%8d [%8.4f, %8.4f] [%8.4f, %8.4f] %2x %8.4f %8.4f\n",
+               s->symbol_no,
+               constel->re,
+               constel->im,
+               target->re,
+               target->im,
+               symbol,
+               fpower,
+               s->smooth_power);
         s->symbol_no++;
     }
     else
@@ -236,6 +236,7 @@ int main(int argc, char *argv[])
     int signal_level;
     int log_audio;
     int channel_codec;
+    int opt;
     
     channel_codec = MUNGE_CODEC_NONE;
     test_bps = 2400;
@@ -244,46 +245,49 @@ int main(int argc, char *argv[])
     signal_level = -13;
     bits_per_test = 50000;
     log_audio = FALSE;
-    for (i = 1;  i < argc;  i++)
+    while ((opt = getopt(argc, argv, "b:c:glm:n:s:")) != -1)
     {
-        if (strcmp(argv[i], "-b") == 0)
+        switch (opt)
         {
-            bits_per_test = atoi(argv[++i]);
-            continue;
-        }
-        if (strcmp(argv[i], "-c") == 0)
-        {
-            channel_codec = atoi(argv[++i]);
-            continue;
-        }
-        if (strcmp(argv[i], "-g") == 0)
-        {
+        case 'b':
+            bits_per_test = atoi(optarg);
+            break;
+        case 'c':
+            channel_codec = atoi(optarg);
+            break;
+        case 'g':
+#if defined(ENABLE_GUI)
             use_gui = TRUE;
-            continue;
-        }
-        if (strcmp(argv[i], "-m") == 0)
-        {
+#else
+            fprintf(stderr, "Graphical monitoring not available\n");
+            exit(2);
+#endif
+            break;
+        case 'l':
             log_audio = TRUE;
-            continue;
+            break;
+        case 'm':
+            line_model_no = atoi(optarg);
+            break;
+        case 'n':
+            noise_level = atoi(optarg);
+            break;
+        case 's':
+            signal_level = atoi(optarg);
+            break;
+        default:
+            //usage();
+            exit(2);
+            break;
         }
-        if (strcmp(argv[i], "-m") == 0)
-        {
-            line_model_no = atoi(argv[++i]);
-            continue;
-        }
-        if (strcmp(argv[i], "-n") == 0)
-        {
-            noise_level = atoi(argv[++i]);
-            continue;
-        }
-        if (strcmp(argv[i], "-s") == 0)
-        {
-            signal_level = atoi(argv[++i]);
-            continue;
-        }
-        if (strcmp(argv[i], "2400") == 0)
+    }
+    argc -= optind;
+    argv += optind;
+    if (argc > 0)
+    {
+        if (strcmp(argv[0], "2400") == 0)
             test_bps = 2400;
-        else if (strcmp(argv[i], "1200") == 0)
+        else if (strcmp(argv[0], "1200") == 0)
             test_bps = 1200;
         else
         {
@@ -314,10 +318,10 @@ int main(int argc, char *argv[])
     v22bis_init(&caller, test_bps, 2, TRUE, v22bis_getbit, v22bis_putbit, &caller);
     v22bis_tx_power(&caller, signal_level);
     /* Move the carrier off a bit */
-    caller.tx_carrier_phase_rate = dds_phase_ratef(1207.0);
+    caller.tx_carrier_phase_rate = dds_phase_ratef(1207.0f);
     v22bis_init(&answerer, test_bps, 2, FALSE, v22bis_getbit, v22bis_putbit, &answerer);
     v22bis_tx_power(&answerer, signal_level);
-    answerer.tx_carrier_phase_rate = dds_phase_ratef(2407.0);
+    answerer.tx_carrier_phase_rate = dds_phase_ratef(2407.0f);
     v22bis_rx_set_qam_report_handler(&caller, qam_report, (void *) &qam_caller);
     v22bis_rx_set_qam_report_handler(&answerer, qam_report, (void *) &qam_answerer);
     span_log_set_level(&caller.logging, SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_SHOW_TAG | SPAN_LOG_FLOW);
@@ -326,18 +330,18 @@ int main(int argc, char *argv[])
     span_log_set_tag(&answerer.logging, "answerer");
 
     qam_caller.s = &caller;
-    qam_caller.smooth_power = 0.0;
+    qam_caller.smooth_power = 0.0f;
     qam_caller.symbol_no = 0;
 
     qam_answerer.s = &answerer;
-    qam_answerer.smooth_power = 0.0;
+    qam_answerer.smooth_power = 0.0f;
     qam_answerer.symbol_no = 0;
 
 #if defined(ENABLE_GUI)
     if (use_gui)
     {
-        qam_caller.qam_monitor = qam_monitor_init(6.0, "Calling modem");
-        qam_answerer.qam_monitor = qam_monitor_init(6.0, "Answering modem");
+        qam_caller.qam_monitor = qam_monitor_init(6.0f, "Calling modem");
+        qam_answerer.qam_monitor = qam_monitor_init(6.0f, "Answering modem");
     }
 #endif
 

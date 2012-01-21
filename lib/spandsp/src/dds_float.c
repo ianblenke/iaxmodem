@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: dds_float.c,v 1.1 2007/05/12 12:25:38 steveu Exp $
+ * $Id: dds_float.c,v 1.4 2008/01/06 13:17:10 steveu Exp $
  */
 
 /*! \file */
@@ -2115,13 +2115,19 @@ float dds_frequencyf(int32_t phase_rate)
 
 float dds_scaling_dbm0f(float level)
 {
-    return powf(10.0f, (level - DBM0_MAX_POWER)/20.0f)*(32767.0f*1.414214f);
+    return powf(10.0f, (level - DBM0_MAX_SINE_POWER)/20.0f)*32767.0f;
 }
 /*- End of function --------------------------------------------------------*/
 
 float dds_scaling_dbovf(float level)
 {
-    return powf(10.0f, (level + 3.02f)/20.0f)*(32767.0f*1.414214f);
+    return powf(10.0f, (level - DBOV_MAX_SINE_POWER)/20.0f)*32767.0f;
+}
+/*- End of function --------------------------------------------------------*/
+
+void dds_advancef(uint32_t *phase_acc, int32_t phase_rate)
+{
+    *phase_acc += phase_rate;
 }
 /*- End of function --------------------------------------------------------*/
 
@@ -2132,6 +2138,12 @@ float ddsf(uint32_t *phase_acc, int32_t phase_rate)
     amp = sine_table[*phase_acc >> (32 - SLENK)];
     *phase_acc += phase_rate;
     return amp;
+}
+/*- End of function --------------------------------------------------------*/
+
+float dds_lookupf(uint32_t phase)
+{
+    return sine_table[phase >> (32 - SLENK)];
 }
 /*- End of function --------------------------------------------------------*/
 
@@ -2153,6 +2165,13 @@ complexf_t dds_complexf(uint32_t *phase_acc, int32_t phase_rate)
                        sine_table[*phase_acc >> (32 - SLENK)]);
     *phase_acc += phase_rate;
     return amp;
+}
+/*- End of function --------------------------------------------------------*/
+
+complexf_t dds_lookup_complexf(uint32_t phase)
+{
+    return complex_setf(sine_table[(phase + (1 << 30)) >> (32 - SLENK)],
+                        sine_table[phase >> (32 - SLENK)]);
 }
 /*- End of function --------------------------------------------------------*/
 

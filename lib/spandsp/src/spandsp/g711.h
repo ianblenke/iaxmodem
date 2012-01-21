@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: g711.h,v 1.6 2007/04/08 08:16:17 steveu Exp $
+ * $Id: g711.h,v 1.8 2007/12/13 11:31:32 steveu Exp $
  */
 
 /*! \file */
@@ -108,15 +108,15 @@ static __inline__ uint8_t linear_to_ulaw(int linear)
     int seg;
 
     /* Get the sign and the magnitude of the value. */
-    if (linear < 0)
-    {
-        linear = ULAW_BIAS - linear;
-        mask = 0x7F;
-    }
-    else
+    if (linear >= 0)
     {
         linear = ULAW_BIAS + linear;
         mask = 0xFF;
+    }
+    else
+    {
+        linear = ULAW_BIAS - linear;
+        mask = 0x7F;
     }
 
     seg = top_bit(linear | 0xFF) - 7;
@@ -195,7 +195,7 @@ static __inline__ uint8_t linear_to_alaw(int linear)
     {
         /* Sign (bit 7) bit = 0 */
         mask = ALAW_AMI_MASK;
-        linear = -linear - 8;
+        linear = -linear - 1;
     }
 
     /* Convert the scaled magnitude to segment number. */
@@ -242,7 +242,7 @@ static __inline__ int16_t alaw_to_linear(uint8_t alaw)
 uint8_t alaw_to_ulaw(uint8_t alaw);
 
 /*! \brief Transcode from u-law to A-law, using the procedure defined in G.711.
-    \param alaw The u-law sample to transcode.
+    \param ulaw The u-law sample to transcode.
     \return The best matching A-law value.
 */
 uint8_t ulaw_to_alaw(uint8_t ulaw);

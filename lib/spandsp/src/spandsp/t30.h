@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: t30.h,v 1.77 2007/08/02 13:55:48 steveu Exp $
+ * $Id: t30.h,v 1.91 2007/12/14 13:41:17 steveu Exp $
  */
 
 /*! \file */
@@ -130,6 +130,7 @@ There are many other commonly encountered variations between machines, including
 #define T30_MAX_DIS_DTC_DCS_LEN     22
 #define T30_MAX_IDENT_LEN           21
 #define T30_MAX_LOCAL_NSF_LEN       100
+#define T30_MAX_PAGE_HEADER_INFO    51
 
 typedef struct t30_state_s t30_state_t;
 
@@ -373,11 +374,15 @@ struct t30_state_s
 {
     /* This must be kept the first thing in the structure, so it can be pointed
        to reliably as the structures change over time. */
+    /*! \brief T.4 context for reading or writing image data. */
     t4_state_t t4;
 
-    /*! \brief TRUE is behaving as the calling party */
+    /*! \brief TRUE if behaving as the calling party */
     int calling_party;
-
+    
+    /*! \brief The received DCS, formatted as an ASCII string, for inclusion
+               in the TIFF file. */
+    char rx_dcs_string[T30_MAX_DIS_DTC_DCS_LEN*3 + 1];
     /*! \brief The local identifier string. */
     char local_ident[T30_MAX_IDENT_LEN];
     /*! \brief The identifier string supplied by the remote FAX machine. */
@@ -396,14 +401,16 @@ struct t30_state_s
     char far_password[T30_MAX_IDENT_LEN];
     /*! \brief The text which will be used in FAX page header. No text results
                in no header line. */
-    char header_info[50 + 1];
+    char header_info[T30_MAX_PAGE_HEADER_INFO];
     /*! \brief The country of origin of the remote machine, if known, else NULL. */
     const char *country;
     /*! \brief The vendor of the remote machine, if known, else NULL. */
     const char *vendor;
     /*! \brief The model of the remote machine, if known, else NULL. */
     const char *model;
+    /*! \brief An NSF frame to be sent to the far end. */
     uint8_t local_nsf[T30_MAX_LOCAL_NSF_LEN];
+    /*! \brief The length of the NSF frame to be sent to the far end. */
     int local_nsf_len;
 
     /*! \brief A pointer to a callback routine to be called when phase B events
@@ -428,27 +435,48 @@ struct t30_state_s
     /*! \brief An opaque pointer supplied in document callbacks. */
     void *document_user_data;
 
+    /*! \brief The handler for changes to the receive mode */
     t30_set_handler_t *set_rx_type_handler;
+    /*! \brief An opaque pointer passed to the handler for changes to the receive mode */
     void *set_rx_type_user_data;
+    /*! \brief The handler for changes to the transmit mode */
     t30_set_handler_t *set_tx_type_handler;
+    /*! \brief An opaque pointer passed to the handler for changes to the transmit mode */
     void *set_tx_type_user_data;
 
+    /*! \brief The transmitted HDLC frame handler. */
     t30_send_hdlc_handler_t *send_hdlc_handler;
+    /*! \brief An opaque pointer passed to the transmitted HDLC frame handler. */
     void *send_hdlc_user_data;
-   
+
+    /*! \brief The DIS code for the minimum scan row time we require. This is usually 0ms,
+        but if we are trying to simulate another type of FAX machine, we may need a non-zero
+        value here. */
+    uint8_t local_min_scan_time_code;
+
+    /*! \brief The current T.30 phase. */
     int phase;
+    /*! \brief The T.30 phase to change to when the current phase ends. */
     int next_phase;
+    /*! \brief The current state of the T.30 state machine. */
     int state;
+    /*! \brief The step in sending a sequence of HDLC frames. */
     int step;
 
+    /*! \brief The preparation buffer for the DCS message to be transmitted. */
     uint8_t dcs_frame[T30_MAX_DIS_DTC_DCS_LEN];
+    /*! \brief The length of the DCS message to be transmitted. */
     int dcs_len;
-    uint8_t dis_dtc_frame[T30_MAX_DIS_DTC_DCS_LEN];
-    int dis_dtc_len;
+    /*! \brief The preparation buffer for DIS or DTC message to be transmitted. */
+    uint8_t local_dis_dtc_frame[T30_MAX_DIS_DTC_DCS_LEN];
+    /*! \brief The length of the DIS or DTC message to be transmitted. */
+    int local_dis_dtc_len;
+    /*! \brief The last DIS or DTC message received form the far end. */
+    uint8_t far_dis_dtc_frame[T30_MAX_DIS_DTC_DCS_LEN];
+    /*! \brief The length of the last DIS or DTC message received form the far end. */
+    int far_dis_dtc_len;
     /*! \brief TRUE if a valid DIS has been received from the far end. */
     int dis_received;
-    /*! \brief TRUE if a valid passwrod has been received from the far end. */
-    int far_password_ok;
 
     /*! \brief A flag to indicate a message is in progress. */
     int in_message;
@@ -458,7 +486,9 @@ struct t30_state_s
 
     /*! \brief A count of the number of bits in the trainability test. */
     int training_test_bits;
+    /*! \brief The current count of consecutive zero bits, during the trainability test. */
     int training_current_zeros;
+    /*! \brief The maximum consecutive zero bits seen to date, during the trainability test. */
     int training_most_zeros;
 
     /*! \brief The current fallback step for the fast message transfer modem. */
@@ -493,56 +523,96 @@ struct t30_state_s
     /*! \brief This is only used in full duplex (e.g. ISDN) modes. */
     int timer_t8;
 
+    /*! \brief TRUE once the far end FAX entity has been detected. */
     int far_end_detected;
 
+    /*! \brief TRUE if a local T.30 interrupt is pending. */
     int local_interrupt_pending;
-    int crp_enabled;
+    /*! \brief The image coding being used on the line. */
     int line_encoding;
+    /*! \brief The image coding being used for output files. */
+    int output_encoding;
+    /*! \brief The current DCS message minimum scan time code. */
     uint8_t min_scan_time_code;
+    /*! \brief The X direction resolution of the current image, in pixels per metre. */
     int x_resolution;
+    /*! \brief The Y direction resolution of the current image, in pixels per metre. */
     int y_resolution;
-    int image_width;
+    /*! \brief The width of the current image, in pixels. */
+    t4_image_width_t image_width;
+    /*! \brief Current number of retries of the action in progress. */
     int retries;
     /*! \brief TRUE if error correcting mode is used. */
     int error_correcting_mode;
+    /*! \brief The current count of consecutive T30_PPR messages. */
     int ppr_count;
+    /*! \brief The current count of consecutive T30_RNR messages. */
     int receiver_not_ready_count;
+    /*! \brief The number of octets to be used per ECM frame. */
     int octets_per_ecm_frame;
+    /*! \brief The ECM partial page buffer. */
     uint8_t ecm_data[256][260];
+    /*! \brief The lengths of the frames in the ECM partial page buffer. */
     int16_t ecm_len[256];
+    /*! \brief A bit map of the OK ECM frames, constructed as a PPR frame. */
     uint8_t ecm_frame_map[3 + 32];
     
-    /*! \brief The current page number in ECM mode */
+    /*! \brief The current page number, in ECM mode */
     int ecm_page;
-
-    /*! \brief The current block number in ECM mode */
+    /*! \brief The current block number, in ECM mode */
     int ecm_block;
-    
-    /*! \brief The number of frames in the current block number in ECM mode */
+    /*! \brief The number of frames in the current block number, in ECM mode */
     int ecm_frames;
-
-    /*! \brief The number of frames in the current burst of image transmission in ECM mode */
-    int ecm_frames_this_burst;
-    int ecm_current_frame;
+    /*! \brief The number of frames sent in the current burst of image transmission, in ECM mode */
+    int ecm_frames_this_tx_burst;
+    /*! \brief The current ECM frame, during ECM transmission. */
+    int ecm_current_tx_frame;
+    /*! \brief TRUE if we are at the end of an ECM page to se sent - i.e. there are no more
+        partial pages still to come. */
     int ecm_at_page_end;
     int next_tx_step;
     int next_rx_step;
+    /*! \brief Image file name for image reception. */
     char rx_file[256];
+    /*! \brief The last page we are prepared accept for a received image file. -1 means no restriction. */
     int rx_stop_page;
+    /*! \brief Image file name to be sent. */
     char tx_file[256];
+    /*! \brief The first page to be sent from the image file. -1 means no restriction. */
     int tx_start_page;
+    /*! \brief The last page to be sent from the image file. -1 means no restriction. */
     int tx_stop_page;
     int current_status;
+    /*! \brief Internet Aware FAX mode bit mask. */
     int iaf;
+    /*! \brief A bit mask of the currently supported modem types. */
     int supported_modems;
+    /*! \brief A bit mask of the currently supported image compression modes. */
     int supported_compressions;
+    /*! \brief A bit mask of the currently supported image resolutions. */
     int supported_resolutions;
+    /*! \brief A bit mask of the currently supported image sizes. */
     int supported_image_sizes;
+    /*! \brief A bit mask of the currently supported polling features. */
     int supported_polling_features;
+    /*! \brief TRUE is T30_FNV message handling is enabled. */
+    int support_fnv;
+    /*! \brief TRUE is T30_CRP message handling is enabled. */
+    int crp_enabled;
+    /*! \brief TRUE is ECM mode handling is enabled. */
     int ecm_allowed;
     
+    /*! \brief the FCF2 field of the last PPS message we received. */
     int last_pps_fcf2;
+    /*! \brief The number of the first ECM frame which we do not currently received correctly. For
+        a partial page received correctly, this will be one greater than the number of frames it
+        contains. */
     int ecm_first_bad_frame;
+
+    /*! \brief A password received from the far end. */
+    char received_password[T30_MAX_IDENT_LEN];
+    /*! \brief TRUE if the far end requires that we send a password. */
+    int password_required;
 
     /*! \brief Error and flow logging control */
     logging_state_t logging;
@@ -588,45 +658,39 @@ extern "C"
     \param s The T.30 context.
     \param calling_party TRUE if the context is for a calling party. FALSE if the
            context is for an answering party.
-    \return 0 for OK, else -1. */
-int t30_init(t30_state_t *s,
-             int calling_party,
-             t30_set_handler_t *set_rx_type_handler,
-             void *set_rx_type_user_data,
-             t30_set_handler_t *set_tx_type_handler,
-             void *set_tx_type_user_data,
-             t30_send_hdlc_handler_t *send_hdlc_handler,
-             void *send_hdlc_user_data);
+    \param set_rx_type_handler
+    \param set_rx_type_user_data
+    \param set_tx_type_handler
+    \param set_tx_type_user_data
+    \param send_hdlc_handler
+    \param send_hdlc_user_data
+    \return A pointer to the context, or NULL if there was a problem. */
+t30_state_t *t30_init(t30_state_t *s,
+                      int calling_party,
+                      t30_set_handler_t *set_rx_type_handler,
+                      void *set_rx_type_user_data,
+                      t30_set_handler_t *set_tx_type_handler,
+                      void *set_tx_type_user_data,
+                      t30_send_hdlc_handler_t *send_hdlc_handler,
+                      void *send_hdlc_user_data);
 
 /*! Release a T.30 context.
     \brief Release a T.30 context.
-    \param s The T.30 context. */
-void t30_release(t30_state_t *s);
+    \param s The T.30 context.
+    \return 0 for OK, else -1. */
+int t30_release(t30_state_t *s);
+
+/*! Free a T.30 context.
+    \brief Free a T.30 context.
+    \param s The T.30 context.
+    \return 0 for OK, else -1. */
+int t30_free(t30_state_t *s);
 
 /*! Restart a T.30 context.
     \brief Restart a T.30 context.
     \param s The T.30 context.
     \return 0 for OK, else -1. */
 int t30_restart(t30_state_t *s);
-
-/*! Create and initialise a T.30 context.
-    \brief Create and initialise a T.30 context.
-    \param calling_party TRUE if the context is for a calling party. FALSE if the
-           context is for an answering party.
-    \return A pointer to the FAX context, or NULL if one could not be created.
-*/
-t30_state_t *t30_create(int calling_party,
-                        t30_set_handler_t *set_rx_type_handler,
-                        void *set_rx_type_user_data,
-                        t30_set_handler_t *set_tx_type_handler,
-                        void *set_tx_type_user_data,
-                        t30_send_hdlc_handler_t *send_hdlc_handler,
-                        void *send_hdlc_user_data);
-
-/*! Free a T.30 context.
-    \brief Free a T.30 context.
-    \param s The T.30 context. */
-void t30_free(t30_state_t *s);
 
 /*! Cleanup a T.30 context if the call terminates.
     \brief Cleanup a T.30 context if the call terminates.
@@ -659,6 +723,13 @@ const char *t30_completion_code_to_str(int result);
     \param iaf TRUE for IAF, or FALSE for non-IAF. */
 void t30_set_iaf_mode(t30_state_t *s, int iaf);
 
+/*! Set the header information associated with a T.30 context.
+    \brief Set the header information associated with a T.30 context.
+    \param s The T.30 context.
+    \param info A pointer to the information string.
+    \return 0 for OK, else -1. */
+int t30_set_header_info(t30_state_t *s, const char *info);
+
 /*! Set the sub-address associated with a T.30 context.
     \brief Set the sub-address associated with a T.30 context.
     \param s The T.30 context.
@@ -666,12 +737,21 @@ void t30_set_iaf_mode(t30_state_t *s, int iaf);
     \return 0 for OK, else -1. */
 int t30_set_local_sub_address(t30_state_t *s, const char *sub_address);
 
-/*! Set the header information associated with a T.30 context.
-    \brief Set the header information associated with a T.30 context.
+/*! Set the local password (i.e. the one we expect to be given by the far
+    end) associated with a T.30 context.
+    \brief Set the local password associated with a T.30 context.
     \param s The T.30 context.
-    \param info A pointer to the information string.
+    \param password A pointer to the password.
     \return 0 for OK, else -1. */
-int t30_set_header_info(t30_state_t *s, const char *info);
+int t30_set_local_password(t30_state_t *s, const char *password);
+
+/*! Set the far password (i.e. the one we will send to the far
+    end) associated with a T.30 context.
+    \brief Set the far password associated with a T.30 context.
+    \param s The T.30 context.
+    \param password A pointer to the password.
+    \return 0 for OK, else -1. */
+int t30_set_far_password(t30_state_t *s, const char *password);
 
 /*! Set the local identifier associated with a T.30 context.
     \brief Set the local identifier associated with a T.30 context.
@@ -680,23 +760,61 @@ int t30_set_header_info(t30_state_t *s, const char *info);
     \return 0 for OK, else -1. */
 int t30_set_local_ident(t30_state_t *s, const char *id);
 
-int t30_set_local_nsf(t30_state_t *s, const uint8_t *nsf, int len);
-
-/*! Get the sub-address associated with a T.30 context.
-    \brief Get the sub-address associated with a T.30 context.
+/*! Set an NSF frame to be associated with a T.30 context.
+    \brief Set an NSF frame to be associated with a T.30 context.
     \param s The T.30 context.
-    \param sub_address A pointer to a buffer for the sub-address.  The buffer
-           should be at least 21 bytes long.
-    \return the length of the string. */
-size_t t30_get_sub_address(t30_state_t *s, char *sub_address);
+    \param nsf A pointer to the frame.
+    \param len The length of the frame.
+    \return 0 for OK, else -1. */
+int t30_set_local_nsf(t30_state_t *s, const uint8_t *nsf, int len);
 
 /*! Get the header information associated with a T.30 context.
     \brief Get the header information associated with a T.30 context.
     \param s The T.30 context.
-    \param sub_address A pointer to a buffer for the header information.  The buffer
+    \param info A pointer to a buffer for the header information.  The buffer
            should be at least 51 bytes long.
     \return the length of the string. */
 size_t t30_get_header_info(t30_state_t *s, char *info);
+
+/*! Get the local sub-address associated with a T.30 context.
+    \brief Get the local sub-address associated with a T.30 context.
+    \param s The T.30 context.
+    \param sub_address A pointer to a buffer for the sub-address.  The buffer
+           should be at least 21 bytes long.
+    \return the length of the string. */
+size_t t30_get_local_sub_address(t30_state_t *s, char *sub_address);
+
+/*! Get the far sub-address associated with a T.30 context.
+    \brief Get the far sub-address associated with a T.30 context.
+    \param s The T.30 context.
+    \param sub_address A pointer to a buffer for the sub-address.  The buffer
+           should be at least 21 bytes long.
+    \return the length of the string. */
+size_t t30_get_far_sub_address(t30_state_t *s, char *sub_address);
+
+/*! Get the local password associated with a T.30 context.
+    \brief Get the local password associated with a T.30 context.
+    \param s The T.30 context.
+    \param password A pointer to a buffer for the password.  The buffer
+           should be at least 21 bytes long.
+    \return the length of the string. */
+size_t t30_get_local_password(t30_state_t *s, char *password);
+
+/*! Get the far password associated with a T.30 context.
+    \brief Get the far password associated with a T.30 context.
+    \param s The T.30 context.
+    \param password A pointer to a buffer for the password.  The buffer
+           should be at least 21 bytes long.
+    \return the length of the string. */
+size_t t30_get_far_password(t30_state_t *s, char *password);
+
+/*! Get the received password associated with a T.30 context.
+    \brief Get the received password associated with a T.30 context.
+    \param s The T.30 context.
+    \param password A pointer to a buffer for the password.  The buffer
+           should be at least 21 bytes long.
+    \return the length of the string. */
+size_t t30_get_received_password(t30_state_t *s, char *password);
 
 /*! Get the local FAX machine identifier associated with a T.30 context.
     \brief Get the local identifier associated with a T.30 context.
@@ -786,38 +904,54 @@ void t30_set_tx_file(t30_state_t *s, const char *file, int start_page, int stop_
 /*! Specify which modem types are supported by a T.30 context.
     \brief Specify supported modems.
     \param s The T.30 context.
-    \param supported_modems Bit field list of the supported modems. */
-void t30_set_supported_modems(t30_state_t *s, int supported_modems);
+    \param supported_modems Bit field list of the supported modems.
+    \return 0 if OK, else -1. */
+int t30_set_supported_modems(t30_state_t *s, int supported_modems);
 
 /*! Specify a period of responding with receiver not ready.
     \brief Specify a period of responding with receiver not ready.
     \param s The T.30 context.
-    \param count The number of times to report receiver not ready. */
-void t30_set_receiver_not_ready(t30_state_t *s, int count);
+    \param count The number of times to report receiver not ready.
+    \return 0 if OK, else -1. */
+int t30_set_receiver_not_ready(t30_state_t *s, int count);
 
 /*! Specify which compression types are supported by a T.30 context.
     \brief Specify supported compression types.
     \param s The T.30 context.
-    \param supported_compressions Bit field list of the supported compression types. */
-void t30_set_supported_compressions(t30_state_t *s, int supported_compressions);
+    \param supported_compressions Bit field list of the supported compression types.
+    \return 0 if OK, else -1. */
+int t30_set_supported_compressions(t30_state_t *s, int supported_compressions);
 
 /*! Specify which resolutions are supported by a T.30 context.
     \brief Specify supported resolutions.
     \param s The T.30 context.
-    \param supported_compressions Bit field list of the supported resolutions. */
-void t30_set_supported_resolutions(t30_state_t *s, int supported_resolutions);
+    \param supported_resolutions Bit field list of the supported resolutions.
+    \return 0 if OK, else -1. */
+int t30_set_supported_resolutions(t30_state_t *s, int supported_resolutions);
 
 /*! Specify which images sizes are supported by a T.30 context.
     \brief Specify supported image sizes.
     \param s The T.30 context.
-    \param supported_image_sizes Bit field list of the supported widths and lengths. */
-void t30_set_supported_image_sizes(t30_state_t *s, int supported_image_sizes);
+    \param supported_image_sizes Bit field list of the supported widths and lengths.
+    \return 0 if OK, else -1. */
+int t30_set_supported_image_sizes(t30_state_t *s, int supported_image_sizes);
 
 /*! Specify if error correction mode (ECM) is allowed by a T.30 context.
     \brief Select ECM capability.
     \param s The T.30 context.
-    \param enabled TRUE for ECM capable, FALSE for not ECM capable. */
-void t30_set_ecm_capability(t30_state_t *s, int enabled);
+    \param enabled TRUE for ECM capable, FALSE for not ECM capable.
+    \return 0 if OK, else -1. */
+int t30_set_ecm_capability(t30_state_t *s, int enabled);
+
+/*! Specify the output encoding for TIFF files created during FAX reception.
+    \brief Specify the output encoding for TIFF files created during FAX reception.
+    \param s The T.30 context.
+    \param encoding The coding required. The options are T4_COMPRESSION_ITU_T4_1D,
+           T4_COMPRESSION_ITU_T4_2D, T4_COMPRESSION_ITU_T6. T6 is usually the
+           densest option, but support for it is broken in a number of software
+           packages.
+    \return 0 if OK, else -1. */
+int t30_set_rx_encoding(t30_state_t *s, int encoding);
 
 /*! Request a local interrupt of FAX exchange.
     \brief Request a local interrupt of FAX exchange.
@@ -872,9 +1006,9 @@ void t30_non_ecm_put_chunk(void *user_data, const uint8_t buf[], int len);
 
 /*! Process a received HDLC frame.
     \brief Process a received HDLC frame.
-    \param s The T.30 context.
+    \param user_data The T.30 context.
     \param msg The HDLC message.
-    \param int The length of the message, in octets.
+    \param len The length of the message, in octets.
     \param ok TRUE if the frame was received without error. */
 void t30_hdlc_accept(void *user_data, const uint8_t *msg, int len, int ok);
 

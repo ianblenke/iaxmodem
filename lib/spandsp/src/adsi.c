@@ -23,7 +23,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: adsi.c,v 1.49 2007/07/29 17:56:41 steveu Exp $
+ * $Id: adsi.c,v 1.54 2007/11/26 13:28:58 steveu Exp $
  */
 
 /*! \file */
@@ -47,6 +47,7 @@
 #include "spandsp/telephony.h"
 #include "spandsp/logging.h"
 #include "spandsp/queue.h"
+#include "spandsp/complex.h"
 #include "spandsp/dds.h"
 #include "spandsp/power_meter.h"
 #include "spandsp/async.h"
@@ -67,7 +68,7 @@
 #define DLE 0x10
 #define SUB 0x1A
 
-static uint8_t adsi_encode_baudot(adsi_tx_state_t *s, uint8_t ch);
+static uint16_t adsi_encode_baudot(adsi_tx_state_t *s, uint8_t ch);
 static uint8_t adsi_decode_baudot(adsi_rx_state_t *s, uint8_t ch);
 
 static int adsi_tx_get_bit(void *user_data)
@@ -140,7 +141,7 @@ static int adsi_tx_get_bit(void *user_data)
             s->msg_len = 0;
         }
     }
-//printf("Tx bit %d\n", bit);
+    //printf("Tx bit %d\n", bit);
     return bit;
 }
 /*- End of function --------------------------------------------------------*/
@@ -401,11 +402,16 @@ void adsi_rx(adsi_rx_state_t *s, const int16_t *amp, int len)
 }
 /*- End of function --------------------------------------------------------*/
 
-void adsi_rx_init(adsi_rx_state_t *s,
-                  int standard,
-                  put_msg_func_t put_msg,
-                  void *user_data)
+adsi_rx_state_t *adsi_rx_init(adsi_rx_state_t *s,
+                              int standard,
+                              put_msg_func_t put_msg,
+                              void *user_data)
 {
+    if (s == NULL)
+    {
+        if ((s = (adsi_rx_state_t *) malloc(sizeof(*s))) == NULL)
+            return NULL;
+    }
     memset(s, 0, sizeof(*s));
     s->put_msg = put_msg;
     s->user_data = user_data;
@@ -429,6 +435,7 @@ void adsi_rx_init(adsi_rx_state_t *s,
     }
     s->standard = standard;
     span_log_init(&s->logging, SPAN_LOG_NONE, NULL);
+    return s;
 }
 /*- End of function --------------------------------------------------------*/
 
@@ -460,7 +467,7 @@ int adsi_tx(adsi_tx_state_t *s, int16_t *amp, int max_len)
 }
 /*- End of function --------------------------------------------------------*/
 
-void adsi_send_alert_tone(adsi_tx_state_t *s)
+void adsi_tx_send_alert_tone(adsi_tx_state_t *s)
 {
     tone_gen_init(&(s->alert_tone_gen), &(s->alert_tone_desc));
 }
@@ -519,7 +526,7 @@ void adsi_tx_set_preamble(adsi_tx_state_t *s,
 }
 /*- End of function --------------------------------------------------------*/
 
-int adsi_put_message(adsi_tx_state_t *s, uint8_t *msg, int len)
+int adsi_tx_put_message(adsi_tx_state_t *s, const uint8_t *msg, int len)
 {
     int i;
     int j;
@@ -543,8 +550,7 @@ int adsi_put_message(adsi_tx_state_t *s, uint8_t *msg, int len)
     case ADSI_STANDARD_CLIP_DTMF:
         if (len >= 128)
             return -1;
-        msg[len] = '\0';
-        len -= (int) dtmf_tx_put(&(s->dtmftx), (char *) msg);
+        len -= (int) dtmf_tx_put(&(s->dtmftx), (char *) msg, len);
         break;
     case ADSI_STANDARD_JCLIP:
         if (len > 128 - 9)
@@ -609,8 +615,13 @@ int adsi_put_message(adsi_tx_state_t *s, uint8_t *msg, int len)
 }
 /*- End of function --------------------------------------------------------*/
 
-void adsi_tx_init(adsi_tx_state_t *s, int standard)
+adsi_tx_state_t *adsi_tx_init(adsi_tx_state_t *s, int standard)
 {
+    if (s == NULL)
+    {
+        if ((s = (adsi_tx_state_t *) malloc(sizeof(*s))) == NULL)
+            return NULL;
+    }
     memset(s, 0, sizeof(*s));
     make_tone_gen_descriptor(&(s->alert_tone_desc),
                              2130,
@@ -626,10 +637,11 @@ void adsi_tx_init(adsi_tx_state_t *s, int standard)
     adsi_tx_set_preamble(s, -1, -1, -1, -1);
     span_log_init(&s->logging, SPAN_LOG_NONE, NULL);
     start_tx(s);
+    return s;
 }
 /*- End of function --------------------------------------------------------*/
 
-static uint8_t adsi_encode_baudot(adsi_tx_state_t *s, uint8_t ch)
+static uint16_t adsi_encode_baudot(adsi_tx_state_t *s, uint8_t ch)
 {
     static const uint8_t conv[128] =
     {
@@ -762,28 +774,28 @@ static uint8_t adsi_encode_baudot(adsi_tx_state_t *s, uint8_t ch)
         0xFF, /* ~ */
         0xFF, /* DEL */
     };
+    uint16_t shift;
 
     ch = conv[ch];
-    if (ch != 0xFF)
+    if (ch == 0xFF)
+        return 0;
+    if ((ch & 0x40))
+        return ch & 0x1F;
+    if ((ch & 0x80))
     {
-        if ((ch & 0x40))
+        if (s->baudot_shift == 1)
             return ch & 0x1F;
-        if ((ch & 0x80))
-        {
-            if (s->baudot_shift == 1)
-                return ch & 0x1F;
-            s->baudot_shift = 1;
-            return (BAUDOT_FIGURE_SHIFT << 5) | (ch & 0x1F);
-        }
-        else
-        {
-            if (s->baudot_shift == 0)
-                return ch & 0x1F;
-            s->baudot_shift = 0;
-            return (BAUDOT_LETTER_SHIFT << 5) | (ch & 0x1F);
-        }
+        s->baudot_shift = 1;
+        shift = BAUDOT_FIGURE_SHIFT;
     }
-    return 0;
+    else
+    {
+        if (s->baudot_shift == 0)
+            return ch & 0x1F;
+        s->baudot_shift = 0;
+        shift = BAUDOT_LETTER_SHIFT;
+    }
+    return (shift << 5) | (ch & 0x1F);
 }
 /*- End of function --------------------------------------------------------*/
 
@@ -899,13 +911,17 @@ int adsi_next_field(adsi_rx_state_t *s, const uint8_t *msg, int msg_len, int pos
         {
             /* Remove bias on the pos value */
             pos--;
-            *field_type = msg[pos++];
+            if (msg[pos] >= '0'  &&  msg[pos] <= '9')
+                *field_type = CLIP_DTMF_HASH_UNSPECIFIED;
+            else
+                *field_type = msg[pos++];
             *field_body = msg + pos;
             i = pos;
             while (i < msg_len  &&  msg[i] >= '0'  &&  msg[i] <= '9')
                 i++;
             *field_len = i - pos;
             pos = i;
+            /* Check if we have reached the end of message marker. */
             if (msg[pos] == '#'  ||  msg[pos] == 'C')
                 pos++;
             if (pos > msg_len)
@@ -1002,12 +1018,12 @@ int adsi_add_field(adsi_tx_state_t *s, uint8_t *msg, int len, uint8_t field_type
         else
         {
             /* Save and reuse the terminator/message type */
-            len--;
-            x = msg[len];
-            msg[len] = field_type;
-            memcpy(msg + len + 1, field_body, field_len);
-            msg[len + field_len + 1] = x;
-            len += (field_len + 2);
+            x = msg[--len];
+            if (field_type != CLIP_DTMF_HASH_UNSPECIFIED)
+                msg[len++] = field_type;
+            memcpy(msg + len, field_body, field_len);
+            msg[len + field_len] = x;
+            len += (field_len + 1);
         }
         break;
     case ADSI_STANDARD_TDD:

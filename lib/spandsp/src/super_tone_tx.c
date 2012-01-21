@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: super_tone_tx.c,v 1.16 2007/01/03 14:15:35 steveu Exp $
+ * $Id: super_tone_tx.c,v 1.20 2007/12/20 11:11:16 steveu Exp $
  */
 
 /*! \file */
@@ -48,7 +48,22 @@
 #include "spandsp/telephony.h"
 #include "spandsp/complex.h"
 #include "spandsp/dds.h"
+#include "spandsp/tone_generate.h"
 #include "spandsp/super_tone_tx.h"
+
+/*
+    The tone played to wake folk up when they have left the phone off hook is an
+    oddity amongst supervisory tones. It is designed to sound loud and nasty. Most
+    tones are one or two pure sine pitches, or one AM moduluated pitch. This alert
+    tone varies between countries, but AT&T are a typical example.
+    
+    AT&T Receiver Off-Hook Tone is 1400 Hz, 2060 Hz, 2450 Hz and 2600 Hz at 0dBm0/frequency
+    on and off every .1 second. On some older space division switching systems
+    Receiver Off-Hook was 1400 Hz, 2060 Hz, 2450 Hz and 2600 Hz at +5 VU on and
+    off every .1 second. On a No. 5 ESS this continues for 30 seconds. On a No.
+    2/2B ESS this continues for 40 seconds. On some other AT&T switches there are
+    two iterations of 50 seconds each.
+*/
 
 super_tone_tx_step_t *super_tone_tx_make_step(super_tone_tx_step_t *s,
                                               float f1,
@@ -64,32 +79,32 @@ super_tone_tx_step_t *super_tone_tx_make_step(super_tone_tx_step_t *s,
         if (s == NULL)
             return NULL;
     }
-    if (f1 >= 1.0)
+    if (f1 >= 1.0f)
     {    
-        s->phase_rate[0] = dds_phase_ratef(f1);
-        s->gain[0] = dds_scaling_dbm0f(l1);
+        s->tone[0].phase_rate = dds_phase_ratef(f1);
+        s->tone[0].gain = dds_scaling_dbm0f(l1);
     }
     else
     {
-        s->phase_rate[0] = 0;
-        s->gain[0] = 0;
+        s->tone[0].phase_rate = 0;
+        s->tone[0].gain = 0.0f;
     }
-    if (f2 >= 1.0)
+    if (f2 >= 1.0f)
     {
-        s->phase_rate[1] = dds_phase_ratef(f2);
-        s->gain[1] = dds_scaling_dbm0f(l2);
+        s->tone[1].phase_rate = dds_phase_ratef(f2);
+        s->tone[1].gain = dds_scaling_dbm0f(l2);
     }
     else
     {
-        s->phase_rate[1] = 0;
-        s->gain[1] = 0;
+        s->tone[1].phase_rate = 0;
+        s->tone[1].gain = 0.0f;
     }
-    s->tone = (f1 > 0.0);
-    s->length = length*8;
+    s->tone_on = (f1 > 0.0f);
+    s->length = length*SAMPLE_RATE/1000;
     s->cycles = cycles;
     s->next = NULL;
     s->nest = NULL;
-    return  s;
+    return s;
 }
 /*- End of function --------------------------------------------------------*/
 
@@ -113,6 +128,11 @@ super_tone_tx_state_t *super_tone_tx_init(super_tone_tx_state_t *s, super_tone_t
 {
     if (tree == NULL)
         return NULL;
+    if (s == NULL)
+    {
+        if ((s = (super_tone_tx_state_t *) malloc(sizeof(*s))) == NULL)
+            return NULL;
+    }
     memset(s, 0, sizeof(*s));
     s->level = 0;
     s->levels[0] = tree;
@@ -128,6 +148,7 @@ int super_tone_tx(super_tone_tx_state_t *s, int16_t amp[], int max_samples)
     int samples;
     int limit;
     int len;
+    int i;
     float xamp;
     super_tone_tx_step_t *tree;
 
@@ -137,17 +158,14 @@ int super_tone_tx(super_tone_tx_state_t *s, int16_t amp[], int max_samples)
     tree = s->levels[s->level];
     while (tree  &&  samples < max_samples)
     {
-        if (tree->tone)
+        if (tree->tone_on)
         {
-            /* A period of tone. A length of zero means infinite
-               length. */
+            /* A period of tone. A length of zero means infinite length. */
             if (s->current_position == 0)
             {
                 /* New step - prepare the tone generator */
-                s->phase_rate[0] = tree->phase_rate[0];
-                s->gain[0] = tree->gain[0];
-                s->phase_rate[1] = tree->phase_rate[1];
-                s->gain[1] = tree->gain[1];
+                for (i = 0;  i < 4;  i++)
+                    s->tone[i] = tree->tone[i];
             }
             len = tree->length - s->current_position;
             if (tree->length == 0)
@@ -165,14 +183,29 @@ int super_tone_tx(super_tone_tx_state_t *s, int16_t amp[], int max_samples)
             {
                 s->current_position = 0;
             }
-            for (limit = len + samples;  samples < limit;  samples++)
+            if (s->tone[0].phase_rate < 0)
             {
-                xamp = 0.0;
-                if (s->phase_rate[0])
-                    xamp += dds_modf(&(s->phase[0]), s->phase_rate[0], s->gain[0], 0);
-                if (s->phase_rate[1])
-                    xamp += dds_modf(&(s->phase[1]), s->phase_rate[1], s->gain[1], 0);
-                amp[samples] = (int16_t) rintf(xamp);
+                for (limit = len + samples;  samples < limit;  samples++)
+                {
+                    /* There must be two, and only two tones */
+                    xamp = dds_modf(&s->phase[0], -s->tone[0].phase_rate, s->tone[0].gain, 0)
+                         *(1.0f + dds_modf(&s->phase[1], s->tone[1].phase_rate, s->tone[1].gain, 0));
+                    amp[samples] = (int16_t) rintf(xamp);
+                }
+            }
+            else
+            {
+                for (limit = len + samples;  samples < limit;  samples++)
+                {
+                    xamp = 0.0f;
+                    for (i = 0;  i < 4;  i++)
+                    {
+                        if (s->tone[i].phase_rate == 0)
+                            break;
+                        xamp += dds_modf(&s->phase[i], s->tone[i].phase_rate, s->tone[i].gain, 0);
+                    }
+                    amp[samples] = (int16_t) rintf(xamp);
+                }
             }
             if (s->current_position)
                 return samples;

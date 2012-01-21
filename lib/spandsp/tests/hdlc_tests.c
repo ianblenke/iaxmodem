@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: hdlc_tests.c,v 1.36 2007/08/02 13:55:48 steveu Exp $
+ * $Id: hdlc_tests.c,v 1.39 2007/12/13 11:31:33 steveu Exp $
  */
 
 /*! \file */
@@ -37,17 +37,9 @@ using both 16 and 32 bit CRCs.
 #include "config.h"
 #endif
 
-#include <stdio.h>
-#include <inttypes.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
-#if defined(HAVE_TGMATH_H)
-#include <tgmath.h>
-#endif
-#if defined(HAVE_MATH_H)
-#include <math.h>
-#endif
-#include <tiffio.h>
 
 #include "spandsp.h"
 
@@ -713,6 +705,7 @@ static int test_hdlc_abort_handling(void)
 }
 /*- End of function --------------------------------------------------------*/
 
+#if 0
 static int test_hdlc_octet_count_handling(void)
 {
     int i;
@@ -784,12 +777,13 @@ static int test_hdlc_octet_count_handling(void)
     return 0;
 }
 /*- End of function --------------------------------------------------------*/
+#endif
 
 int main(int argc, char *argv[])
 {
     printf("HDLC module tests\n");
 
-    if (0)//test_hdlc_modes())
+    if (test_hdlc_modes())
     {
         printf("Tests failed\n");
         exit(2);

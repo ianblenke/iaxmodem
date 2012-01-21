@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: v17rx.h,v 1.40 2007/05/12 12:25:39 steveu Exp $
+ * $Id: v17rx.h,v 1.47 2007/12/13 11:31:33 steveu Exp $
  */
 
 /*! \file */
@@ -246,8 +246,8 @@ typedef struct
     void *qam_user_data;
 
     /*! \brief The route raised cosine (RRC) pulse shaping filter buffer. */
-#if defined(USE_FIXED_POINTx)
-    int32_t rrc_filter[2*V17_RX_FILTER_STEPS];
+#if defined(SPANDSP_USE_FIXED_POINT)
+    int16_t rrc_filter[2*V17_RX_FILTER_STEPS];
 #else
     float rrc_filter[2*V17_RX_FILTER_STEPS];
 #endif
@@ -262,7 +262,10 @@ typedef struct
     int short_train;
     /*! \brief The section of the training data we are currently in. */
     int training_stage;
+    /*! \brief A count of how far through the current training step we are. */
     int training_count;
+    /*! \brief A measure of how much mismatch there is between the real constellation,
+        and the decoded symbol positions. */
     float training_error;
     /*! \brief The value of the last signal sample, using the a simple HPF for signal power estimation. */
     int16_t last_sample;
@@ -270,6 +273,10 @@ typedef struct
     int signal_present;
     /*! \brief Whether or not a carrier drop was detected and the signal delivery is pending. */
     int carrier_drop_pending;
+    /*! \brief A count of the current consecutive samples below the carrier off threshold. */
+    int low_samples;
+    /*! \brief A highest magnitude sample seen. */
+    int16_t high_sample;
 
     /*! \brief The current phase of the carrier (i.e. the DDS parameter). */
     uint32_t carrier_phase;
@@ -277,43 +284,60 @@ typedef struct
     int32_t carrier_phase_rate;
     /*! \brief The carrier update rate saved for reuse when using short training. */
     int32_t carrier_phase_rate_save;
+    /*! \brief The proportional part of the carrier tracking filter. */
     float carrier_track_p;
+    /*! \brief The integral part of the carrier tracking filter. */
     float carrier_track_i;
 
-    /*! \brief The received signal power monitor. */
+    /*! \brief A power meter, to measure the HPF'ed signal power in the channel. */    
     power_meter_t power;
+    /*! \brief The power meter level at which carrier on is declared. */
     int32_t carrier_on_power;
+    /*! \brief The power meter level at which carrier off is declared. */
     int32_t carrier_off_power;
+    /*! \brief The scaling factor accessed by the AGC algorithm. */
     float agc_scaling;
+    /*! \brief The previous value of agc_scaling, needed to reuse old training. */
     float agc_scaling_save;
 
+    /*! \brief The current delta factor for updating the equalizer coefficients. */
     float eq_delta;
-    /*! \brief The adaptive equalizer coefficients */
-#if defined(USE_FIXED_POINTx)
+#if defined(SPANDSP_USE_FIXED_POINTx)
+    /*! \brief The adaptive equalizer coefficients. */
     complexi_t eq_coeff[V17_EQUALIZER_PRE_LEN + 1 + V17_EQUALIZER_POST_LEN];
+    /*! \brief A saved set of adaptive equalizer coefficients for use after restarts. */
     complexi_t eq_coeff_save[V17_EQUALIZER_PRE_LEN + 1 + V17_EQUALIZER_POST_LEN];
+    /*! \brief The equalizer signal buffer. */
     complexi_t eq_buf[V17_EQUALIZER_MASK + 1];
 #else
     complexf_t eq_coeff[V17_EQUALIZER_PRE_LEN + 1 + V17_EQUALIZER_POST_LEN];
     complexf_t eq_coeff_save[V17_EQUALIZER_PRE_LEN + 1 + V17_EQUALIZER_POST_LEN];
     complexf_t eq_buf[V17_EQUALIZER_MASK + 1];
 #endif
-    /*! \brief Current offset into equalizer buffer. */
+    /*! \brief Current read offset into the equalizer buffer. */
     int eq_step;
+    /*! \brief Current write offset into the equalizer buffer. */
     int eq_put_step;
 
     /*! \brief The current half of the baud. */
     int baud_half;
-    /*! \brief Band edge symbol sync. filter state. */
-#if defined(USE_FIXED_POINTx)
+#if defined(SPANDSP_USE_FIXED_POINTx)
+    /*! Low band edge filter for symbol sync. */
     int32_t symbol_sync_low[2];
+    /*! High band edge filter for symbol sync. */
     int32_t symbol_sync_high[2];
+    /*! DC filter for symbol sync. */
     int32_t symbol_sync_dc_filter[2];
+    /*! Baud phase for symbol sync. */
     int32_t baud_phase;
 #else
+    /*! Low band edge filter for symbol sync. */
     float symbol_sync_low[2];
+    /*! High band edge filter for symbol sync. */
     float symbol_sync_high[2];
+    /*! DC filter for symbol sync. */
     float symbol_sync_dc_filter[2];
+    /*! Baud phase for symbol sync. */
     float baud_phase;
 #endif
     /*! \brief The total symbol timing correction since the carrier came up.
@@ -325,7 +349,7 @@ typedef struct
     /*! \brief History list of phase angles for the coarse carrier aquisition step. */
     int32_t angles[16];
     /*! \brief A pointer to the current constellation. */
-#if defined(USE_FIXED_POINTx)
+#if defined(SPANDSP_USE_FIXED_POINTx)
     const complexi_t *constellation;
 #else
     const complexf_t *constellation;
@@ -342,10 +366,10 @@ typedef struct
     int full_path_to_past_state_locations[V17_TRELLIS_STORAGE_DEPTH][8];
     /*! \brief The trellis. */
     int past_state_locations[V17_TRELLIS_STORAGE_DEPTH][8];
-    /*! \brief Euclidean distances (actually the sqaures of the distances)
+    /*! \brief Euclidean distances (actually the squares of the distances)
                from the last states of the trellis. */
-#if defined(USE_FIXED_POINTx)
-    int32_t distances[8];
+#if defined(SPANDSP_USE_FIXED_POINTx)
+    uint32_t distances[8];
 #else
     float distances[8];
 #endif
@@ -353,7 +377,7 @@ typedef struct
     logging_state_t logging;
 } v17_rx_state_t;
 
-#ifdef __cplusplus
+#if defined(__cplusplus)
 extern "C"
 {
 #endif
@@ -375,11 +399,11 @@ v17_rx_state_t *v17_rx_init(v17_rx_state_t *s, int rate, put_bit_func_t put_bit,
     \return 0 for OK, -1 for bad parameter */
 int v17_rx_restart(v17_rx_state_t *s, int rate, int short_train);
 
-/*! Release a V.17 modem receive context.
-    \brief Release a V.17 modem receive context.
+/*! Free a V.17 modem receive context.
+    \brief Free a V.17 modem receive context.
     \param s The modem context.
     \return 0 for OK */
-int v17_rx_release(v17_rx_state_t *s);
+int v17_rx_free(v17_rx_state_t *s);
 
 /*! Change the put_bit function associated with a V.17 modem receive context.
     \brief Change the put_bit function associated with a V.17 modem receive context.
@@ -401,7 +425,7 @@ void v17_rx(v17_rx_state_t *s, const int16_t amp[], int len);
     \param s The modem context.
     \param coeffs The vector of complex coefficients.
     \return The number of coefficients in the vector. */
-#if defined(USE_FIXED_POINTx)
+#if defined(SPANDSP_USE_FIXED_POINTx)
 int v17_rx_equalizer_state(v17_rx_state_t *s, complexi_t **coeffs);
 #else
 int v17_rx_equalizer_state(v17_rx_state_t *s, complexf_t **coeffs);
@@ -433,7 +457,7 @@ void v17_rx_signal_cutoff(v17_rx_state_t *s, float cutoff);
     \param user_data An opaque pointer passed to the handler routine. */
 void v17_rx_set_qam_report_handler(v17_rx_state_t *s, qam_report_handler_t *handler, void *user_data);
 
-#ifdef __cplusplus
+#if defined(__cplusplus)
 }
 #endif
 

@@ -16,12 +16,21 @@
 ## along with this program; if not, write to the Free Software
 ## Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 ##
-## $Id: Makefile.am,v 1.4 2007/04/03 13:26:53 steveu Exp $
+## $Id: Makefile.am,v 1.7 2007/12/20 15:06:22 steveu Exp $
 
 MAINTAINERCLEANFILES = Makefile.in
 
-EXTRA_DIST = css.css
+EXTRA_DIST = css.css \
+             t38-gateway.dia \
+             t38-terminal.dia \
+             t38_manual.xml \
+             wrapper.xsl \
+             t38_manual/css.css
 
-all:
+all: doxydocs t38_manual/index.html
+
+doxydocs:
 	doxygen libspandsp-doxygen
 
+t38_manual/index.html: t38_manual.xml
+	cd t38_manual ; xsltproc ../wrapper.xsl ../t38_manual.xml

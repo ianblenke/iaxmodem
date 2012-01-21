@@ -13,7 +13,7 @@
 ## along with this program; if not, write to the Free Software
 ## Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 ##
-## $Id: Makefile.am,v 1.1 2007/04/03 12:59:32 steveu Exp $
+## $Id: Makefile.am,v 1.3 2007/12/21 18:40:11 steveu Exp $
 
 AM_CFLAGS = $(COMP_VENDOR_CFLAGS)
 
@@ -29,14 +29,17 @@ lib_LTLIBRARIES = libspandsp-sim.la
 
 libspandsp_sim_la_SOURCES = g1050.c \
                             line_model.c \
-                            line_models.c \
+                            rfc2198_sim.c \
                             test_utils.c
+
+nodist_libspandsp_sim_la_SOURCES = line_models.c
 
 libspandsp_sim_la_LDFLAGS = -version-info @SPANDSP_LT_CURRENT@:@SPANDSP_LT_REVISION@:@SPANDSP_LT_AGE@
 
 nobase_include_HEADERS = spandsp/g1050.h \
                          spandsp/line_model.h \
                          spandsp/line_models.h \
+                         spandsp/rfc2198_sim.h \
                          spandsp/test_utils.h \
                          spandsp-sim.h
 

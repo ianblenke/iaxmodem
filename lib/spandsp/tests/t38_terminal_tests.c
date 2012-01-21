@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: t38_terminal_tests.c,v 1.41 2007/04/03 12:59:33 steveu Exp $
+ * $Id: t38_terminal_tests.c,v 1.48 2007/12/20 10:56:11 steveu Exp $
  */
 
 /*! \file */
@@ -42,17 +42,11 @@ These tests exercise the path
 #define ENABLE_GUI
 #endif
 
-#include <inttypes.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <fcntl.h>
+#include <unistd.h>
 #include <string.h>
-#if defined(HAVE_TGMATH_H)
-#include <tgmath.h>
-#endif
-#if defined(HAVE_MATH_H)
-#include <math.h>
-#endif
 #include <assert.h>
 #include <errno.h>
 #include <sys/socket.h>
@@ -64,7 +58,6 @@ These tests exercise the path
 #include <arpa/inet.h>
 #include <sys/select.h>
 #include <sys/time.h>
-#include <tiffio.h>
 
 #include "spandsp.h"
 #include "spandsp-sim.h"
@@ -122,6 +115,8 @@ static void phase_d_handler(t30_state_t *s, void *user_data, int result)
     printf("%c: Phase D: local ident '%s'\n", i, ident);
     t30_get_far_ident(s, ident);
     printf("%c: Phase D: remote ident '%s'\n", i, ident);
+
+    printf("%c: Phase D: bits per row - min %d, max %d\n", i, s->t4.min_row_bits, s->t4.max_row_bits);
 }
 /*- End of function --------------------------------------------------------*/
 
@@ -219,66 +214,67 @@ int main(int argc, char *argv[])
     int msg_len;
     uint8_t msg[1024];
     int t38_version;
-    int i;
     int seq_no;
     int use_ecm;
     int without_pacing;
+    int use_tep;
     int model_no;
     int speed_pattern_no;
     const char *input_file_name;
     double tx_when;
     double rx_when;
     int use_gui;
+    int opt;
 
     t38_version = 1;
     without_pacing = FALSE;
+    use_tep = FALSE;
     input_file_name = INPUT_FILE_NAME;
     use_ecm = FALSE;
     simulate_incrementing_repeats = FALSE;
     model_no = 0;
     speed_pattern_no = 1;
     use_gui = FALSE;
-    for (i = 1;  i < argc;  i++)
+    while ((opt = getopt(argc, argv, "efgi:Im:ps:tv:")) != -1)
     {
-        if (strcmp(argv[i], "-e") == 0)
+        switch (opt)
         {
+        case 'e':
             use_ecm = TRUE;
-            continue;
-        }
-        if (strcmp(argv[i], "-g") == 0)
-        {
+            break;
+        case 'g':
+#if defined(ENABLE_GUI)
             use_gui = TRUE;
-            continue;
-        }
-        if (strcmp(argv[i], "-i") == 0)
-        {
-            input_file_name = argv[++i];
-            continue;
-        }
-        if (strcmp(argv[i], "-I") == 0)
-        {
+#else
+            fprintf(stderr, "Graphical monitoring not available\n");
+            exit(2);
+#endif
+            break;
+        case 'i':
+            input_file_name = optarg;
+            break;
+        case 'I':
             simulate_incrementing_repeats = TRUE;
-            continue;
-        }
-        if (strcmp(argv[i], "-m") == 0)
-        {
-            model_no = argv[++i][0] - 'A' + 1;
-            continue;
-        }
-        if (strcmp(argv[i], "-p") == 0)
-        {
+            break;
+        case 'm':
+            model_no = optarg[0] - 'A' + 1;
+            break;
+        case 'p':
             without_pacing = TRUE;
-            continue;
-        }
-        if (strcmp(argv[i], "-s") == 0)
-        {
-            speed_pattern_no = atoi(argv[++i]);
-            continue;
-        }
-        if (strcmp(argv[i], "-v") == 0)
-        {
-            t38_version = atoi(argv[++i]);
-            continue;
+            break;
+        case 's':
+            speed_pattern_no = atoi(optarg);
+            break;
+        case 't':
+            use_tep = TRUE;
+            break;
+        case 'v':
+            t38_version = atoi(optarg);
+            break;
+        default:
+            //usage();
+            exit(2);
+            break;
         }
     }
 
@@ -305,6 +301,7 @@ int main(int argc, char *argv[])
     }
     t38_set_t38_version(&t38_state_a.t38, t38_version);
     t38_terminal_set_config(&t38_state_a, without_pacing);
+    t38_terminal_set_tep_mode(&t38_state_a, use_tep);
     span_log_set_level(&t38_state_a.logging, SPAN_LOG_DEBUG | SPAN_LOG_SHOW_TAG | SPAN_LOG_SHOW_SAMPLE_TIME);
     span_log_set_tag(&t38_state_a.logging, "T.38-A");
     span_log_set_level(&t38_state_a.t38.logging, SPAN_LOG_DEBUG | SPAN_LOG_SHOW_TAG | SPAN_LOG_SHOW_SAMPLE_TIME);
@@ -313,6 +310,7 @@ int main(int argc, char *argv[])
     span_log_set_tag(&t38_state_a.t30_state.logging, "T.38-A");
 
     t30_set_local_ident(&t38_state_a.t30_state, "11111111");
+    t30_set_local_nsf(&t38_state_a.t30_state, (const uint8_t *) "\x50\x00\x00\x00Spandsp\x00", 12);
     t30_set_tx_file(&t38_state_a.t30_state, input_file_name, -1, -1);
     t30_set_phase_b_handler(&t38_state_a.t30_state, phase_b_handler, (void *) (intptr_t) 'A');
     t30_set_phase_d_handler(&t38_state_a.t30_state, phase_d_handler, (void *) (intptr_t) 'A');
@@ -328,6 +326,7 @@ int main(int argc, char *argv[])
     }
     t38_set_t38_version(&t38_state_b.t38, t38_version);
     t38_terminal_set_config(&t38_state_b, without_pacing);
+    t38_terminal_set_tep_mode(&t38_state_b, use_tep);
     span_log_set_level(&t38_state_b.logging, SPAN_LOG_DEBUG | SPAN_LOG_SHOW_TAG | SPAN_LOG_SHOW_SAMPLE_TIME);
     span_log_set_tag(&t38_state_b.logging, "T.38-B");
     span_log_set_level(&t38_state_b.t38.logging, SPAN_LOG_DEBUG | SPAN_LOG_SHOW_TAG | SPAN_LOG_SHOW_SAMPLE_TIME);
@@ -336,6 +335,7 @@ int main(int argc, char *argv[])
     span_log_set_tag(&t38_state_b.t30_state.logging, "T.38-B");
 
     t30_set_local_ident(&t38_state_b.t30_state, "22222222");
+    t30_set_local_nsf(&t38_state_b.t30_state, (const uint8_t *) "\x50\x00\x00\x00Spandsp\x00", 12);
     t30_set_rx_file(&t38_state_b.t30_state, OUTPUT_FILE_NAME, -1);
     t30_set_phase_b_handler(&t38_state_b.t30_state, phase_b_handler, (void *) (intptr_t) 'B');
     t30_set_phase_d_handler(&t38_state_b.t30_state, phase_d_handler, (void *) (intptr_t) 'B');
@@ -385,6 +385,8 @@ int main(int argc, char *argv[])
             media_monitor_update_display();
 #endif
     }
+    t38_terminal_release(&t38_state_a);
+    t38_terminal_release(&t38_state_b);
     if (!succeeded[0]  ||  !succeeded[1])
     {
         printf("Tests failed\n");

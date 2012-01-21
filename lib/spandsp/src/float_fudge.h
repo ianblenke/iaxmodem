@@ -1,7 +1,9 @@
 /*
  * SpanDSP - a series of DSP components for telephony
  *
- * faxfont.h - a simple fixed pitch font for FAX headers
+ * float_fudge.h - A bunch of shims, to use double maths
+ *                 functions on platforms which lack the
+ *                 float versions with an 'f' at the end.
  *
  * Written by Steve Underwood <steveu@coppice.org>
  *
@@ -22,7 +24,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: float_fudge.h,v 1.1 2007/06/18 16:25:29 steveu Exp $
+ * $Id: float_fudge.h,v 1.2 2007/08/13 11:35:32 steveu Exp $
  */
 
 #if !defined(_FLOAT_FUDGE_H_)
@@ -34,9 +36,6 @@
 extern "C"
 {
 #endif
-
-/* A bunch of shims to use double maths functions on platforms which
-   lack the float versions with an 'f' at the end. */
 
 static __inline__ float sinf(float x)
 {

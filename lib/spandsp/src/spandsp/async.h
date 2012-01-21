@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: async.h,v 1.10 2007/07/29 17:56:41 steveu Exp $
+ * $Id: async.h,v 1.12 2007/12/13 11:31:32 steveu Exp $
  */
 
 /*! \file */
@@ -49,7 +49,7 @@ and decoding must occur before data is fed to this module.
 #if !defined(_SPANDSP_ASYNC_H_)
 #define _SPANDSP_ASYNC_H_
 
-/* Special "bit" values for the put and get bit functions */
+/*! Special "bit" values for the put and get bit functions */
 enum
 {
     /*! \brief The carrier signal has dropped. */
@@ -129,6 +129,7 @@ typedef struct
     int byte_in_progress;
     /*! \brief The current bit position within a partially transmitted character. */
     int bitpos;
+    /*! \brief Parity bit. */
     int parity_bit;
 } async_tx_state_t;
 
@@ -156,9 +157,12 @@ typedef struct
     int byte_in_progress;
     /*! \brief The current bit position within a partially complete character. */
     int bitpos;
+    /*! \brief Parity bit. */
     int parity_bit;
 
+    /*! A count of the number of parity errors seen. */
     int parity_errors;
+    /*! A count of the number of character framing errors seen. */
     int framing_errors;
 } async_rx_state_t;
 
@@ -175,14 +179,15 @@ extern "C"
     \param stop_bits The number of stop bits.
     \param use_v14 TRUE if V.14 rate adaption processing should be used.
     \param get_byte The callback routine used to get the data to be transmitted.
-    \param user_data An opaque pointer. */
-void async_tx_init(async_tx_state_t *s,
-                   int data_bits,
-                   int parity_bits,
-                   int stop_bits,
-                   int use_v14,
-                   get_byte_func_t get_byte,
-                   void *user_data);
+    \param user_data An opaque pointer.
+    \return A pointer to the initialised context, or NULL if there was a problem. */
+async_tx_state_t *async_tx_init(async_tx_state_t *s,
+                                int data_bits,
+                                int parity_bits,
+                                int stop_bits,
+                                int use_v14,
+                                get_byte_func_t get_byte,
+                                void *user_data);
 
 /*! Get the next bit of a transmitted serial bit stream.
     \brief Get the next bit of a transmitted serial bit stream.
@@ -198,14 +203,15 @@ int async_tx_get_bit(void *user_data);
     \param stop_bits The number of stop bits.
     \param use_v14 TRUE if V.14 rate adaption processing should be used.
     \param put_byte The callback routine used to put the received data.
-    \param user_data An opaque pointer. */
-void async_rx_init(async_rx_state_t *s,
-                   int data_bits,
-                   int parity_bits,
-                   int stop_bits,
-                   int use_v14,
-                   put_byte_func_t put_byte,
-                   void *user_data);
+    \param user_data An opaque pointer.
+    \return A pointer to the initialised context, or NULL if there was a problem. */
+async_rx_state_t *async_rx_init(async_rx_state_t *s,
+                                int data_bits,
+                                int parity_bits,
+                                int stop_bits,
+                                int use_v14,
+                                put_byte_func_t put_byte,
+                                void *user_data);
 
 /*! Accept a bit from a received serial bit stream
     \brief Accept a bit from a received serial bit stream

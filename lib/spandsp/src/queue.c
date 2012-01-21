@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: queue.c,v 1.15 2007/05/19 18:34:42 steveu Exp $
+ * $Id: queue.c,v 1.18 2007/11/30 12:20:34 steveu Exp $
  */
 
 /*! \file */
@@ -204,7 +204,7 @@ int queue_read_byte(queue_state_t *s)
     /*endif*/
     to_end = s->len - optr;
     byte = s->data[optr];
-    if (++optr > s->len)
+    if (++optr >= s->len)
         optr = 0;
     /*endif*/
     /* Only change the pointer now we have really finished */
@@ -288,7 +288,7 @@ int queue_write_byte(queue_state_t *s, uint8_t byte)
     }
     /*endif*/
     s->data[iptr] = byte;
-    if (++iptr > s->len)
+    if (++iptr >= s->len)
         iptr = 0;
     /*endif*/
     /* Only change the pointer now we have really finished */
@@ -393,37 +393,22 @@ int queue_write_msg(queue_state_t *s, const uint8_t *buf, int len)
 }
 /*- End of function --------------------------------------------------------*/
 
-queue_state_t *queue_create(int len, int flags)
-{
-    queue_state_t *s;
-
-    if ((s = malloc(sizeof(*s) + len + 1)))
-    {
-        s->iptr =
-        s->optr = 0;
-        s->flags = flags;
-        s->len = len + 1;
-    }
-    return s;
-}
-/*- End of function --------------------------------------------------------*/
-
 queue_state_t *queue_init(queue_state_t *s, int len, int flags)
 {
     if (s == NULL)
-        s = malloc(sizeof(*s) + len + 1);
-    if (s)
     {
-        s->iptr =
-        s->optr = 0;
-        s->flags = flags;
-        s->len = len + 1;
+        if ((s = (queue_state_t *) malloc(sizeof(*s) + len + 1)) == NULL)
+            return NULL;
     }
+    s->iptr =
+    s->optr = 0;
+    s->flags = flags;
+    s->len = len + 1;
     return s;
 }
 /*- End of function --------------------------------------------------------*/
 
-int queue_delete(queue_state_t *s)
+int queue_free(queue_state_t *s)
 {
     free(s);
     return 0;

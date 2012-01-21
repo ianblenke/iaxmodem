@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: modem_monitor.h,v 1.11 2007/04/03 12:59:33 steveu Exp $
+ * $Id: modem_monitor.h,v 1.12 2007/08/04 15:41:37 steveu Exp $
  */
 
 /*! \page constel_page Modem performance monitoring
@@ -53,6 +53,7 @@ extern "C"
 #endif
 
 qam_monitor_t *qam_monitor_init(float constel_width, const char *tag);
+int qam_monitor_clear_constel(qam_monitor_t *s);
 int qam_monitor_update_constel(qam_monitor_t *s, const complexf_t *pt);
 int qam_monitor_update_equalizer(qam_monitor_t *s, const complexf_t *coeffs, int len);
 int qam_monitor_update_symbol_tracking(qam_monitor_t *s, float total_correction);

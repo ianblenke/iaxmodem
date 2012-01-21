@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: v17tx.c,v 1.50 2007/05/12 12:25:39 steveu Exp $
+ * $Id: v17tx.c,v 1.54 2008/01/10 14:06:21 steveu Exp $
  */
 
 /*! \file */
@@ -53,6 +53,12 @@
 
 #include "spandsp/v17tx.h"
 
+#if defined(SPANDSP_USE_FIXED_POINT)
+#include "v17tx_fixed_rrc.h"
+#else
+#include "v17tx_floating_rrc.h"
+#endif
+
 #define CARRIER_NOMINAL_FREQ        1800.0f
 
 /* Segments of the training sequence */
@@ -70,7 +76,7 @@
 
 #define V17_BRIDGE_WORD             0x8880
 
-#if defined(USE_FIXED_POINT)
+#if defined(SPANDSP_USE_FIXED_POINT)
 static const complexi16_t v17_14400_constellation[128] =
 #else
 static const complexf_t v17_14400_constellation[128] =
@@ -206,7 +212,7 @@ static const complexf_t v17_14400_constellation[128] =
     {-5,  0}        /* 0x7F */
 };
 
-#if defined(USE_FIXED_POINT)
+#if defined(SPANDSP_USE_FIXED_POINT)
 static const complexi16_t v17_12000_constellation[64] =
 #else
 static const complexf_t v17_12000_constellation[64] =
@@ -278,7 +284,7 @@ static const complexf_t v17_12000_constellation[64] =
     { 3, -5}        /* 0x3F */
 };
 
-#if defined(USE_FIXED_POINT)
+#if defined(SPANDSP_USE_FIXED_POINT)
 static const complexi16_t v17_9600_constellation[32] =
 #else
 static const complexf_t v17_9600_constellation[32] =
@@ -318,7 +324,7 @@ static const complexf_t v17_9600_constellation[32] =
     {-2,  8}        /* 0x1F */
 };
 
-#if defined(USE_FIXED_POINT)
+#if defined(SPANDSP_USE_FIXED_POINT)
 static const complexi16_t v17_7200_constellation[16] =
 #else
 static const complexf_t v17_7200_constellation[16] =
@@ -342,242 +348,6 @@ static const complexf_t v17_7200_constellation[16] =
     {-2, -2}        /* 0x0F */
 };
 
-/* Raised root cosine pulse shaping; Beta = 0.25; 4 symbols either
-   side of the centre. */
-/* Created with mkshape -r 0.05 0.25 91 -l and then split up */
-#define PULSESHAPER_GAIN            (9.9888356312f/10.0f)
-#define PULSESHAPER_COEFF_SETS      10
-
-#if defined(USE_FIXED_POINT)
-static const int16_t pulseshaper[PULSESHAPER_COEFF_SETS][V17_TX_FILTER_STEPS] =
-{
-    {
-          -90,          /* Filter 0 */
-         -561,
-         2003,
-        -5224,
-        19072,
-        19072,
-        -5224,
-         2003,
-         -561
-    },
-    {
-           97,          /* Filter 1 */
-         -922,
-         2554,
-        -6055,
-        23508,
-        14325,
-        -3960,
-         1301,
-         -183
-    },
-    {
-          298,          /* Filter 2 */
-        -1210,
-         2855,
-        -6269,
-        27331,
-         9578,
-        -2462,
-          549,
-          159
-    },
-    {
-          478,          /* Filter 3 */
-        -1371,
-         2828,
-        -5714,
-        30276,
-         5121,
-         -925,
-         -157,
-          427
-    },
-    {
-          606,          /* Filter 4 */
-        -1360,
-         2421,
-        -4291,
-        32132,
-         1208,
-          482,
-         -741,
-          594
-    },
-    {
-          651,          /* Filter 5 */
-        -1151,
-         1627,
-        -1969,
-        32767,
-        -1969,
-         1627,
-        -1151,
-          651
-    },
-    {
-          594,          /* Filter 6 */
-         -741,
-          482,
-         1208,
-        32132,
-        -4291,
-         2421,
-        -1360,
-          606
-    },
-    {
-          427,          /* Filter 7 */
-         -157,
-         -925,
-         5121,
-        30276,
-        -5714,
-         2828,
-        -1371,
-          478
-    },
-    {
-          159,          /* Filter 8 */
-          549,
-        -2462,
-         9578,
-        27331,
-        -6269,
-         2855,
-        -1210,
-          298
-    },
-    {
-         -183,          /* Filter 9 */
-         1301,
-        -3960,
-        14325,
-        23508,
-        -6055,
-         2554,
-         -922,
-           97
-    }
-};
-#else
-static const float pulseshaper[PULSESHAPER_COEFF_SETS][V17_TX_FILTER_STEPS] =
-{
-    {
-        -0.0029426223f,         /* Filter 0 */
-        -0.0183060118f,
-         0.0653192857f,
-        -0.1703207714f,
-         0.6218069936f,
-         0.6218069936f,
-        -0.1703207714f,
-         0.0653192857f,
-        -0.0183060118f
-    },
-    {
-         0.0031876922f,         /* Filter 1 */
-        -0.0300884145f,
-         0.0832744718f,
-        -0.1974255221f,
-         0.7664229820f,
-         0.4670580725f,
-        -0.1291107519f,
-         0.0424189243f,
-        -0.0059810465f
-    },
-    {
-         0.0097229236f,         /* Filter 2 */
-        -0.0394811291f,
-         0.0931039664f,
-        -0.2043906784f,
-         0.8910868760f,
-         0.3122713836f,
-        -0.0802880559f,
-         0.0179050490f,
-         0.0052057308f
-    },
-    {
-         0.0156117223f,         /* Filter 3 */
-        -0.0447125347f,
-         0.0922040267f,
-        -0.1862939416f,
-         0.9870942864f,
-         0.1669790517f,
-        -0.0301581072f,
-        -0.0051358510f,
-         0.0139350286f
-    },
-    {
-         0.0197702545f,         /* Filter 4 */
-        -0.0443470335f,
-         0.0789538534f,
-        -0.1399184160f,
-         1.0476130256f,
-         0.0393903028f,
-         0.0157339854f,
-        -0.0241879599f,
-         0.0193774571f
-    },
-    {
-         0.0212455717f,         /* Filter 5 */
-        -0.0375307894f,
-         0.0530516472f,
-        -0.0642195521f,
-         1.0682849922f,
-        -0.0642195521f,
-         0.0530516472f,
-        -0.0375307894f,
-         0.0212455717f
-    },
-    {
-         0.0193774571f,         /* Filter 6 */
-        -0.0241879599f,
-         0.0157339854f,
-         0.0393903028f,
-         1.0476130256f,
-        -0.1399184160f,
-         0.0789538534f,
-        -0.0443470335f,
-         0.0197702545f
-    },
-    {
-         0.0139350286f,         /* Filter 7 */
-        -0.0051358510f,
-        -0.0301581072f,
-         0.1669790517f,
-         0.9870942864f,
-        -0.1862939416f,
-         0.0922040267f,
-        -0.0447125347f,
-         0.0156117223f
-    },
-    {
-         0.0052057308f,         /* Filter 8 */
-         0.0179050490f,
-        -0.0802880559f,
-         0.3122713836f,
-         0.8910868760f,
-        -0.2043906784f,
-         0.0931039664f,
-        -0.0394811291f,
-         0.0097229236f
-    },
-    {
-        -0.0059810465f,         /* Filter 9 */
-         0.0424189243f,
-        -0.1291107519f,
-         0.4670580725f,
-         0.7664229820f,
-        -0.1974255221f,
-         0.0832744718f,
-        -0.0300884145f,
-         0.0031876922f
-    },
-};
-#endif
-
 static __inline__ int scramble(v17_tx_state_t *s, int in_bit)
 {
     int out_bit;
@@ -588,13 +358,13 @@ static __inline__ int scramble(v17_tx_state_t *s, int in_bit)
 }
 /*- End of function --------------------------------------------------------*/
 
-#if defined(USE_FIXED_POINT)
+#if defined(SPANDSP_USE_FIXED_POINT)
 static __inline__ complexi16_t training_get(v17_tx_state_t *s)
 #else
 static __inline__ complexf_t training_get(v17_tx_state_t *s)
 #endif
 {
-#if defined(USE_FIXED_POINT)
+#if defined(SPANDSP_USE_FIXED_POINT)
     static const complexi16_t abcd[4] =
     {
         {-6, -2},
@@ -634,7 +404,7 @@ static __inline__ complexf_t training_get(v17_tx_state_t *s)
             if (s->training_step <= V17_TRAINING_SEG_1)
             {
                 /* Optional segment: silence (talker echo protection) */
-#if defined(USE_FIXED_POINT)
+#if defined(SPANDSP_USE_FIXED_POINT)
                 return complex_seti16(0, 0);
 #else
                 return complex_setf(0.0f, 0.0f);
@@ -695,7 +465,7 @@ static int fake_get_bit(void *user_data)
 }
 /*- End of function --------------------------------------------------------*/
 
-#if defined(USE_FIXED_POINT)
+#if defined(SPANDSP_USE_FIXED_POINT)
 static __inline__ complexi16_t getbaud(v17_tx_state_t *s)
 #else
 static __inline__ complexf_t getbaud(v17_tx_state_t *s)
@@ -726,7 +496,7 @@ static __inline__ complexf_t getbaud(v17_tx_state_t *s)
             {
                 /* The shutdown sequence is 32 bauds of all 1's, then 48 bauds
                    of silence */
-#if defined(USE_FIXED_POINT)
+#if defined(SPANDSP_USE_FIXED_POINT)
                 return complex_seti16(0, 0);
 #else
                 return complex_setf(0.0f, 0.0f);
@@ -753,7 +523,7 @@ static __inline__ complexf_t getbaud(v17_tx_state_t *s)
 
 int v17_tx(v17_tx_state_t *s, int16_t amp[], int len)
 {
-#if defined(USE_FIXED_POINT)
+#if defined(SPANDSP_USE_FIXED_POINT)
     complexi_t x;
     complexi_t z;
 #else
@@ -779,7 +549,7 @@ int v17_tx(v17_tx_state_t *s, int16_t amp[], int len)
                 s->rrc_filter_step = 0;
         }
         /* Root raised cosine pulse shaping at baseband */
-#if defined(USE_FIXED_POINT)
+#if defined(SPANDSP_USE_FIXED_POINT)
         x = complex_seti(0, 0);
         for (i = 0;  i < V17_TX_FILTER_STEPS;  i++)
         {
@@ -814,7 +584,7 @@ void v17_tx_power(v17_tx_state_t *s, float power)
 {
     /* The constellation design seems to keep the average power the same, regardless
        of which bit rate is in use. */
-#if defined(USE_FIXED_POINT)
+#if defined(SPANDSP_USE_FIXED_POINT)
     s->gain = 0.223f*powf(10.0f, (power - DBM0_MAX_POWER)/20.0f)*16.0f*(32767.0f/30672.52f)*32768.0f/PULSESHAPER_GAIN;
 #else
     s->gain = 0.223f*powf(10.0f, (power - DBM0_MAX_POWER)/20.0f)*32768.0f/PULSESHAPER_GAIN;
@@ -857,7 +627,7 @@ int v17_tx_restart(v17_tx_state_t *s, int rate, int tep, int short_train)
     /* NB: some modems seem to use 3 instead of 1 for long training */
     s->diff = (short_train)  ?  0  :  1;
     s->bit_rate = rate;
-#if defined(USE_FIXED_POINT)
+#if defined(SPANDSP_USE_FIXED_POINT)
     memset(s->rrc_filter, 0, sizeof(s->rrc_filter));
 #else
     cvec_zerof(s->rrc_filter, sizeof(s->rrc_filter)/sizeof(s->rrc_filter[0]));
@@ -884,6 +654,8 @@ v17_tx_state_t *v17_tx_init(v17_tx_state_t *s, int rate, int tep, get_bit_func_t
             return NULL;
     }
     memset(s, 0, sizeof(*s));
+    span_log_init(&s->logging, SPAN_LOG_NONE, NULL);
+    span_log_set_protocol(&s->logging, "V.17 TX");
     s->get_bit = get_bit;
     s->user_data = user_data;
     s->carrier_phase_rate = dds_phase_ratef(CARRIER_NOMINAL_FREQ);
@@ -893,7 +665,7 @@ v17_tx_state_t *v17_tx_init(v17_tx_state_t *s, int rate, int tep, get_bit_func_t
 }
 /*- End of function --------------------------------------------------------*/
 
-int v17_tx_release(v17_tx_state_t *s)
+int v17_tx_free(v17_tx_state_t *s)
 {
     free(s);
     return 0;

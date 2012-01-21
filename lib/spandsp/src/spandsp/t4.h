@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: t4.h,v 1.34 2007/08/02 13:55:48 steveu Exp $
+ * $Id: t4.h,v 1.47 2007/12/14 13:27:30 steveu Exp $
  */
 
 /*! \file */
@@ -41,26 +41,135 @@ for FAX transmission.
 \section t4_page_sec_1 How does it work?
 */
 
-enum
+typedef int (*t4_row_read_handler_t)(void *user_data, uint8_t buf[], size_t len);
+typedef int (*t4_row_write_handler_t)(void *user_data, const uint8_t buf[], size_t len);
+
+/*! Supported compression modes. */
+typedef enum
 {
     T4_COMPRESSION_ITU_T4_1D = 1,
     T4_COMPRESSION_ITU_T4_2D = 2,
     T4_COMPRESSION_ITU_T6 = 3
-};
+} t4_image_compression_t;
 
-enum
+/*! Supported X resolutions, in pixels per metre. */
+typedef enum
 {
-    T4_X_RESOLUTION_R4 = 4019,
-    T4_X_RESOLUTION_R8 = 8037,
-    T4_X_RESOLUTION_R16 = 16074
-};
+    T4_X_RESOLUTION_R4 = 4016,
+    T4_X_RESOLUTION_R8 = 8031,
+    T4_X_RESOLUTION_300 = 11811,
+    T4_X_RESOLUTION_R16 = 16063,
+    T4_X_RESOLUTION_600 = 23622,
+    T4_X_RESOLUTION_800 = 31496,
+    T4_X_RESOLUTION_1200 = 47244
+} t4_image_x_resolution_t;
 
-enum
+/*! Supported Y resolutions, in pixels per metre. */
+typedef enum
 {
     T4_Y_RESOLUTION_STANDARD = 3850,
     T4_Y_RESOLUTION_FINE = 7700,
-    T4_Y_RESOLUTION_SUPERFINE = 15400
-};
+    T4_Y_RESOLUTION_300 = 11811,
+    T4_Y_RESOLUTION_SUPERFINE = 15400,  /* 400 is 15748 */
+    T4_Y_RESOLUTION_600 = 23622,
+    T4_Y_RESOLUTION_800 = 31496,
+    T4_Y_RESOLUTION_1200 = 47244
+} t4_image_y_resolution_t;
+
+/*!
+    Exact widths in PELs for the difference resolutions, and page widths.
+    Note:
+        The A4 widths also apply to North American letter and legal.
+        The R4 resolution widths are not supported in recent versions of T.30
+        Only images of exactly these widths are acceptable for FAX transmisson.
+
+    R4    864 pels/215mm for ISO A4, North American Letter and Legal
+    R4   1024 pels/255mm for ISO B4
+    R4   1216 pels/303mm for ISO A3
+    R8   1728 pels/215mm for ISO A4, North American Letter and Legal
+    R8   2048 pels/255mm for ISO B4
+    R8   2432 pels/303mm for ISO A3
+    R16  3456 pels/215mm for ISO A4, North American Letter and Legal
+    R16  4096 pels/255mm for ISO B4
+    R16  4864 pels/303mm for ISO A3
+*/
+typedef enum
+{
+    T4_WIDTH_R4_A4 = 864,
+    T4_WIDTH_R4_B4 = 1024,
+    T4_WIDTH_R4_A3 = 1216,
+    T4_WIDTH_R8_A4 = 1728,
+    T4_WIDTH_R8_B4 = 2048,
+    T4_WIDTH_R8_A3 = 2432,
+    T4_WIDTH_300_A4 = 2592,
+    T4_WIDTH_300_B4 = 3072,
+    T4_WIDTH_300_A3 = 3648,
+    T4_WIDTH_R16_A4 = 3456,
+    T4_WIDTH_R16_B4 = 4096,
+    T4_WIDTH_R16_A3 = 4864,
+    T4_WIDTH_600_A4 = 5184,
+    T4_WIDTH_600_B4 = 6144,
+    T4_WIDTH_600_A3 = 7296,
+    T4_WIDTH_1200_A4 = 10368,
+    T4_WIDTH_1200_B4 = 12288,
+    T4_WIDTH_1200_A3 = 14592
+} t4_image_width_t;
+
+/*!
+    Length of the various supported paper sizes, in pixels at the various Y resolutions.
+    Paper sizes are
+        A4 (215mm x 297mm)
+        B4 (255mm x 364mm)
+        A3 (303mm x 418.56mm)
+        North American Letter (215.9mm x 279.4mm)
+        North American Legal (215.9mm x 355.6mm)
+        Unlimited
+
+    T.4 does not accurately define the maximum number of scan lines in a page. A wide
+    variety of maximum row counts are used in the real world. It is important not to
+    set our sending limit too high, or a receiving machine might split pages. It is
+    important not to set it too low, or we might clip pages.
+
+    Values seen for standard resolution A4 pages include 1037, 1045, 1109, 1126 and 1143.
+    1109 seems the most-popular.  At fine res 2150, 2196, 2200, 2237, 2252-2262, 2264,
+    2286, and 2394 are used. 2255 seems the most popular. We try to use balanced choices
+    here.
+*/
+typedef enum
+{
+    /* A4 is 297mm long */
+    T4_LENGTH_STANDARD_A4 = 1143,
+    T4_LENGTH_FINE_A4 = 2286,
+    T4_LENGTH_300_A4 = 4665,
+    T4_LENGTH_SUPERFINE_A4 = 4573,
+    T4_LENGTH_600_A4 = 6998,
+    T4_LENGTH_800_A4 = 9330,
+    T4_LENGTH_1200_A4 = 13996,
+    /* B4 is 364mm long */
+    T4_LENGTH_STANDARD_B4 = 1401,
+    T4_LENGTH_FINE_B4 = 2802,
+    T4_LENGTH_300_B4 = 0,
+    T4_LENGTH_SUPERFINE_B4 = 5605,
+    T4_LENGTH_600_B4 = 0,
+    T4_LENGTH_800_B4 = 0,
+    T4_LENGTH_1200_B4 = 0,
+    /* North American letter is 279.4mm long */
+    T4_LENGTH_STANDARD_US_LETTER = 1075,
+    T4_LENGTH_FINE_US_LETTER = 2151,
+    T4_LENGTH_300_US_LETTER = 0,
+    T4_LENGTH_SUPERFINE_US_LETTER = 4302,
+    T4_LENGTH_600_US_LETTER = 0,
+    T4_LENGTH_800_US_LETTER = 0,
+    T4_LENGTH_1200_US_LETTER = 0,
+    /* North American legal is 355.6mm long */
+    T4_LENGTH_STANDARD_US_LEGAL = 1369,
+    T4_LENGTH_FINE_US_LEGAL = 2738,
+    T4_LENGTH_300_US_LEGAL = 0,
+    T4_LENGTH_SUPERFINE_US_LEGAL = 5476,
+    T4_LENGTH_600_US_LEGAL = 0,
+    T4_LENGTH_800_US_LEGAL = 0,
+    T4_LENGTH_1200_US_LEGAL = 0
+} t4_image_length_t;
 
 /*!
     T.4 FAX compression/decompression descriptor. This defines the working state
@@ -70,116 +179,157 @@ typedef struct
 {
     /* "Background" information about the FAX, which can be stored in a TIFF file. */
     /*! \brief The vendor of the machine which produced the TIFF file. */ 
-    const char      *vendor;
+    const char *vendor;
     /*! \brief The model of machine which produced the TIFF file. */ 
-    const char      *model;
+    const char *model;
     /*! \brief The local ident string. */ 
-    const char      *local_ident;
+    const char *local_ident;
     /*! \brief The remote end's ident string. */ 
-    const char      *far_ident;
+    const char *far_ident;
     /*! \brief The FAX sub-address. */ 
-    const char      *sub_address;
+    const char *sub_address;
+    /*! \brief The FAX DCS information, as an ASCII string. */ 
+    const char *dcs;
     /*! \brief The text which will be used in FAX page header. No text results
                in no header line. */
-    const char      *header_info;
+    const char *header_info;
 
     /*! \brief The type of compression used between the FAX machines. */
-    int             line_encoding;
-    /*! \brief The minimum number of bits per scan row. This is a timing thing
+    int line_encoding;
+    /*! \brief The minimum number of encoded bits per row. This is a timing thing
                for hardware FAX machines. */
-    int             min_scan_line_bits;
+    int min_bits_per_row;
     
-    int             output_compression;
-    int             output_t4_options;
+    /*! \brief The compression type for output to the TIFF file. */
+    int output_compression;
+    /*! \brief The TIFF G3 FAX options. */
+    int output_t4_options;
 
-    time_t          page_start_time;
+    /*! \brief Callback function to read a row of pixels from the image source. */
+    t4_row_read_handler_t row_read_handler;
+    /*! \brief Opaque pointer passed to row_read_handler. */
+    void *row_read_user_data;
+    /*! \brief Callback function to write a row of pixels to the image destination. */
+    t4_row_write_handler_t row_write_handler;
+    /*! \brief Opaque pointer passed to row_write_handler. */
+    void *row_write_user_data;
 
-    int             bytes_per_row;
-    int             image_size;
-    int             image_buffer_size;
-    uint8_t         *image_buffer;
+    /*! \brief The time at which handling of the current page began. */
+    time_t page_start_time;
 
-    TIFF            *tiff_file;
-    const char      *file;
-    int             start_page;
-    int             stop_page;
+    /*! \brief The current number of bytes per row of uncompressed image data. */
+    int bytes_per_row;
+    /*! \brief The size of the image in the image buffer, in bytes. */
+    int image_size;
+    /*! \brief The current size of the image buffer. */
+    int image_buffer_size;
+    /*! \brief A point to the image buffer. */
+    uint8_t *image_buffer;
 
-    int             pages_transferred;
-    int             pages_in_file;
-    /*! Column-to-column (X) resolution in pixels per metre. */
-    int             x_resolution;
-    /*! Row-to-row (Y) resolution in pixels per metre. */
-    int             y_resolution;
-    /*! Width of the current page, in pixels. */
-    int             image_width;
-    /*! Current pixel row number. */
-    int             row;
-    /*! Total pixel rows in the current page. */
-    int             image_length;
-    /*! The current number of consecutive bad rows. */
-    int             curr_bad_row_run;
-    /*! The longest run of consecutive bad rows seen in the current page. */
-    int             longest_bad_row_run;
-    /*! The total number of bad rows in the current page. */
-    int             bad_rows;
+    /*! \brief The libtiff context for the current TIFF file */
+    TIFF *tiff_file;
+    /*! \brief The current file name. */
+    const char *file;
+    /*! \brief The first page to transfer. -1 to start at the beginning of the file. */
+    int start_page;
+    /*! \brief The last page to transfer. -1 to continue to the end of the file. */
+    int stop_page;
 
-    /* Decode state */
-    uint32_t        bits_to_date;
-    int             bits;
+    /*! \brief The number of pages transferred to date. */
+    int pages_transferred;
+    /*! \brief The number of pages in the current TIFF file. */
+    int pages_in_file;
+    /*! \brief Column-to-column (X) resolution in pixels per metre. */
+    int x_resolution;
+    /*! \brief Row-to-row (Y) resolution in pixels per metre. */
+    int y_resolution;
+    /*! \brief Width of the current page, in pixels. */
+    int image_width;
+    /*! \brief Length of the current page, in pixels. */
+    int image_length;
+    /*! \brief Current pixel row number. */
+    int row;
+    /*! \brief The current number of consecutive bad rows. */
+    int curr_bad_row_run;
+    /*! \brief The longest run of consecutive bad rows seen in the current page. */
+    int longest_bad_row_run;
+    /*! \brief The total number of bad rows in the current page. */
+    int bad_rows;
+
+    /*! \brief Incoming bit buffer for decompression. */
+    uint32_t rx_bitstream;
+    /*! \brief The number of bits currently in rx_bitstream. */
+    int rx_bits;
 
     /*! \brief This variable is set if we are treating the current row as a 2D encoded
                one. */
-    int             row_is_2d;
-    int             its_black;
-    int             row_len;
+    int row_is_2d;
+    /*! \brief TRUE if the current run is black */
+    int its_black;
+    /*! \brief The current length of the current row. */
+    int row_len;
     /*! \brief This variable is used to record the fact we have seen at least one EOL
                since we started decoding. We will not try to interpret the received
                data as an image until we have seen the first EOL. */
-    int             first_eol_seen;
+    int first_eol_seen;
     /*! \brief This variable is used to count the consecutive EOLS we have seen. If it
                reaches six, this is the end of the image. */
-    int             consecutive_eols;
+    int consecutive_eols;
 
-    /*! \brief B&W runs for reference line */
-    uint32_t        *ref_runs;
-    /*! \brief B&W runs for current line */
-    uint32_t        *cur_runs;
+    /*! \brief Black and white run-lengths for the current row. */
+    uint32_t *cur_runs;
+    /*! \brief Black and white run-lengths for the reference row. */
+    uint32_t *ref_runs;
+    /*! \brief The number of runs currently in the reference row. */
+    int ref_steps;
+    /*! \brief The current step into the reference row run-lengths buffer. */
+    int b_cursor;
+    /*! \brief The current step into the current row run-lengths buffer. */
+    int a_cursor;
 
-    uint32_t        *pa;
-    uint32_t        *pb;
-    int             a0;
-    int             b1;
-    /*! \brief The length of the current run of black or white. */
-    int             run_length;
-    int             black_white;
+    /*! \brief The reference or starting changing element on the coding line. At the
+               start of the coding line, a0 is set on an imaginary white changing element
+               situated just before the first element on the line. During the coding of
+               the coding line, the position of a0 is defined by the previous coding mode.
+               (See 4.2.1.3.2.). */
+    int a0;
+    /*! \brief The first changing element on the reference line to the right of a0 and of
+               opposite colour to a0. */
+    int b1;
+    /*! \brief The length of the in-progress run of black or white. */
+    int run_length;
+    /*! \brief 2D horizontal mode control. */
+    int black_white;
 
-    uint32_t        data;
-    int             bit;
+    /*! \brief Encoded data bits buffer. */
+    uint32_t tx_bitstream;
+    /*! \brief The number of bits currently in tx_bitstream. */
+    int tx_bits;
 
-    /*! \brief A point into the image buffer indicating where the last row begins */
-    int             last_row_starts_at;
-    /*! \brief A point into the image buffer indicating where the current row begins */
-    int             row_starts_at;
+    /*! \brief A pointer into the image buffer indicating where the last row begins */
+    int last_row_starts_at;
+    /*! \brief A pointer into the image buffer indicating where the current row begins */
+    int row_starts_at;
     
-    /* Encode state */
-
-    /*! Pointer to the buffer for the current pixel row. */
-    uint8_t         *row_buf;
+    /*! \brief Pointer to the buffer for the current pixel row. */
+    uint8_t *row_buf;
     
-    int             bit_pos;
-    int             bit_ptr;
+    /*! \brief Pointer to the byte containing the next image bit to transmit. */
+    int bit_pos;
+    /*! \brief Pointer to the bit within the byte containing the next image bit to transmit. */
+    int bit_ptr;
 
-    /*! \brief The reference pixel row for 2D encoding. */
-    uint8_t         *ref_row_buf;
-    /*! \brief The maximum contiguous rows that will be 2D encoded. */
-    int             max_rows_to_next_1d_row;
+    /*! \brief The current maximum contiguous rows that may be 2D encoded. */
+    int max_rows_to_next_1d_row;
     /*! \brief Number of rows left that can be 2D encoded, before a 1D encoded row
                must be used. */
-    int             rows_to_next_1d_row;
-    /*! \brief The minimum number of encoded bits per row. */
-    int             min_row_bits;
+    int rows_to_next_1d_row;
     /*! \brief The current number of bits in the current encoded row. */
-    int             row_bits;
+    int row_bits;
+    /*! \brief The minimum bits in any row of the current page. For monitoring only. */
+    int min_row_bits;
+    /*! \brief The maximum bits in any row of the current page. For monitoring only. */
+    int max_row_bits;
 
     /*! \brief Error and flow logging control */
     logging_state_t logging;
@@ -216,19 +366,12 @@ typedef struct
 extern "C" {
 #endif
 
-/*! \brief Allocate a T.4 transmit handling context, and
-           initialise it.
-    \param file The name of the file to be received.
-    \param output_encoding The output encoding.
-    \return The T.4 context, or NULL. */
-t4_state_t *t4_rx_create(const char *file, int output_encoding);
-
 /*! \brief Prepare for reception of a document.
     \param s The T.4 context.
     \param file The name of the file to be received.
     \param output_encoding The output encoding.
-    \return 0 for success, otherwise -1. */
-int t4_rx_init(t4_state_t *s, const char *file, int output_encoding);
+    \return A pointer to the context, or NULL if there was a problem. */
+t4_state_t *t4_rx_init(t4_state_t *s, const char *file, int output_encoding);
 
 /*! \brief Prepare to receive the next page of the current document.
     \param s The T.4 context.
@@ -261,7 +404,7 @@ int t4_rx_end_page(t4_state_t *s);
 
 /*! \brief End reception of a document. Tidy up, close the file and
            free the context. This should be used to end T.4 reception
-           started with t4_rx_create.
+           started with t4_rx_init.
     \param s The T.4 receive context.
     \return 0 for success, otherwise -1. */
 int t4_rx_delete(t4_state_t *s);
@@ -273,6 +416,8 @@ int t4_rx_delete(t4_state_t *s);
     \return 0 for success, otherwise -1. */
 int t4_rx_end(t4_state_t *s);
 
+int t4_rx_set_row_write_handler(t4_state_t *s, t4_row_write_handler_t handler, void *user_data);
+
 /*! \brief Set the encoding for the received data.
     \param s The T.4 context.
     \param encoding The encoding. */
@@ -280,7 +425,7 @@ void t4_rx_set_rx_encoding(t4_state_t *s, int encoding);
 
 /*! \brief Set the expected width of the received image, in pixel columns.
     \param s The T.4 context.
-    \param columns The number of pixels across the image. */
+    \param width The number of pixels across the image. */
 void t4_rx_set_image_width(t4_state_t *s, int width);
 
 /*! \brief Set the row-to-row (y) resolution to expect for a received image.
@@ -292,6 +437,11 @@ void t4_rx_set_y_resolution(t4_state_t *s, int resolution);
     \param s The T.4 context.
     \param resolution The resolution, in pixels per metre. */
 void t4_rx_set_x_resolution(t4_state_t *s, int resolution);
+
+/*! \brief Set the DCS information of the fax, for inclusion in the file.
+    \param s The T.4 context.
+    \param dcs The DCS information, formatted as an ASCII string. */
+void t4_rx_set_dcs(t4_state_t *s, const char *dcs);
 
 /*! \brief Set the sub-address of the fax, for inclusion in the file.
     \param s The T.4 context.
@@ -313,20 +463,13 @@ void t4_rx_set_vendor(t4_state_t *s, const char *vendor);
     \param model The model string, or NULL. */
 void t4_rx_set_model(t4_state_t *s, const char *model);
 
-/*! \brief Allocate a T.4 receive handling context, and
-           initialise it.
-    \param s The T.4 context.
-    \param file The name of the file to be sent.
-    \return 0 for success, otherwise -1. */
-t4_state_t *t4_tx_create(const char *file, int start_page, int stop_page);
-
 /*! \brief Prepare for transmission of a document.
     \param s The T.4 context.
     \param file The name of the file to be sent.
     \param start_page The first page to send. -1 for no restriction.
     \param stop_page The last page to send. -1 for no restriction.
-    \return The T.4 context, or NULL. */
-int t4_tx_init(t4_state_t *s, const char *file, int start_page, int stop_page);
+    \return A pointer to the context, or NULL if there was a problem. */
+t4_state_t *t4_tx_init(t4_state_t *s, const char *file, int start_page, int stop_page);
 
 /*! \brief Prepare to send the next page of the current document.
     \param s The T.4 context.
@@ -391,7 +534,7 @@ int t4_tx_check_bit(t4_state_t *s);
 
 /*! \brief End the transmission of a document. Tidy up, close the file and
            free the context. This should be used to end T.4 transmission
-           started with t4_tx_create.
+           started with t4_tx_init.
     \param s The T.4 context.
     \return 0 for success, otherwise -1. */
 int t4_tx_delete(t4_state_t *s);
@@ -427,6 +570,8 @@ void t4_tx_set_local_ident(t4_state_t *s, const char *ident);
     \param s The T.4 context.
     \param info A string, of up to 50 bytes, which will form the info field. */
 void t4_tx_set_header_info(t4_state_t *s, const char *info);
+
+int t4_tx_set_row_read_handler(t4_state_t *s, t4_row_read_handler_t handler, void *user_data);
 
 /*! \brief Get the row-to-row (y) resolution of the current page.
     \param s The T.4 context.

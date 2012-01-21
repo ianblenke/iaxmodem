@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: bell_mf_tx_tests.c,v 1.4 2006/11/19 14:07:26 steveu Exp $
+ * $Id: bell_mf_tx_tests.c,v 1.6 2007/11/10 11:14:57 steveu Exp $
  */
 
 /*! \file */
@@ -40,19 +40,11 @@
 #endif
 
 #include <stdlib.h>
-#include <inttypes.h>
-#include <string.h>
-#if defined(HAVE_TGMATH_H)
-#include <tgmath.h>
-#endif
-#if defined(HAVE_MATH_H)
-#include <math.h>
-#endif
 #include <stdio.h>
-#include <time.h>
 #include <fcntl.h>
+#include <string.h>
+#include <time.h>
 #include <audiofile.h>
-#include <tiffio.h>
 
 #include "spandsp.h"
 
@@ -94,7 +86,7 @@ int main(int argc, char *argv[])
                               AF_DEFAULT_TRACK,
                               amp,
                               len);
-    if (bell_mf_tx_put(&gen, "123"))
+    if (bell_mf_tx_put(&gen, "123", -1))
         printf("Ooops\n");
     len = bell_mf_tx(&gen, amp, 16384);
     printf("Generated %d samples\n", len);
@@ -102,7 +94,7 @@ int main(int argc, char *argv[])
                               AF_DEFAULT_TRACK,
                               amp,
                               len);
-    if (bell_mf_tx_put(&gen, "456"))
+    if (bell_mf_tx_put(&gen, "456", -1))
         printf("Ooops\n");
     len = bell_mf_tx(&gen, amp, 160);
     printf("Generated %d samples\n", len);
@@ -110,7 +102,7 @@ int main(int argc, char *argv[])
                               AF_DEFAULT_TRACK,
                               amp,
                               len);
-    if (bell_mf_tx_put(&gen, "789"))
+    if (bell_mf_tx_put(&gen, "789", -1))
         printf("Ooops\n");
     len = bell_mf_tx(&gen, amp, 160);
     printf("Generated %d samples\n", len);
@@ -118,7 +110,7 @@ int main(int argc, char *argv[])
                               AF_DEFAULT_TRACK,
                               amp,
                               len);
-    if (bell_mf_tx_put(&gen, "*#"))
+    if (bell_mf_tx_put(&gen, "*#", -1))
         printf("Ooops\n");
     len = bell_mf_tx(&gen, amp, 160);
     printf("Generated %d samples\n", len);
@@ -140,7 +132,7 @@ int main(int argc, char *argv[])
         }
         if (add_digits)
         {
-            if (bell_mf_tx_put(&gen, "1234567890"))
+            if (bell_mf_tx_put(&gen, "1234567890", -1))
             {
                 printf("Digit buffer full\n");
                 add_digits = 0;
@@ -156,7 +148,7 @@ int main(int argc, char *argv[])
                               AF_DEFAULT_TRACK,
                               amp,
                               len);
-    if (bell_mf_tx_put(&gen, "123"))
+    if (bell_mf_tx_put(&gen, "123", -1))
         printf("Ooops\n");
     len = bell_mf_tx(&gen, amp, 16384);
     printf("Generated %d samples\n", len);
@@ -164,7 +156,7 @@ int main(int argc, char *argv[])
                               AF_DEFAULT_TRACK,
                               amp,
                               len);
-    if (bell_mf_tx_put(&gen, "456"))
+    if (bell_mf_tx_put(&gen, "456", -1))
         printf("Ooops\n");
     len = bell_mf_tx(&gen, amp, 160);
     printf("Generated %d samples\n", len);
@@ -172,7 +164,7 @@ int main(int argc, char *argv[])
                               AF_DEFAULT_TRACK,
                               amp,
                               len);
-    if (bell_mf_tx_put(&gen, "789"))
+    if (bell_mf_tx_put(&gen, "789", -1))
         printf("Ooops\n");
     len = bell_mf_tx(&gen, amp, 160);
     printf("Generated %d samples\n", len);
@@ -180,7 +172,7 @@ int main(int argc, char *argv[])
                               AF_DEFAULT_TRACK,
                               amp,
                               len);
-    if (bell_mf_tx_put(&gen, "0*#"))
+    if (bell_mf_tx_put(&gen, "0*#", -1))
         printf("Ooops\n");
     len = bell_mf_tx(&gen, amp, 160);
     printf("Generated %d samples\n", len);
@@ -188,7 +180,7 @@ int main(int argc, char *argv[])
                               AF_DEFAULT_TRACK,
                               amp,
                               len);
-    if (bell_mf_tx_put(&gen, "ABC"))
+    if (bell_mf_tx_put(&gen, "ABC", -1))
         printf("Ooops\n");
     len = bell_mf_tx(&gen, amp, 160);
     printf("Generated %d samples\n", len);
@@ -210,7 +202,7 @@ int main(int argc, char *argv[])
         }
         if (add_digits)
         {
-            if (bell_mf_tx_put(&gen, "1234567890"))
+            if (bell_mf_tx_put(&gen, "1234567890", -1))
             {
                 printf("Digit buffer full\n");
                 add_digits = 0;

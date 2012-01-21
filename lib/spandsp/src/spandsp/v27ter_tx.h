@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: v27ter_tx.h,v 1.30 2007/05/12 12:25:39 steveu Exp $
+ * $Id: v27ter_tx.h,v 1.32 2007/11/30 12:20:36 steveu Exp $
  */
 
 /*! \file */
@@ -79,7 +79,7 @@ typedef struct
     /*! \brief A user specified opaque pointer passed to the callback function. */
     void *user_data;
 
-#if defined(USE_FIXED_POINT)
+#if defined(SPANDSP_USE_FIXED_POINT)
     /*! \brief The gain factor needed to achieve the specified output power at 2400bps. */
     int32_t gain_2400;
     /*! \brief The gain factor needed to achieve the specified output power at 4800bps. */
@@ -91,7 +91,7 @@ typedef struct
     float gain_4800;
 #endif
     /*! \brief The route raised cosine (RRC) pulse shaping filter buffer. */
-#if defined(USE_FIXED_POINT)
+#if defined(SPANDSP_USE_FIXED_POINT)
     complexi16_t rrc_filter[2*V27TER_TX_FILTER_STEPS];
 #else
     complexf_t rrc_filter[2*V27TER_TX_FILTER_STEPS];
@@ -153,11 +153,11 @@ v27ter_tx_state_t *v27ter_tx_init(v27ter_tx_state_t *s, int rate, int tep, get_b
     \return 0 for OK, -1 for bad parameter */
 int v27ter_tx_restart(v27ter_tx_state_t *s, int rate, int tep);
 
-/*! Release a V.27ter modem transmit context.
-    \brief Release a V.27ter modem transmit context.
+/*! Free a V.27ter modem transmit context.
+    \brief Free a V.27ter modem transmit context.
     \param s The modem context.
     \return 0 for OK */
-int v27ter_tx_release(v27ter_tx_state_t *s);
+int v27ter_tx_free(v27ter_tx_state_t *s);
 
 /*! Change the get_bit function associated with a V.27ter modem transmit context.
     \brief Change the get_bit function associated with a V.27ter modem transmit context.

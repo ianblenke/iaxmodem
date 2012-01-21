@@ -10,10 +10,11 @@ the DSP library with a tty device node for interfacing with modem (fax)
 applications.
 
 IAXmodem comes with a copy of both libiax2 and spandsp.  Both of these
-libraries have had bugs fixed and enhancements added for specific use
-with IAXmodem.  All of these changes have been submitted to the
-library authors and may be committed to those source repositories
-eventually.  However, the versions here should be used.
+libraries may have had bugs fixed or enhancements added for specific use
+with IAXmodem.  Although these changes are submitted to the library
+authors/maintainers and may be committed to the upstream repositories,
+it is recommended that the versions here be used for iaxmodem if only
+for the reason that these versions have been tested and are known to work.
 
 If you are using other applications that require a different libiax2 or
 spandsp version then iaxmodem can be statically linked to the libraries
@@ -22,9 +23,9 @@ part about "build static" below.
 
 Currently supported platforms are GNU/Linux on x86 hardware.
 
-The libiax2 source was pulled from iaxclient CVS on February 22, 2006.
+The libiax2 source was pulled from iaxclient SVN on December 23, 2007.
 
-The spandsp source is spandsp-0.0.3 snapshot 20070802.
+The spandsp source is spandsp-0.0.4 snapshot 20080110.
 
 IAXmodem should usually be installed either on the same machine as the
 Asterisk server or on a system that is very close to the Asterisk server
@@ -126,6 +127,12 @@ The "replay" entry causes the audio files to be replayed back (see below).
 
 The "nojitterbuffer" entry disables the very simple iaxmodem jitterbuffer
 (see below).
+
+The "iax2debug" entry enables debugging output for IAX2.
+
+The "dspdebug" entry enables debugging output for the DSPs.
+
+The "nodaemon" entry exempts the modem from inclusion with daemon use.
 
 Comments can be placed into the IAXmodem configuration files by beginning
 them with a semicolon (";").

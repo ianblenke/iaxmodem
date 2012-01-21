@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: v27ter_rx.c,v 1.78 2007/06/29 12:56:28 steveu Exp $
+ * $Id: v27ter_rx.c,v 1.87 2008/01/09 13:23:35 steveu Exp $
  */
 
 /*! \file */
@@ -55,6 +55,14 @@
 
 #include "spandsp/v29rx.h"
 #include "spandsp/v27ter_rx.h"
+
+#if defined(SPANDSP_USE_FIXED_POINT)
+#include "v27ter_rx_4800_fixed_rrc.h"
+#include "v27ter_rx_2400_fixed_rrc.h"
+#else
+#include "v27ter_rx_4800_floating_rrc.h"
+#include "v27ter_rx_2400_floating_rrc.h"
+#endif
 
 /* V.27ter is a DPSK modem, but this code treats it like QAM. It nails down the
    signal to a static constellation, even though dealing with differences is all
@@ -91,602 +99,6 @@ static const complexf_t v27ter_constellation[8] =
     {-1.0f,   -1.0f},       /* 225deg */
     { 0.0f,   -1.414f},     /* 270deg */
     { 1.0f,   -1.0f}        /* 315deg */
-};
-
-/* Raised root cosine pulse shaping filter set; beta 0.5; sample rate 8000; 8 phase steps;
-   baud rate 1600; shifted to centre at 1800Hz; complex. */
-#define PULSESHAPER_4800_GAIN           (2.4975f*2.0f)
-#define PULSESHAPER_4800_COEFF_SETS     8
-static const complexf_t pulseshaper_4800[PULSESHAPER_4800_COEFF_SETS][V27TER_RX_4800_FILTER_STEPS] =
-{
-    {
-        {-0.0050334423f, -0.0025646669f},   /* Filter 0 */
-        { 0.0001996320f, -0.0006144041f},
-        {-0.0064914716f, -0.0010281481f},
-        {-0.0000000000f,  0.0057152766f},
-        {-0.0060638961f,  0.0009604268f},
-        { 0.0046534477f,  0.0143218395f},
-        {-0.0027026909f,  0.0013770898f},
-        { 0.0114324470f,  0.0157354133f},
-        { 0.0161335660f, -0.0161335660f},
-        { 0.0216170550f,  0.0157057098f},
-        { 0.0523957134f, -0.1028323775f},
-        { 0.1009107956f,  0.0327879051f},
-        { 0.0626681574f, -0.3956711736f},
-        { 1.0309650898f,  0.0000000000f},
-        { 0.1612784723f,  1.0182721987f},
-        {-0.3809963452f,  0.1237932168f},
-        { 0.0481701579f,  0.0945392579f},
-        {-0.0933698449f,  0.0678371631f},
-        { 0.0188939989f,  0.0188939989f},
-        {-0.0134110893f,  0.0184587808f},
-        { 0.0173301130f,  0.0088301336f},
-        { 0.0009373415f, -0.0028848406f},
-        { 0.0148734735f,  0.0023557268f},
-        {-0.0000000000f, -0.0061394833f},
-        { 0.0056449120f, -0.0008940662f},
-        {-0.0020309798f, -0.0062507130f},
-        {-0.0005756104f,  0.0002932882f},
-    },
-    {
-        {-0.0018682578f, -0.0009519249f},   /* Filter 1 */
-        {-0.0002684621f,  0.0008262413f},
-        {-0.0059141931f, -0.0009367162f},
-        {-0.0000000000f,  0.0073941285f},
-        {-0.0037772132f,  0.0005982518f},
-        { 0.0050394423f,  0.0155098087f},
-        { 0.0010806327f, -0.0005506098f},
-        { 0.0105277637f,  0.0144902237f},
-        { 0.0209691082f, -0.0209691082f},
-        { 0.0125153543f,  0.0090929371f},
-        { 0.0603186345f, -0.1183819857f},
-        { 0.0675630592f,  0.0219525687f},
-        { 0.0765237582f, -0.4831519944f},
-        { 1.0763458014f,  0.0000000000f},
-        { 0.1524445751f,  0.9624971666f},
-        {-0.2992580667f,  0.0972348401f},
-        { 0.0600222537f,  0.1178003057f},
-        {-0.0774892752f,  0.0562992540f},
-        { 0.0247376160f,  0.0247376159f},
-        {-0.0090916622f,  0.0125135995f},
-        { 0.0175076452f,  0.0089205908f},
-        { 0.0021568809f, -0.0066381970f},
-        { 0.0129897446f,  0.0020573734f},
-        {-0.0000000000f, -0.0079766726f},
-        { 0.0037729191f, -0.0005975717f},
-        {-0.0020837980f, -0.0064132707f},
-        {-0.0018682578f,  0.0009519249f},
-    },
-    {
-        {-0.0030355143f, -0.0015466718f},   /* Filter 2 */
-        {-0.0007306011f,  0.0022485590f},
-        {-0.0049435003f, -0.0007829735f},
-        {-0.0000000000f,  0.0087472824f},
-        {-0.0011144870f,  0.0001765174f},
-        { 0.0051901643f,  0.0159736834f},
-        { 0.0049297142f, -0.0025118148f},
-        { 0.0088213528f,  0.0121415505f},
-        { 0.0251126307f, -0.0251126307f},
-        { 0.0011182680f,  0.0008124692f},
-        { 0.0667555589f, -0.1310151612f},
-        { 0.0256033627f,  0.0083190368f},
-        { 0.0905183226f, -0.5715101964f},
-        { 1.1095595360f,  0.0000000000f},
-        { 0.1420835849f,  0.8970804494f},
-        {-0.2215345589f,  0.0719809416f},
-        { 0.0679608493f,  0.1333806768f},
-        {-0.0606982839f,  0.0440998847f},
-        { 0.0284660210f,  0.0284660210f},
-        {-0.0047348689f,  0.0065169880f},
-        { 0.0165731197f,  0.0084444263f},
-        { 0.0032233168f, -0.0099203492f},
-        { 0.0105861265f,  0.0016766777f},
-        {-0.0000000000f, -0.0092685623f},
-        { 0.0018009090f, -0.0002852360f},
-        {-0.0020112222f, -0.0061899056f},
-        {-0.0030355143f,  0.0015466718f},
-    },
-    {
-        {-0.0040182937f, -0.0020474229f},   /* Filter 3 */
-        {-0.0011603659f,  0.0035712391f},
-        {-0.0036173562f, -0.0005729329f},
-        {-0.0000000000f,  0.0096778115f},
-        { 0.0018022529f, -0.0002854488f},
-        { 0.0050847711f,  0.0156493164f},
-        { 0.0086257291f, -0.0043950285f},
-        { 0.0063429899f,  0.0087303766f},
-        { 0.0282322904f, -0.0282322904f},
-        {-0.0123306868f, -0.0089587683f},
-        { 0.0712060603f, -0.1397497620f},
-        {-0.0248170325f, -0.0080635427f},
-        { 0.1043647251f, -0.6589329411f},
-        { 1.1298123598f,  0.0000000000f},
-        { 0.1304361227f,  0.8235412673f},
-        {-0.1491678531f,  0.0484675735f},
-        { 0.0722366382f,  0.1417723850f},
-        {-0.0437871917f,  0.0318132570f},
-        { 0.0301678844f,  0.0301678844f},
-        {-0.0005794433f,  0.0007975353f},
-        { 0.0146599874f,  0.0074696367f},
-        { 0.0040878789f, -0.0125811975f},
-        { 0.0078126085f,  0.0012373956f},
-        {-0.0000000000f, -0.0099797659f},
-        {-0.0001576582f,  0.0000249706f},
-        {-0.0018223262f, -0.0056085432f},
-        {-0.0040182937f,  0.0020474229f},
-    },
-    {
-        {-0.0047695783f, -0.0024302215f},   /* Filter 4 */
-        {-0.0015320920f,  0.0047152944f},
-        {-0.0019955989f, -0.0003160718f},
-        {-0.0000000000f,  0.0101070339f},
-        { 0.0048302421f, -0.0007650352f},
-        { 0.0047152968f,  0.0145121913f},
-        { 0.0119428503f, -0.0060851862f},
-        { 0.0031686377f,  0.0043612557f},
-        { 0.0300119095f, -0.0300119094f},
-        {-0.0274628457f, -0.0199529254f},
-        { 0.0731841827f, -0.1436320457f},
-        {-0.0832936387f, -0.0270637438f},
-        { 0.1177684882f, -0.7435609707f},
-        { 1.1366178989f,  0.0000000000f},
-        { 0.1177684882f,  0.7435609707f},
-        {-0.0832936387f,  0.0270637438f},
-        { 0.0731841827f,  0.1436320457f},
-        {-0.0274628457f,  0.0199529254f},
-        { 0.0300119095f,  0.0300119094f},
-        { 0.0031686377f, -0.0043612557f},
-        { 0.0119428503f,  0.0060851862f},
-        { 0.0047152968f, -0.0145121913f},
-        { 0.0048302421f,  0.0007650352f},
-        {-0.0000000000f, -0.0101070339f},
-        {-0.0019955989f,  0.0003160718f},
-        {-0.0015320920f, -0.0047152944f},
-        {-0.0047695783f,  0.0024302215f},
-    },
-    {
-        {-0.0052564711f, -0.0026783058f},   /* Filter 5 */
-        {-0.0018223262f,  0.0056085432f},
-        {-0.0001576582f, -0.0000249706f},
-        {-0.0000000000f,  0.0099797659f},
-        { 0.0078126085f, -0.0012373956f},
-        { 0.0040878789f,  0.0125811975f},
-        { 0.0146599874f, -0.0074696367f},
-        {-0.0005794433f, -0.0007975353f},
-        { 0.0301678844f, -0.0301678844f},
-        {-0.0437871917f, -0.0318132570f},
-        { 0.0722366382f, -0.1417723850f},
-        {-0.1491678531f, -0.0484675735f},
-        { 0.1304361227f, -0.8235412673f},
-        { 1.1298123598f,  0.0000000000f},
-        { 0.1043647251f,  0.6589329411f},
-        {-0.0248170325f,  0.0080635427f},
-        { 0.0712060603f,  0.1397497620f},
-        {-0.0123306868f,  0.0089587683f},
-        { 0.0282322904f,  0.0282322904f},
-        { 0.0063429899f, -0.0087303766f},
-        { 0.0086257291f,  0.0043950285f},
-        { 0.0050847711f, -0.0156493164f},
-        { 0.0018022529f,  0.0002854488f},
-        {-0.0000000000f, -0.0096778115f},
-        {-0.0036173562f,  0.0005729329f},
-        {-0.0011603659f, -0.0035712391f},
-        {-0.0052564711f,  0.0026783058f},
-    },
-    {
-        {-0.0054614245f, -0.0027827348f},   /* Filter 6 */
-        {-0.0020112222f,  0.0061899056f},
-        { 0.0018009090f,  0.0002852360f},
-        {-0.0000000000f,  0.0092685623f},
-        { 0.0105861265f, -0.0016766777f},
-        { 0.0032233168f,  0.0099203492f},
-        { 0.0165731197f, -0.0084444263f},
-        {-0.0047348689f, -0.0065169880f},
-        { 0.0284660210f, -0.0284660210f},
-        {-0.0606982839f, -0.0440998847f},
-        { 0.0679608493f, -0.1333806768f},
-        {-0.2215345589f, -0.0719809416f},
-        { 0.1420835849f, -0.8970804494f},
-        { 1.1095595360f,  0.0000000000f},
-        { 0.0905183226f,  0.5715101964f},
-        { 0.0256033627f, -0.0083190368f},
-        { 0.0667555589f,  0.1310151612f},
-        { 0.0011182680f, -0.0008124692f},
-        { 0.0251126307f,  0.0251126307f},
-        { 0.0088213528f, -0.0121415505f},
-        { 0.0049297142f,  0.0025118148f},
-        { 0.0051901643f, -0.0159736834f},
-        {-0.0011144870f, -0.0001765174f},
-        {-0.0000000000f, -0.0087472824f},
-        {-0.0049435003f,  0.0007829735f},
-        {-0.0007306011f, -0.0022485590f},
-        {-0.0054614245f,  0.0027827348f},
-    },
-    {
-        {-0.0053826099f, -0.0027425768f},   /* Filter 7 */
-        {-0.0020837980f,  0.0064132707f},
-        { 0.0037729191f,  0.0005975717f},
-        {-0.0000000000f,  0.0079766726f},
-        { 0.0129897446f, -0.0020573734f},
-        { 0.0021568809f,  0.0066381970f},
-        { 0.0175076452f, -0.0089205908f},
-        {-0.0090916622f, -0.0125135995f},
-        { 0.0247376160f, -0.0247376159f},
-        {-0.0774892752f, -0.0562992540f},
-        { 0.0600222537f, -0.1178003057f},
-        {-0.2992580667f, -0.0972348401f},
-        { 0.1524445751f, -0.9624971666f},
-        { 1.0763458014f,  0.0000000000f},
-        { 0.0765237582f,  0.4831519944f},
-        { 0.0675630592f, -0.0219525687f},
-        { 0.0603186345f,  0.1183819857f},
-        { 0.0125153543f, -0.0090929371f},
-        { 0.0209691082f,  0.0209691082f},
-        { 0.0105277637f, -0.0144902237f},
-        { 0.0010806327f,  0.0005506098f},
-        { 0.0050394423f, -0.0155098087f},
-        {-0.0037772132f, -0.0005982518f},
-        {-0.0000000000f, -0.0073941285f},
-        {-0.0059141931f,  0.0009367162f},
-        {-0.0002684621f, -0.0008262413f},
-        {-0.0053826099f,  0.0027425768f},
-    },
-};
-
-/* Raised root cosine pulse shaping filter set; beta 0.5; sample rate 8000; 12 phase steps;
-   baud rate 1200; shifted to centre at 1800Hz; complex. */
-#define PULSESHAPER_2400_GAIN           2.223f
-#define PULSESHAPER_2400_COEFF_SETS     12
-static const complexf_t pulseshaper_2400[PULSESHAPER_2400_COEFF_SETS][V27TER_RX_2400_FILTER_STEPS] =
-{
-    {
-        { 0.0036326320f,  0.0018509185f},   /* Filter 0 */
-        { 0.0003793370f, -0.0011674794f},
-        { 0.0048754563f,  0.0007721964f},
-        { 0.0000000000f, -0.0062069190f},
-        {-0.0027810383f,  0.0004404732f},
-        {-0.0021925965f, -0.0067481182f},
-        {-0.0140173459f,  0.0071421944f},
-        { 0.0019772880f,  0.0027215034f},
-        {-0.0092149554f,  0.0092149553f},
-        { 0.0334995425f,  0.0243388423f},
-        { 0.0199195813f, -0.0390943796f},
-        { 0.1477459776f,  0.0480055782f},
-        { 0.0427277333f, -0.2697722907f},
-        { 1.0040582418f,  0.0000000000f},
-        { 0.1570693140f,  0.9916966187f},
-        {-0.2597668560f,  0.0844033680f},
-        { 0.0705271128f,  0.1384172525f},
-        {-0.0354969538f,  0.0257900466f},
-        { 0.0292796738f,  0.0292796738f},
-        { 0.0076599673f, -0.0105430406f},
-        { 0.0029973132f,  0.0015272073f},
-        { 0.0048614662f, -0.0149620544f},
-        {-0.0070080354f, -0.0011099638f},
-        {-0.0000000000f, -0.0028157043f},
-        {-0.0061305015f,  0.0009709761f},
-        { 0.0015253788f,  0.0046946332f},
-        {-0.0010937644f,  0.0005573008f},
-    },
-    {
-        {-0.0002819961f, -0.0001436842f},   /* Filter 1 */
-        { 0.0006588563f, -0.0020277512f},
-        { 0.0041797109f,  0.0006620012f},
-        { 0.0000000000f, -0.0065623410f},
-        {-0.0042368606f,  0.0006710528f},
-        {-0.0017245111f, -0.0053074995f},
-        {-0.0146686673f,  0.0074740593f},
-        { 0.0038644283f,  0.0053189292f},
-        {-0.0067358415f,  0.0067358415f},
-        { 0.0345347757f,  0.0250909833f},
-        { 0.0269170677f, -0.0528277198f},
-        { 0.1389398473f,  0.0451442930f},
-        { 0.0525256151f, -0.3316336818f},
-        { 1.0434222221f,  0.0000000000f},
-        { 0.1499906453f,  0.9470036639f},
-        {-0.2028542371f,  0.0659113371f},
-        { 0.0727579142f,  0.1427954467f},
-        {-0.0235379981f,  0.0171013566f},
-        { 0.0275384769f,  0.0275384769f},
-        { 0.0093041035f, -0.0128059998f},
-        { 0.0001136455f,  0.0000579053f},
-        { 0.0045116911f, -0.0138855574f},
-        {-0.0082179267f, -0.0013015917f},
-        {-0.0000000000f, -0.0013177606f},
-        {-0.0055834514f,  0.0008843318f},
-        { 0.0016945064f,  0.0052151545f},
-        {-0.0002819961f,  0.0001436842f},
-    },
-    {
-        { 0.0005112062f,  0.0002604726f},   /* Filter 2 */
-        { 0.0009277352f, -0.0028552754f},
-        { 0.0033466091f,  0.0005300508f},
-        { 0.0000000000f, -0.0067017064f},
-        {-0.0056208495f,  0.0008902551f},
-        {-0.0011771217f, -0.0036228080f},
-        {-0.0149285967f,  0.0076064999f},
-        { 0.0056743444f,  0.0078100650f},
-        {-0.0038028170f,  0.0038028170f},
-        { 0.0344837758f,  0.0250539297f},
-        { 0.0340482504f, -0.0668234539f},
-        { 0.1257304818f,  0.0408523100f},
-        { 0.0626620127f, -0.3956323778f},
-        { 1.0763765574f,  0.0000000000f},
-        { 0.1420845360f,  0.8970864542f},
-        {-0.1491315874f,  0.0484557901f},
-        { 0.0731690629f,  0.1436023716f},
-        {-0.0123276338f,  0.0089565502f},
-        { 0.0250869159f,  0.0250869159f},
-        { 0.0105070407f, -0.0144617008f},
-        {-0.0027029676f, -0.0013772308f},
-        { 0.0040530413f, -0.0124739786f},
-        {-0.0091186142f, -0.0014442466f},
-        { 0.0000000000f,  0.0001565015f},
-        {-0.0048632493f,  0.0007702630f},
-        { 0.0018111360f,  0.0055741034f},
-        { 0.0005112062f, -0.0002604726f},
-    },
-    {
-        { 0.0012626700f,  0.0006433625f},   /* Filter 3 */
-        { 0.0011774450f, -0.0036238031f},
-        { 0.0023987660f,  0.0003799272f},
-        { 0.0000000000f, -0.0066136620f},
-        {-0.0068852097f,  0.0010905101f},
-        {-0.0005635325f, -0.0017343746f},
-        {-0.0147735044f,  0.0075274764f},
-        { 0.0073440948f,  0.0101082792f},
-        {-0.0004807357f,  0.0004807357f},
-        { 0.0332365955f,  0.0241478001f},
-        { 0.0411429005f, -0.0807474888f},
-        { 0.1079056364f,  0.0350606666f},
-        { 0.0730301872f, -0.4610944549f},
-        { 1.1024802923f,  0.0000000000f},
-        { 0.1334542238f,  0.8425968074f},
-        {-0.0990668329f,  0.0321887653f},
-        { 0.0719339457f,  0.1411783175f},
-        {-0.0020666801f,  0.0015015310f},
-        { 0.0220599213f,  0.0220599213f},
-        { 0.0112587393f, -0.0154963252f},
-        {-0.0053688554f, -0.0027355684f},
-        { 0.0035031104f, -0.0107814651f},
-        {-0.0096971580f, -0.0015358789f},
-        { 0.0000000000f,  0.0015619067f},
-        {-0.0039973434f,  0.0006331170f},
-        { 0.0018730190f,  0.0057645597f},
-        { 0.0012626700f, -0.0006433625f},
-    },
-    {
-        { 0.0019511001f,  0.0009941351f},   /* Filter 4 */
-        { 0.0013998188f, -0.0043081992f},
-        { 0.0013630316f,  0.0002158830f},
-        { 0.0000000000f, -0.0062936717f},
-        {-0.0079839961f,  0.0012645408f},
-        { 0.0001005750f,  0.0003095379f},
-        {-0.0141915007f,  0.0072309308f},
-        { 0.0088117029f,  0.0121282686f},
-        { 0.0031486956f, -0.0031486956f},
-        { 0.0307069943f,  0.0223099373f},
-        { 0.0480159027f, -0.0942365150f},
-        { 0.0853178815f,  0.0277214601f},
-        { 0.0835162618f, -0.5273009241f},
-        { 1.1213819981f,  0.0000000000f},
-        { 0.1242110958f,  0.7842379942f},
-        {-0.0530547129f,  0.0172385212f},
-        { 0.0692420091f,  0.1358950944f},
-        { 0.0070828755f, -0.0051460103f},
-        { 0.0185973391f,  0.0185973390f},
-        { 0.0115630893f, -0.0159152271f},
-        {-0.0078088406f, -0.0039788030f},
-        { 0.0028814530f, -0.0088682003f},
-        {-0.0099506630f, -0.0015760302f},
-        { 0.0000000000f,  0.0028570218f},
-        {-0.0030168074f,  0.0004778154f},
-        { 0.0018796273f,  0.0057848981f},
-        { 0.0019511001f, -0.0009941351f},
-    },
-    {
-        { 0.0025576725f,  0.0013031992f},   /* Filter 5 */
-        { 0.0015873149f, -0.0048852529f},
-        { 0.0002697804f,  0.0000427290f},
-        { 0.0000000000f, -0.0057443897f},
-        {-0.0088745956f,  0.0014055979f},
-        { 0.0007973152f,  0.0024538838f},
-        {-0.0131833524f,  0.0067172536f},
-        { 0.0100180850f,  0.0137887111f},
-        { 0.0069881240f, -0.0069881240f},
-        { 0.0268364889f,  0.0194978505f},
-        { 0.0544701590f, -0.1069037062f},
-        { 0.0578903347f,  0.0188097100f},
-        { 0.0940009470f, -0.5934986215f},
-        { 1.1328263283f,  0.0000000000f},
-        { 0.1144728051f,  0.7227528464f},
-        {-0.0114127678f,  0.0037082330f},
-        { 0.0652944573f,  0.1281475878f},
-        { 0.0149986858f, -0.0108971831f},
-        { 0.0148400450f,  0.0148400450f},
-        { 0.0114369676f, -0.0157416354f},
-        {-0.0099579979f, -0.0050738534f},
-        { 0.0022089316f, -0.0067983924f},
-        {-0.0098859888f, -0.0015657868f},
-        { 0.0000000000f,  0.0040052626f},
-        {-0.0019552917f,  0.0003096878f},
-        { 0.0018321212f,  0.0056386894f},
-        { 0.0025576725f, -0.0013031992f},
-    },
-    {
-        { 0.0030665390f,  0.0015624797f},   /* Filter 6 */
-        { 0.0017332683f, -0.0053344513f},
-        {-0.0008479269f, -0.0001342984f},
-        { 0.0000000000f, -0.0049758209f},
-        {-0.0095191676f,  0.0015076880f},
-        { 0.0015070535f,  0.0046382337f},
-        {-0.0117630486f,  0.0059935726f},
-        { 0.0109089996f,  0.0150149499f},
-        { 0.0109262557f, -0.0109262557f},
-        { 0.0215979519f,  0.0156918306f},
-        { 0.0602999226f, -0.1183452615f},
-        { 0.0256212387f,  0.0083248451f},
-        { 0.1043613218f, -0.6589114533f},
-        { 1.1366584301f,  0.0000000000f},
-        { 0.1043613218f,  0.6589114533f},
-        { 0.0256212387f, -0.0083248451f},
-        { 0.0602999226f,  0.1183452615f},
-        { 0.0215979519f, -0.0156918306f},
-        { 0.0109262557f,  0.0109262557f},
-        { 0.0109089996f, -0.0150149499f},
-        {-0.0117630486f, -0.0059935726f},
-        { 0.0015070535f, -0.0046382337f},
-        {-0.0095191676f, -0.0015076880f},
-        { 0.0000000000f,  0.0049758209f},
-        {-0.0008479269f,  0.0001342984f},
-        { 0.0017332683f,  0.0053344513f},
-        { 0.0030665390f, -0.0015624797f},
-    },
-    {
-        { 0.0034652296f,  0.0017656227f},   /* Filter 7 */
-        { 0.0018321212f, -0.0056386894f},
-        {-0.0019552917f, -0.0003096878f},
-        { 0.0000000000f, -0.0040052626f},
-        {-0.0098859888f,  0.0015657868f},
-        { 0.0022089316f,  0.0067983924f},
-        {-0.0099579979f,  0.0050738534f},
-        { 0.0114369676f,  0.0157416354f},
-        { 0.0148400450f, -0.0148400450f},
-        { 0.0149986858f,  0.0108971831f},
-        { 0.0652944573f, -0.1281475878f},
-        {-0.0114127678f, -0.0037082330f},
-        { 0.1144728051f, -0.7227528464f},
-        { 1.1328263283f,  0.0000000000f},
-        { 0.0940009470f,  0.5934986215f},
-        { 0.0578903347f, -0.0188097100f},
-        { 0.0544701590f,  0.1069037062f},
-        { 0.0268364889f, -0.0194978505f},
-        { 0.0069881240f,  0.0069881240f},
-        { 0.0100180850f, -0.0137887111f},
-        {-0.0131833524f, -0.0067172536f},
-        { 0.0007973152f, -0.0024538838f},
-        {-0.0088745956f, -0.0014055979f},
-        { 0.0000000000f,  0.0057443897f},
-        { 0.0002697804f, -0.0000427290f},
-        { 0.0015873149f,  0.0048852529f},
-        { 0.0034652296f, -0.0017656227f},
-    },
-    {
-        { 0.0037449420f,  0.0019081433f},   /* Filter 8 */
-        { 0.0018796273f, -0.0057848981f},
-        {-0.0030168074f, -0.0004778154f},
-        { 0.0000000000f, -0.0028570218f},
-        {-0.0099506630f,  0.0015760302f},
-        { 0.0028814530f,  0.0088682003f},
-        {-0.0078088406f,  0.0039788030f},
-        { 0.0115630893f,  0.0159152271f},
-        { 0.0185973391f, -0.0185973390f},
-        { 0.0070828755f,  0.0051460103f},
-        { 0.0692420091f, -0.1358950944f},
-        {-0.0530547129f, -0.0172385212f},
-        { 0.1242110958f, -0.7842379942f},
-        { 1.1213819981f,  0.0000000000f},
-        { 0.0835162618f,  0.5273009241f},
-        { 0.0853178815f, -0.0277214601f},
-        { 0.0480159027f,  0.0942365150f},
-        { 0.0307069943f, -0.0223099373f},
-        { 0.0031486956f,  0.0031486956f},
-        { 0.0088117029f, -0.0121282686f},
-        {-0.0141915007f, -0.0072309308f},
-        { 0.0001005750f, -0.0003095379f},
-        {-0.0079839961f, -0.0012645408f},
-        { 0.0000000000f,  0.0062936717f},
-        { 0.0013630316f, -0.0002158830f},
-        { 0.0013998188f,  0.0043081992f},
-        { 0.0037449420f, -0.0019081433f},
-    },
-    {
-        { 0.0039007144f,  0.0019875132f},   /* Filter 9 */
-        { 0.0018730190f, -0.0057645597f},
-        {-0.0039973434f, -0.0006331170f},
-        { 0.0000000000f, -0.0015619067f},
-        {-0.0096971580f,  0.0015358789f},
-        { 0.0035031104f,  0.0107814651f},
-        {-0.0053688554f,  0.0027355684f},
-        { 0.0112587393f,  0.0154963252f},
-        { 0.0220599213f, -0.0220599213f},
-        {-0.0020666801f, -0.0015015310f},
-        { 0.0719339457f, -0.1411783175f},
-        {-0.0990668329f, -0.0321887653f},
-        { 0.1334542238f, -0.8425968074f},
-        { 1.1024802923f,  0.0000000000f},
-        { 0.0730301872f,  0.4610944549f},
-        { 0.1079056364f, -0.0350606666f},
-        { 0.0411429005f,  0.0807474888f},
-        { 0.0332365955f, -0.0241478001f},
-        {-0.0004807357f, -0.0004807357f},
-        { 0.0073440948f, -0.0101082792f},
-        {-0.0147735044f, -0.0075274764f},
-        {-0.0005635325f,  0.0017343746f},
-        {-0.0068852097f, -0.0010905101f},
-        { 0.0000000000f,  0.0066136620f},
-        { 0.0023987660f, -0.0003799272f},
-        { 0.0011774450f,  0.0036238031f},
-        { 0.0039007144f, -0.0019875132f},
-    },
-    {
-        { 0.0039314768f,  0.0020031875f},   /* Filter 10 */
-        { 0.0018111360f, -0.0055741034f},
-        {-0.0048632493f, -0.0007702630f},
-        { 0.0000000000f, -0.0001565015f},
-        {-0.0091186142f,  0.0014442466f},
-        { 0.0040530413f,  0.0124739786f},
-        {-0.0027029676f,  0.0013772308f},
-        { 0.0105070407f,  0.0144617008f},
-        { 0.0250869159f, -0.0250869159f},
-        {-0.0123276338f, -0.0089565502f},
-        { 0.0731690629f, -0.1436023716f},
-        {-0.1491315874f, -0.0484557901f},
-        { 0.1420845360f, -0.8970864542f},
-        { 1.0763765574f,  0.0000000000f},
-        { 0.0626620127f,  0.3956323778f},
-        { 0.1257304818f, -0.0408523100f},
-        { 0.0340482504f,  0.0668234539f},
-        { 0.0344837758f, -0.0250539297f},
-        {-0.0038028170f, -0.0038028170f},
-        { 0.0056743444f, -0.0078100650f},
-        {-0.0149285967f, -0.0076064999f},
-        {-0.0011771217f,  0.0036228080f},
-        {-0.0056208495f, -0.0008902551f},
-        { 0.0000000000f,  0.0067017064f},
-        { 0.0033466091f, -0.0005300508f},
-        { 0.0009277352f,  0.0028552754f},
-        { 0.0039314768f, -0.0020031875f},
-    },
-    {
-        { 0.0038399827f,  0.0019565689f},   /* Filter 11 */
-        { 0.0016945064f, -0.0052151545f},
-        {-0.0055834514f, -0.0008843318f},
-        {-0.0000000000f,  0.0013177606f},
-        {-0.0082179267f,  0.0013015917f},
-        { 0.0045116911f,  0.0138855574f},
-        { 0.0001136455f, -0.0000579053f},
-        { 0.0093041035f,  0.0128059998f},
-        { 0.0275384769f, -0.0275384769f},
-        {-0.0235379981f, -0.0171013566f},
-        { 0.0727579142f, -0.1427954467f},
-        {-0.2028542371f, -0.0659113371f},
-        { 0.1499906453f, -0.9470036639f},
-        { 1.0434222221f,  0.0000000000f},
-        { 0.0525256151f,  0.3316336818f},
-        { 0.1389398473f, -0.0451442930f},
-        { 0.0269170677f,  0.0528277198f},
-        { 0.0345347757f, -0.0250909833f},
-        {-0.0067358415f, -0.0067358415f},
-        { 0.0038644283f, -0.0053189292f},
-        {-0.0146686673f, -0.0074740593f},
-        {-0.0017245111f,  0.0053074995f},
-        {-0.0042368606f, -0.0006710528f},
-        { 0.0000000000f,  0.0065623410f},
-        { 0.0041797109f, -0.0006620012f},
-        { 0.0006588563f,  0.0020277512f},
-        { 0.0038399827f, -0.0019565689f},
-    },
 };
 
 float v27ter_rx_carrier_frequency(v27ter_rx_state_t *s)
@@ -763,7 +175,7 @@ static __inline__ complexf_t equalizer_get(v27ter_rx_state_t *s)
     complexf_t z1;
 
     /* Get the next equalized value. */
-    z = complex_setf(0.0, 0.0);
+    z = complex_setf(0.0f, 0.0f);
     p = s->eq_step - 1;
     for (i = 0;  i < V27TER_EQUALIZER_PRE_LEN + 1 + V27TER_EQUALIZER_POST_LEN;  i++)
     {
@@ -896,11 +308,11 @@ static __inline__ int find_octant(complexf_t *z)
     /* Are we near an axis or a diagonal? */
     abs_re = fabsf(z->re);
     abs_im = fabsf(z->im);
-    if (abs_im > abs_re*0.4142136  &&  abs_im < abs_re*2.4142136)
+    if (abs_im > abs_re*0.4142136f  &&  abs_im < abs_re*2.4142136f)
     {
         /* Split the space along the two axes. */
-        b1 = (z->re < 0.0);
-        b2 = (z->im < 0.0);
+        b1 = (z->re < 0.0f);
+        b2 = (z->im < 0.0f);
         bits = (b2 << 2) | ((b1 ^ b2) << 1) | 1;
     }
     else
@@ -982,10 +394,10 @@ static __inline__ void process_half_baud(v27ter_rx_state_t *s, const complexf_t 
     /* On alternate insertions we have a whole baud, and must process it. */
     if ((s->baud_phase ^= 1))
     {
-        //span_log(&s->logging, SPAN_LOG_FLOW, "Samp, %f, %f, %f, -1, 0x%X\n", z.re, z.im, sqrt(z.re*z.re + z.im*z.im), s->eq_put_step);
+        //span_log(&s->logging, SPAN_LOG_FLOW, "Samp, %f, %f, %f, -1, 0x%X\n", z.re, z.im, sqrtf(z.re*z.re + z.im*z.im), s->eq_put_step);
         return;
     }
-    //span_log(&s->logging, SPAN_LOG_FLOW, "Samp, %f, %f, %f, 1, 0x%X\n", z.re, z.im, sqrt(z.re*z.re + z.im*z.im), s->eq_put_step);
+    //span_log(&s->logging, SPAN_LOG_FLOW, "Samp, %f, %f, %f, 1, 0x%X\n", z.re, z.im, sqrtf(z.re*z.re + z.im*z.im), s->eq_put_step);
 
     /* Perform a Gardner test for baud alignment */
     p = s->eq_buf[(s->eq_step - 3) & V27TER_EQUALIZER_MASK].re
@@ -996,7 +408,7 @@ static __inline__ void process_half_baud(v27ter_rx_state_t *s, const complexf_t 
       - s->eq_buf[(s->eq_step - 1) & V27TER_EQUALIZER_MASK].im;
     q *= s->eq_buf[(s->eq_step - 2) & V27TER_EQUALIZER_MASK].im;
 
-    s->gardner_integrate += (p + q > 0.0)  ?  s->gardner_step  :  -s->gardner_step;
+    s->gardner_integrate += (p + q > 0.0f)  ?  s->gardner_step  :  -s->gardner_step;
 
     if (abs(s->gardner_integrate) >= 256)
     {
@@ -1122,8 +534,8 @@ static __inline__ void process_half_baud(v27ter_rx_state_t *s, const complexf_t 
             s->constellation_state = (s->bit_rate == 4800)  ?  4  :  2;
             s->training_count = 0;
             s->training_stage = TRAINING_STAGE_TEST_ONES;
-            s->carrier_track_i = 400.0;
-            s->carrier_track_p = 1000000.0;
+            s->carrier_track_i = 400.0f;
+            s->carrier_track_p = 1000000.0f;
         }
         break;
     case TRAINING_STAGE_TEST_ONES:
@@ -1182,9 +594,13 @@ int v27ter_rx(v27ter_rx_state_t *s, const int16_t amp[], int len)
     int j;
     int step;
     int16_t x;
+    int32_t diff;
     complexf_t z;
     complexf_t zz;
-    complexf_t samplex;
+    complexf_t sample;
+#if defined(SPANDSP_USE_FIXED_POINT)
+    complexi_t zi;
+#endif
     int32_t power;
 
     if (s->bit_rate == 4800)
@@ -1200,13 +616,37 @@ int v27ter_rx(v27ter_rx_state_t *s, const int16_t amp[], int len)
                We need to measure the power with the DC blocked, but not using
                a slow to respond DC blocker. Use the most elementary HPF. */
             x = amp[i] >> 1;
-            power = power_meter_update(&(s->power), x - s->last_sample);
+            diff = x - s->last_sample;
+            power = power_meter_update(&(s->power), diff);
+#if defined(IAXMODEM_STUFF)
+            /* Quick power drop fudge */
+            diff = abs(diff);
+            if (10*diff < s->high_sample)
+            {
+                if (++s->low_samples > 120)
+                {
+                    power_meter_init(&(s->power), 4);
+                    s->high_sample = 0;
+                    s->low_samples = 0;
+                }
+            }
+            else
+            { 
+                s->low_samples = 0;
+                if (diff > s->high_sample)
+                   s->high_sample = diff;
+            }
+#endif
             s->last_sample = x;
             //span_log(&s->logging, SPAN_LOG_FLOW, "Power = %f\n", power_meter_current_dbm0(&(s->power)));
             if (s->signal_present)
             {
                 /* Look for power below turnoff threshold to turn the carrier off */
-                if (s->carrier_drop_pending || power < s->carrier_off_power)
+#if defined(IAXMODEM_STUFF)
+                if (s->carrier_drop_pending  ||  power < s->carrier_off_power)
+#else
+                if (power < s->carrier_off_power)
+#endif
                 {
                     if (--s->signal_present <= 0)
                     {
@@ -1216,12 +656,11 @@ int v27ter_rx(v27ter_rx_state_t *s, const int16_t amp[], int len)
                         s->put_bit(s->user_data, PUTBIT_CARRIER_DOWN);
                         continue;
                     }
-                    else
-                    {
-                        /* Carrier has dropped, but the put_bit is
-                           pending the signal_present delay. */
-                        s->carrier_drop_pending = 1;
-                    }
+#if defined(IAXMODEM_STUFF)
+                    /* Carrier has dropped, but the put_bit is
+                       pending the signal_present delay. */
+                    s->carrier_drop_pending = TRUE;
+#endif
                 }
             }
             else
@@ -1230,14 +669,15 @@ int v27ter_rx(v27ter_rx_state_t *s, const int16_t amp[], int len)
                 if (power < s->carrier_on_power)
                     continue;
                 s->signal_present = 1;
-                s->carrier_drop_pending = 0;
+#if defined(IAXMODEM_STUFF)
+                s->carrier_drop_pending = FALSE;
+#endif
                 s->put_bit(s->user_data, PUTBIT_CARRIER_UP);
             }
-            if (s->training_stage == TRAINING_STAGE_PARKED)
-                continue;
             /* Only spend effort processing this data if the modem is not
                parked, after training failure. */
-            z = dds_complexf(&(s->carrier_phase), s->carrier_phase_rate);
+            if (s->training_stage == TRAINING_STAGE_PARKED)
+                continue;
         
             /* Put things into the equalization buffer at T/2 rate. The Gardner algorithm
                will fiddle the step to align this with the symbols. */
@@ -1250,12 +690,23 @@ int v27ter_rx(v27ter_rx_state_t *s, const int16_t amp[], int len)
                 }
                 /* Pulse shape while still at the carrier frequency, using a quadrature
                    pair of filters. This results in a properly bandpass filtered complex
-                   signal, which can be brought directly to bandband by complex mixing.
+                   signal, which can be brought directly to baseband by complex mixing.
                    No further filtering, to remove mixer harmonics, is needed. */
                 step = -s->eq_put_step;
                 if (step > PULSESHAPER_4800_COEFF_SETS - 1)
                     step = PULSESHAPER_4800_COEFF_SETS - 1;
                 s->eq_put_step += PULSESHAPER_4800_COEFF_SETS*5/2;
+#if defined(SPANDSP_USE_FIXED_POINT)
+                zi.re = (int32_t) pulseshaper_4800[step][0].re*(int32_t) s->rrc_filter[s->rrc_filter_step];
+                zi.im = (int32_t) pulseshaper_4800[step][0].im*(int32_t) s->rrc_filter[s->rrc_filter_step];
+                for (j = 1;  j < V27TER_RX_4800_FILTER_STEPS;  j++)
+                {
+                    zi.re += (int32_t) pulseshaper_4800[step][j].re*(int32_t) s->rrc_filter[j + s->rrc_filter_step];
+                    zi.im += (int32_t) pulseshaper_4800[step][j].im*(int32_t) s->rrc_filter[j + s->rrc_filter_step];
+                }
+                sample.re = zi.re*s->agc_scaling;
+                sample.im = zi.im*s->agc_scaling;
+#else
                 zz.re = pulseshaper_4800[step][0].re*s->rrc_filter[s->rrc_filter_step];
                 zz.im = pulseshaper_4800[step][0].im*s->rrc_filter[s->rrc_filter_step];
                 for (j = 1;  j < V27TER_RX_4800_FILTER_STEPS;  j++)
@@ -1263,15 +714,18 @@ int v27ter_rx(v27ter_rx_state_t *s, const int16_t amp[], int len)
                     zz.re += pulseshaper_4800[step][j].re*s->rrc_filter[j + s->rrc_filter_step];
                     zz.im += pulseshaper_4800[step][j].im*s->rrc_filter[j + s->rrc_filter_step];
                 }
-                samplex.re = zz.re*s->agc_scaling;
-                samplex.im = zz.im*s->agc_scaling;
+                sample.re = zz.re*s->agc_scaling;
+                sample.im = zz.im*s->agc_scaling;
+#endif
                 /* Shift to baseband - since this is done in a full complex form, the
                    result is clean, and requires no further filtering, apart from the
                    equalizer. */
-                zz.re = samplex.re*z.re - samplex.im*z.im;
-                zz.im = -samplex.re*z.im - samplex.im*z.re;
+                z = dds_lookup_complexf(s->carrier_phase);
+                zz.re = sample.re*z.re - sample.im*z.im;
+                zz.im = -sample.re*z.im - sample.im*z.re;
                 process_half_baud(s, &zz);
             }
+            dds_advancef(&(s->carrier_phase), s->carrier_phase_rate);
         }
     }
     else
@@ -1287,13 +741,37 @@ int v27ter_rx(v27ter_rx_state_t *s, const int16_t amp[], int len)
                We need to measure the power with the DC blocked, but not using
                a slow to respond DC blocker. Use the most elementary HPF. */
             x = amp[i] >> 1;
-            power = power_meter_update(&(s->power), x - s->last_sample);
+            diff = x - s->last_sample;
+            power = power_meter_update(&(s->power), diff);
+#if defined(IAXMODEM_STUFF)
+            /* Quick power drop fudge */
+            diff = abs(diff);
+            if (10*diff < s->high_sample)
+            {
+                if (++s->low_samples > 120)
+                {
+                    power_meter_init(&(s->power), 4);
+                    s->high_sample = 0;
+                    s->low_samples = 0;
+                }
+            }
+            else
+            { 
+                s->low_samples = 0;
+                if (diff > s->high_sample)
+                   s->high_sample = diff;
+            }
+#endif
             s->last_sample = x;
             //span_log(&s->logging, SPAN_LOG_FLOW, "Power = %f\n", power_meter_current_dbm0(&(s->power)));
             if (s->signal_present)
             {
                 /* Look for power below turnoff threshold to turn the carrier off */
-                if (s->carrier_drop_pending || power < s->carrier_off_power)
+#if defined(IAXMODEM_STUFF)
+                if (s->carrier_drop_pending  ||  power < s->carrier_off_power)
+#else
+                if (power < s->carrier_off_power)
+#endif
                 {
                     if (--s->signal_present <= 0)
                     {
@@ -1303,12 +781,11 @@ int v27ter_rx(v27ter_rx_state_t *s, const int16_t amp[], int len)
                         s->put_bit(s->user_data, PUTBIT_CARRIER_DOWN);
                         continue;
                     }
-                    else
-                    {
-                        /* Carrier has dropped, but the put_bit is
-                           pending the signal_present delay. */
-                        s->carrier_drop_pending = 1;
-                    }
+#if defined(IAXMODEM_STUFF)
+                    /* Carrier has dropped, but the put_bit is
+                       pending the signal_present delay. */
+                    s->carrier_drop_pending = TRUE;
+#endif
                 }
             }
             else
@@ -1317,14 +794,15 @@ int v27ter_rx(v27ter_rx_state_t *s, const int16_t amp[], int len)
                 if (power < s->carrier_on_power)
                     continue;
                 s->signal_present = 1;
-                s->carrier_drop_pending = 0;
+#if defined(IAXMODEM_STUFF)
+                s->carrier_drop_pending = FALSE;
+#endif
                 s->put_bit(s->user_data, PUTBIT_CARRIER_UP);
             }
-            if (s->training_stage == TRAINING_STAGE_PARKED)
-                continue;
             /* Only spend effort processing this data if the modem is not
                parked, after training failure. */
-            z = dds_complexf(&(s->carrier_phase), s->carrier_phase_rate);
+            if (s->training_stage == TRAINING_STAGE_PARKED)
+                continue;
         
             /* Put things into the equalization buffer at T/2 rate. The Gardner algorithm
                will fiddle the step to align this with the symbols. */
@@ -1343,6 +821,17 @@ int v27ter_rx(v27ter_rx_state_t *s, const int16_t amp[], int len)
                 if (step > PULSESHAPER_2400_COEFF_SETS - 1)
                     step = PULSESHAPER_2400_COEFF_SETS - 1;
                 s->eq_put_step += PULSESHAPER_2400_COEFF_SETS*20/(3*2);
+#if defined(SPANDSP_USE_FIXED_POINT)
+                zi.re = (int32_t) pulseshaper_2400[step][0].re*(int32_t) s->rrc_filter[s->rrc_filter_step];
+                zi.im = (int32_t) pulseshaper_2400[step][0].im*(int32_t) s->rrc_filter[s->rrc_filter_step];
+                for (j = 1;  j < V27TER_RX_2400_FILTER_STEPS;  j++)
+                {
+                    zi.re += (int32_t) pulseshaper_2400[step][j].re*(int32_t) s->rrc_filter[j + s->rrc_filter_step];
+                    zi.im += (int32_t) pulseshaper_2400[step][j].im*(int32_t) s->rrc_filter[j + s->rrc_filter_step];
+                }
+                sample.re = zi.re*s->agc_scaling;
+                sample.im = zi.im*s->agc_scaling;
+#else
                 zz.re = pulseshaper_2400[step][0].re*s->rrc_filter[s->rrc_filter_step];
                 zz.im = pulseshaper_2400[step][0].im*s->rrc_filter[s->rrc_filter_step];
                 for (j = 1;  j < V27TER_RX_2400_FILTER_STEPS;  j++)
@@ -1350,15 +839,18 @@ int v27ter_rx(v27ter_rx_state_t *s, const int16_t amp[], int len)
                     zz.re += pulseshaper_2400[step][j].re*s->rrc_filter[j + s->rrc_filter_step];
                     zz.im += pulseshaper_2400[step][j].im*s->rrc_filter[j + s->rrc_filter_step];
                 }
-                samplex.re = zz.re*s->agc_scaling;
-                samplex.im = zz.im*s->agc_scaling;
+                sample.re = zz.re*s->agc_scaling;
+                sample.im = zz.im*s->agc_scaling;
+#endif
                 /* Shift to baseband - since this is done in a full complex form, the
                    result is clean, and requires no further filtering apart from the
                    equalizer. */
-                zz.re = samplex.re*z.re - samplex.im*z.im;
-                zz.im = -samplex.re*z.im - samplex.im*z.re;
+                z = dds_lookup_complexf(s->carrier_phase);
+                zz.re = sample.re*z.re - sample.im*z.im;
+                zz.im = -sample.re*z.im - sample.im*z.re;
                 process_half_baud(s, &zz);
             }
+            dds_advancef(&(s->carrier_phase), s->carrier_phase_rate);
         }
     }
     return 0;
@@ -1379,7 +871,11 @@ int v27ter_rx_restart(v27ter_rx_state_t *s, int rate, int old_train)
         return -1;
     s->bit_rate = rate;
 
+#if defined(SPANDSP_USE_FIXED_POINT)
+    memset(s->rrc_filter, 0, sizeof(s->rrc_filter));
+#else
     vec_zerof(s->rrc_filter, sizeof(s->rrc_filter)/sizeof(s->rrc_filter[0]));
+#endif
     s->rrc_filter_step = 0;
 
     s->scramble_reg = 0x3C;
@@ -1389,11 +885,13 @@ int v27ter_rx_restart(v27ter_rx_state_t *s, int rate, int old_train)
     s->training_count = 0;
     s->training_error = 0.0f;
     s->signal_present = 0;
-    s->carrier_drop_pending = 0;
+#if defined(IAXMODEM_STUFF)
+    s->high_sample = 0;
+    s->low_samples = 0;
+    s->carrier_drop_pending = FALSE;
+#endif
 
     s->carrier_phase = 0;
-    //s->carrier_track_i = 100000.0f;
-    //s->carrier_track_p = 20000000.0f;
     s->carrier_track_i = 200000.0f;
     s->carrier_track_p = 10000000.0f;
     power_meter_init(&(s->power), 4);
@@ -1409,7 +907,7 @@ int v27ter_rx_restart(v27ter_rx_state_t *s, int rate, int old_train)
     else
     {
         s->carrier_phase_rate = dds_phase_ratef(CARRIER_NOMINAL_FREQ);
-        s->agc_scaling = 0.0005f;
+        s->agc_scaling = 0.005f/PULSESHAPER_4800_GAIN;
         equalizer_reset(s);
     }
     s->eq_skip = 0;
@@ -1432,18 +930,18 @@ v27ter_rx_state_t *v27ter_rx_init(v27ter_rx_state_t *s, int rate, put_bit_func_t
             return NULL;
     }
     memset(s, 0, sizeof(*s));
+    span_log_init(&s->logging, SPAN_LOG_NONE, NULL);
+    span_log_set_protocol(&s->logging, "V.27ter RX");
     v27ter_rx_signal_cutoff(s, -45.5f);
     s->put_bit = put_bit;
     s->user_data = user_data;
-    span_log_init(&s->logging, SPAN_LOG_NONE, NULL);
-    span_log_set_protocol(&s->logging, "V.27ter");
 
     v27ter_rx_restart(s, rate, FALSE);
     return s;
 }
 /*- End of function --------------------------------------------------------*/
 
-int v27ter_rx_release(v27ter_rx_state_t *s)
+int v27ter_rx_free(v27ter_rx_state_t *s)
 {
     free(s);
     return 0;

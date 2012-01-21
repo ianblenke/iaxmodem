@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: t38_gateway_tests.c,v 1.51 2007/04/13 12:12:07 steveu Exp $
+ * $Id: t38_gateway_tests.c,v 1.59 2007/12/20 10:56:11 steveu Exp $
  */
 
 /*! \file */
@@ -42,17 +42,11 @@ These tests exercise the path
 #define ENABLE_GUI
 #endif
 
-#include <inttypes.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <fcntl.h>
+#include <unistd.h>
 #include <string.h>
-#if defined(HAVE_TGMATH_H)
-#include <tgmath.h>
-#endif
-#if defined(HAVE_MATH_H)
-#include <math.h>
-#endif
 #include <assert.h>
 #include <errno.h>
 #include <sys/socket.h>
@@ -65,7 +59,6 @@ These tests exercise the path
 #include <sys/select.h>
 #include <sys/time.h>
 #include <audiofile.h>
-#include <tiffio.h>
 
 #include "spandsp.h"
 #include "spandsp-sim.h"
@@ -130,6 +123,8 @@ static void phase_d_handler(t30_state_t *s, void *user_data, int result)
     printf("%c: Phase D: local ident '%s'\n", i, ident);
     t30_get_far_ident(s, ident);
     printf("%c: Phase D: remote ident '%s'\n", i, ident);
+
+    printf("%c: Phase D: bits per row - min %d, max %d\n", i, s->t4.min_row_bits, s->t4.max_row_bits);
 }
 /*- End of function --------------------------------------------------------*/
 
@@ -223,13 +218,16 @@ int main(int argc, char *argv[])
     int16_t silence[SAMPLES_PER_CHUNK];
     int16_t t30_amp_a[SAMPLES_PER_CHUNK];
     int16_t t38_amp_a[SAMPLES_PER_CHUNK];
+    int16_t t38_amp_hist_a[8][SAMPLES_PER_CHUNK];
     int16_t t38_amp_b[SAMPLES_PER_CHUNK];
+    int16_t t38_amp_hist_b[8][SAMPLES_PER_CHUNK];
     int16_t t30_amp_b[SAMPLES_PER_CHUNK];
     int16_t out_amp[SAMPLES_PER_CHUNK*4];
     int t30_len_a;
     int t38_len_a;
     int t38_len_b;
     int t30_len_b;
+    int hist_ptr;
     int log_audio;
     int msg_len;
     uint8_t msg[1024];
@@ -238,6 +236,7 @@ int main(int argc, char *argv[])
     AFfilehandle wave_handle;
     int use_ecm;
     int use_tep;
+    int feedback_audio;
     int use_transmit_on_idle;
     int t38_version;
     const char *input_file_name;
@@ -248,6 +247,7 @@ int main(int argc, char *argv[])
     double tx_when;
     double rx_when;
     int use_gui;
+    int opt;
 
     log_audio = FALSE;
     use_ecm = FALSE;
@@ -258,53 +258,51 @@ int main(int argc, char *argv[])
     speed_pattern_no = 1;
     use_gui = FALSE;
     use_tep = FALSE;
+    feedback_audio = FALSE;
     use_transmit_on_idle = TRUE;
-    for (i = 1;  i < argc;  i++)
+    while ((opt = getopt(argc, argv, "efgi:Ilm:s:tv:")) != -1)
     {
-        if (strcmp(argv[i], "-e") == 0)
+        switch (opt)
         {
+        case 'e':
             use_ecm = TRUE;
-            continue;
-        }
-        if (strcmp(argv[i], "-g") == 0)
-        {
+            break;
+        case 'f':
+            feedback_audio = TRUE;
+            break;
+        case 'g':
+#if defined(ENABLE_GUI)
             use_gui = TRUE;
-            continue;
-        }
-        if (strcmp(argv[i], "-i") == 0)
-        {
-            input_file_name = argv[++i];
-            continue;
-        }
-        if (strcmp(argv[i], "-I") == 0)
-        {
+#else
+            fprintf(stderr, "Graphical monitoring not available\n");
+            exit(2);
+#endif
+            break;
+        case 'i':
+            input_file_name = optarg;
+            break;
+        case 'I':
             simulate_incrementing_repeats = TRUE;
-            continue;
-        }
-        if (strcmp(argv[i], "-l") == 0)
-        {
+            break;
+        case 'l':
             log_audio = TRUE;
-            continue;
-        }
-        if (strcmp(argv[i], "-m") == 0)
-        {
-            model_no = argv[++i][0] - 'A' + 1;
-            continue;
-        }
-        if (strcmp(argv[i], "-s") == 0)
-        {
-            speed_pattern_no = atoi(argv[++i]);
-            continue;
-        }
-        if (strcmp(argv[i], "-t") == 0)
-        {
+            break;
+        case 'm':
+            model_no = optarg[0] - 'A' + 1;
+            break;
+        case 's':
+            speed_pattern_no = atoi(optarg);
+            break;
+        case 't':
             use_tep = TRUE;
-            continue;
-        }
-        if (strcmp(argv[i], "-v") == 0)
-        {
-            t38_version = atoi(argv[++i]);
-            continue;
+            break;
+        case 'v':
+            t38_version = atoi(optarg);
+            break;
+        default:
+            //usage();
+            exit(2);
+            break;
         }
     }
 
@@ -352,7 +350,7 @@ int main(int argc, char *argv[])
     }
     fax_set_transmit_on_idle(&fax_state_a, use_transmit_on_idle);
     fax_set_tep_mode(&fax_state_a, use_tep);
-    //t30_set_supported_modems(&(fax_state_a.t30_state), T30_SUPPORT_V27TER | T30_SUPPORT_V29);
+    t30_set_supported_modems(&(fax_state_a.t30_state), T30_SUPPORT_V27TER | T30_SUPPORT_V29 | T30_SUPPORT_V17);
     t30_set_local_ident(&fax_state_a.t30_state, "11111111");
     t30_set_tx_file(&fax_state_a.t30_state, input_file_name, -1, -1);
     t30_set_phase_b_handler(&fax_state_a.t30_state, phase_b_handler, (void *) (intptr_t) 'A');
@@ -367,6 +365,8 @@ int main(int argc, char *argv[])
     span_log_set_level(&fax_state_a.t30_state.logging, SPAN_LOG_DEBUG | SPAN_LOG_SHOW_TAG | SPAN_LOG_SHOW_SAMPLE_TIME);
     span_log_set_tag(&fax_state_a.t30_state.logging, "FAX-A ");
     memset(t30_amp_a, 0, sizeof(t30_amp_a));
+    memset(t38_amp_hist_a, 0, sizeof(t38_amp_hist_a));
+    memset(t38_amp_hist_b, 0, sizeof(t38_amp_hist_b));
 
     if (t38_gateway_init(&t38_state_a, tx_packet_handler_a, &t38_state_b) == NULL)
     {
@@ -374,7 +374,7 @@ int main(int argc, char *argv[])
         exit(2);
     }
     t38_gateway_set_transmit_on_idle(&t38_state_a, use_transmit_on_idle);
-    //t38_gateway_set_supported_modems(&t38_state_a, T30_SUPPORT_V27TER | T30_SUPPORT_V29);
+    t38_gateway_set_supported_modems(&t38_state_a, T30_SUPPORT_V27TER | T30_SUPPORT_V29 | T30_SUPPORT_V17);
     //t38_gateway_set_nsx_suppression(&t38_state_a, FALSE);
     t38_set_t38_version(&t38_state_a.t38, t38_version);
     t38_gateway_set_ecm_capability(&t38_state_a, use_ecm);
@@ -390,7 +390,7 @@ int main(int argc, char *argv[])
         exit(2);
     }
     t38_gateway_set_transmit_on_idle(&t38_state_b, use_transmit_on_idle);
-    //t38_gateway_set_supported_modems(&t38_state_b, T30_SUPPORT_V27TER | T30_SUPPORT_V29);
+    t38_gateway_set_supported_modems(&t38_state_b, T30_SUPPORT_V27TER | T30_SUPPORT_V29 | T30_SUPPORT_V17);
     //t38_gateway_set_nsx_suppression(&t38_state_b, FALSE);
     t38_set_t38_version(&t38_state_b.t38, t38_version);
     t38_gateway_set_ecm_capability(&t38_state_b, use_ecm);
@@ -407,6 +407,7 @@ int main(int argc, char *argv[])
     }
     fax_set_transmit_on_idle(&fax_state_b, use_transmit_on_idle);
     fax_set_tep_mode(&fax_state_b, use_tep);
+    t30_set_supported_modems(&(fax_state_b.t30_state), T30_SUPPORT_V27TER | T30_SUPPORT_V29 | T30_SUPPORT_V17);
     t30_set_local_ident(&fax_state_b.t30_state, "22222222");
     t30_set_rx_file(&fax_state_b.t30_state, OUTPUT_FILE_NAME, -1);
     t30_set_phase_b_handler(&fax_state_b.t30_state, phase_b_handler, (void *) (intptr_t) 'B');
@@ -426,6 +427,7 @@ int main(int argc, char *argv[])
     if (use_gui)
         start_media_monitor();
 #endif
+    hist_ptr = 0;
     for (;;)
     {
         span_log_bump_samples(&fax_state_a.logging, SAMPLES_PER_CHUNK);
@@ -454,6 +456,12 @@ int main(int argc, char *argv[])
         {
             for (i = 0;  i < t30_len_a;  i++)
                 out_amp[i*4] = t30_amp_a[i];
+        }
+        if (feedback_audio)
+        {
+            for (i = 0;  i < t30_len_a;  i++)
+                t30_amp_a[i] += t38_amp_hist_a[hist_ptr][i] >> 1;
+            memcpy(t38_amp_hist_a[hist_ptr], t38_amp_a, sizeof(int16_t)*SAMPLES_PER_CHUNK);
         }
         if (t38_gateway_rx(&t38_state_a, t30_amp_a, t30_len_a))
             break;
@@ -491,6 +499,12 @@ int main(int argc, char *argv[])
         {
             for (i = 0;  i < t30_len_b;  i++)
                 out_amp[i*4 + 3] = t30_amp_b[i];
+        }
+        if (feedback_audio)
+        {
+            for (i = 0;  i < t30_len_b;  i++)
+                t30_amp_b[i] += t38_amp_hist_b[hist_ptr][i] >> 1;
+            memcpy(t38_amp_hist_b[hist_ptr], t38_amp_b, sizeof(int16_t)*SAMPLES_PER_CHUNK);
         }
         if (t38_gateway_rx(&t38_state_b, t30_amp_b, t30_len_b))
             break;
@@ -543,7 +557,11 @@ int main(int argc, char *argv[])
         if (use_gui)
             media_monitor_update_display();
 #endif
+        if (++hist_ptr > 3)
+            hist_ptr = 0;
     }
+    fax_release(&fax_state_a);
+    fax_release(&fax_state_b);
     if (log_audio)
     {
         if (afCloseFile(wave_handle) != 0)

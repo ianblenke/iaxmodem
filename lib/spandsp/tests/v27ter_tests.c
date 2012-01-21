@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: v27ter_tests.c,v 1.75 2007/06/29 12:56:28 steveu Exp $
+ * $Id: v27ter_tests.c,v 1.81 2007/12/29 04:16:29 steveu Exp $
  */
 
 /*! \page v27ter_tests_page V.27ter modem tests
@@ -53,20 +53,12 @@ display of modem status is maintained.
 #define ENABLE_GUI
 #endif
 
-#include <inttypes.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <fcntl.h>
+#include <unistd.h>
 #include <string.h>
-#if defined(HAVE_TGMATH_H)
-#include <tgmath.h>
-#endif
-#if defined(HAVE_MATH_H)
-#include <math.h>
-#endif
-#include <assert.h>
 #include <audiofile.h>
-#include <tiffio.h>
 
 #include "spandsp.h"
 #include "spandsp-sim.h"
@@ -184,7 +176,7 @@ static void qam_report(void *user_data, const complexf_t *constel, const complex
     float fpower;
     float error;
     v27ter_rx_state_t *rx;
-    static float smooth_power = 0.0;
+    static float smooth_power = 0.0f;
 #if defined(ENABLE_GUI)
     static int reports = 0;
 #endif
@@ -194,7 +186,7 @@ static void qam_report(void *user_data, const complexf_t *constel, const complex
     {
         fpower = (constel->re - target->re)*(constel->re - target->re)
                + (constel->im - target->im)*(constel->im - target->im);
-        smooth_power = 0.95*smooth_power + 0.05*fpower;
+        smooth_power = 0.95f*smooth_power + 0.05f*fpower;
 #if defined(ENABLE_GUI)
         if (use_gui)
         {
@@ -205,16 +197,18 @@ static void qam_report(void *user_data, const complexf_t *constel, const complex
 #endif
         error = constel->im*target->re - constel->re*target->im;
         printf("Tracking error %f %f %f %f %f %f\n", error, v27ter_rx_carrier_frequency(rx), constel->re, constel->im, target->re, target->im);
-        printf("%8d [%8.4f, %8.4f] [%8.4f, %8.4f] %8.4f %8.4f %9.4f %7.3f\n",
+        printf("%8d [%8.4f, %8.4f] [%8.4f, %8.4f] %2x %8.4f %8.4f %9.4f %7.3f %7.2f\n",
                symbol_no,
                constel->re,
                constel->im,
                target->re,
                target->im,
+               symbol,
                fpower,
                smooth_power,
                v27ter_rx_carrier_frequency(rx),
-               v27ter_rx_signal_power(rx));
+               v27ter_rx_signal_power(rx),
+               v27ter_rx_symbol_timing_correction(rx));
         len = v27ter_rx_equalizer_state(rx, &coeffs);
         printf("Equalizer B:\n");
         for (i = 0;  i < len;  i++)
@@ -260,7 +254,6 @@ int main(int argc, char *argv[])
     AFfilesetup filesetup;
     int outframes;
     int samples;
-    int i;
     int tep;
     int test_bps;
     int noise_level;
@@ -272,6 +265,7 @@ int main(int argc, char *argv[])
     int channel_codec;
     int rbs_pattern;
     float x;
+    int opt;
 
     channel_codec = MUNGE_CODEC_NONE;
     rbs_pattern = 0;
@@ -284,61 +278,58 @@ int main(int argc, char *argv[])
     signal_level = -13;
     bits_per_test = 50000;
     log_audio = FALSE;
-    for (i = 1;  i < argc;  i++)
+    while ((opt = getopt(argc, argv, "b:c:d:glm:n:r:s:t")) != -1)
     {
-        if (strcmp(argv[i], "-b") == 0)
+        switch (opt)
         {
-            bits_per_test = atoi(argv[++i]);
-            continue;
-        }
-        if (strcmp(argv[i], "-c") == 0)
-        {
-            channel_codec = atoi(argv[++i]);
-            continue;
-        }
-        if (strcmp(argv[i], "-d") == 0)
-        {
-            decode_test_file = argv[++i];
-            continue;
-        }
-        if (strcmp(argv[i], "-g") == 0)
-        {
+        case 'b':
+            bits_per_test = atoi(optarg);
+            break;
+        case 'c':
+            channel_codec = atoi(optarg);
+            break;
+        case 'd':
+            decode_test_file = optarg;
+            break;
+        case 'g':
+#if defined(ENABLE_GUI)
             use_gui = TRUE;
-            continue;
-        }
-        if (strcmp(argv[i], "-l") == 0)
-        {
+#else
+            fprintf(stderr, "Graphical monitoring not available\n");
+            exit(2);
+#endif
+            break;
+        case 'l':
             log_audio = TRUE;
-            continue;
-        }
-        if (strcmp(argv[i], "-m") == 0)
-        {
-            line_model_no = atoi(argv[++i]);
-            continue;
-        }
-        if (strcmp(argv[i], "-n") == 0)
-        {
-            noise_level = atoi(argv[++i]);
-            continue;
-        }
-        if (strcmp(argv[i], "-s") == 0)
-        {
-            signal_level = atoi(argv[++i]);
-            continue;
-        }
-        if (strcmp(argv[i], "-r") == 0)
-        {
-            rbs_pattern = atoi(argv[++i]);
-            continue;
-        }
-        if (strcmp(argv[i], "-t") == 0)
-        {
+            break;
+        case 'm':
+            line_model_no = atoi(optarg);
+            break;
+        case 'n':
+            noise_level = atoi(optarg);
+            break;
+        case 'r':
+            rbs_pattern = atoi(optarg);
+            break;
+        case 's':
+            signal_level = atoi(optarg);
+            break;
+        case 't':
             tep = TRUE;
-            continue;
+            break;
+        default:
+            //usage();
+            exit(2);
+            break;
         }
-        if (strcmp(argv[i], "4800") == 0)
+    }
+    argc -= optind;
+    argv += optind;
+    if (argc > 0)
+    {
+        if (strcmp(argv[0], "4800") == 0)
             test_bps = 4800;
-        else if (strcmp(argv[i], "2400") == 0)
+        else if (strcmp(argv[0], "2400") == 0)
             test_bps = 2400;
         else
         {
@@ -346,6 +337,7 @@ int main(int argc, char *argv[])
             exit(2);
         }
     }
+
     inhandle = NULL;
     outhandle = NULL;
 
@@ -376,7 +368,7 @@ int main(int argc, char *argv[])
             fprintf(stderr, "    Cannot open wave file '%s'\n", decode_test_file);
             exit(2);
         }
-        if ((x = afGetFrameSize(inhandle, AF_DEFAULT_TRACK, 1)) != 2.0)
+        if ((x = afGetFrameSize(inhandle, AF_DEFAULT_TRACK, 1)) != 2.0f)
         {
             printf("    Unexpected frame size in speech file '%s' (%f)\n", decode_test_file, x);
             exit(2);
@@ -386,7 +378,7 @@ int main(int argc, char *argv[])
             printf("    Unexpected sample rate in speech file '%s' (%f)\n", decode_test_file, x);
             exit(2);
         }
-        if ((x = afGetChannels(inhandle, AF_DEFAULT_TRACK)) != 1.0)
+        if ((x = afGetChannels(inhandle, AF_DEFAULT_TRACK)) != 1.0f)
         {
             printf("    Unexpected number of channels in speech file '%s' (%f)\n", decode_test_file, x);
             exit(2);
@@ -418,7 +410,7 @@ int main(int argc, char *argv[])
 #if defined(ENABLE_GUI)
     if (use_gui)
     {
-        qam_monitor = qam_monitor_init(2.0, NULL);
+        qam_monitor = qam_monitor_init(2.0f, NULL);
         if (!decode_test_file)
         {
             start_line_model_monitor(129);

@@ -25,7 +25,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: at_interpreter.c,v 1.17 2007/05/15 13:22:43 steveu Exp $
+ * $Id: at_interpreter.c,v 1.22 2007/12/20 11:11:16 steveu Exp $
  */
 
 /*! \file */
@@ -33,8 +33,6 @@
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
-
-#define _GNU_SOURCE
 
 #include <inttypes.h>
 #include <stdlib.h>
@@ -309,12 +307,10 @@ void at_call_event(at_state_t *s, int event)
 
 void at_reset_call_info(at_state_t *s)
 {
-    struct at_call_id *call_id = s->call_id;
-    while (call_id)
-    {
+    struct at_call_id *call_id;
+
+    for (call_id = s->call_id;  call_id;  call_id = call_id->next)
         free(call_id);
-        call_id = call_id->next;
-    }
     s->call_id = NULL;
     s->rings_indicated = 0;
     s->call_info_displayed = FALSE;
@@ -776,7 +772,9 @@ static const char *at_cmd_D(at_state_t *s, const char *t)
                     *u++ = ch;
                 break;
             case '-':
-                /* ignore dashes */
+                /* Ignore dashes */
+                /* This is not a standards based thing. It just improves
+                   compatibility with some other modems. */
                 break;
             case '+':
                 /* V.250 6.3.1.1 International access code */
@@ -784,6 +782,7 @@ static const char *at_cmd_D(at_state_t *s, const char *t)
                 break;
             case ',':
                 /* V.250 6.3.1.2 Pause */
+                /* Pass these through to the application to handle. */
                 *u++ = ch;
                 break;
             case 'T':
@@ -5265,6 +5264,11 @@ at_state_t *at_init(at_state_t *s,
                     at_modem_control_handler_t *modem_control_handler,
                     void *modem_control_user_data)
 {
+    if (s == NULL)
+    {
+        if ((s = (at_state_t *) malloc(sizeof(*s))) == NULL)
+            return NULL;
+    }
     memset(s, '\0', sizeof(*s));
     s->modem_control_handler = modem_control_handler;
     s->modem_control_user_data = modem_control_user_data;
@@ -5276,6 +5280,13 @@ at_state_t *at_init(at_state_t *s,
     at_set_at_rx_mode(s, AT_MODE_ONHOOK_COMMAND);
     s->p = profiles[0];
     return s;
+}
+/*- End of function --------------------------------------------------------*/
+
+int at_free(at_state_t *s)
+{
+    free(s);
+    return 0;
 }
 /*- End of function --------------------------------------------------------*/
 /*- End of file ------------------------------------------------------------*/

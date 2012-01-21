@@ -83,7 +83,7 @@ static void dump_string(char *output, int maxlen, void *value, int len)
 	maxlen--;
 	if (maxlen > len)
 		maxlen = len;
-	strncpy(output,value, maxlen);
+	strncpy(output,(const char *)value, maxlen);
 	output[maxlen] = '\0';
 }
 
@@ -109,26 +109,6 @@ static void dump_byte(char *output, int maxlen, void *value, int len)
 		snprintf(output, maxlen, "%d", *((unsigned char *)value));
 	else
 		snprintf(output, maxlen, "Invalid BYTE");
-}
-
-static void dump_ipaddr(char *output, int maxlen, void *value, int len)
-{
-	struct sockaddr_in sin;
-	if (len == (int)sizeof(unsigned int)) {
-		memcpy(&sin.sin_addr, value, len);
-		snprintf(output, maxlen, "%s", inet_ntoa(sin.sin_addr));
-	} else
-		snprintf(output, maxlen, "Invalid IPADDR");
-}
-
-
-static void dump_prov_flags(char *output, int maxlen, void *value, int len)
-{
-	if (len == (int)sizeof(unsigned int))
-		snprintf(output, maxlen, "%lu (%s)", (unsigned long)ntohl(get_uint32(value)),
-			"PROVISION_PARSING_NOT_IMPLEMENTED");
-	else
-		snprintf(output, maxlen, "Invalid INT");
 }
 
 static void dump_samprate(char *output, int maxlen, void *value, int len)
@@ -161,7 +141,7 @@ static void dump_samprate(char *output, int maxlen, void *value, int len)
 static void dump_prov_ies(char *output, int maxlen, unsigned char *iedata, int len);
 static void dump_prov(char *output, int maxlen, void *value, int len)
 {
-	dump_prov_ies(output, maxlen, value, len);
+	dump_prov_ies(output, maxlen, (unsigned char *)value, len);
 }
 
 static struct iax2_ie {
@@ -238,21 +218,21 @@ static void dump_prov_ies(char *output, int maxlen, unsigned char *iedata, int l
 	if (len < 2)
 		return;
 	strcpy(output, "\n"); 
-	maxlen -= strlen(output); output += strlen(output);
+	maxlen -= (int)strlen(output); output += strlen(output);
 	while(len > 2) {
 		ie = iedata[0];
 		ielen = iedata[1];
 		if (ielen + 2> len) {
 			snprintf(tmp, (int)sizeof(tmp), "Total Prov IE length of %d bytes exceeds remaining prov frame length of %d bytes\n", ielen + 2, len);
 			strncpy(output, tmp, maxlen - 1);
-			maxlen -= strlen(output); output += strlen(output);
+			maxlen -= (int)strlen(output); output += strlen(output);
 			return;
 		}
 		found = 0;
 		if (!found) {
 			snprintf(tmp, (int)sizeof(tmp), "       Unknown Prov IE %03d  : Present\n", ie);
 			strncpy(output, tmp, maxlen - 1);
-			maxlen -= strlen(output); output += strlen(output);
+			maxlen -= (int)strlen(output); output += strlen(output);
 		}
 		iedata += (2 + ielen);
 		len -= (2 + ielen);
@@ -365,17 +345,22 @@ void iax_showframe(struct iax_frame *f, struct ast_iax2_full_hdr *fhi, int rx, s
 		"ANSWER ",
 		"BUSY   ",
 		"TKOFFHK ",
-		"OFFHOOK" };
+		"OFFHOOK ",
+		"CONGESTION ",
+		"FLASH ",
+		"WINK ",
+		"OPTION "
+        };
 	struct ast_iax2_full_hdr *fh;
 	char retries[20];
 	char class2[20];
 	char subclass2[20];
-	const char *class;
+	const char *clas;
 	const char *subclass;
 	char tmp[256];
 
 	if (f) {
-		fh = f->data;
+		fh = (struct ast_iax2_full_hdr *)f->data;
 		snprintf(retries, (int)sizeof(retries), "%03d", f->retries);
 	} else {
 		fh = fhi;
@@ -388,11 +373,11 @@ void iax_showframe(struct iax_frame *f, struct ast_iax2_full_hdr *fhi, int rx, s
 		/* Don't mess with mini-frames */
 		return;
 	}
-	if (fh->type > (int)sizeof(frames)/(int)sizeof(char *)) {
+	if (fh->type >= (int)(sizeof(frames)/sizeof(char *))) {
 		snprintf(class2, (int)sizeof(class2), "(%d?)", fh->type);
-		class = class2;
+		clas = class2;
 	} else {
-		class = frames[(int)fh->type];
+		clas = frames[(int)fh->type];
 	}
 	if (fh->type == AST_FRAME_DTMF) {
 		sprintf(subclass2, "%c", fh->csub);
@@ -405,7 +390,7 @@ void iax_showframe(struct iax_frame *f, struct ast_iax2_full_hdr *fhi, int rx, s
 			subclass = iaxs[(int)fh->csub];
 		}
 	} else if (fh->type == AST_FRAME_CONTROL) {
-		if (fh->csub > (int)sizeof(cmds)/(int)sizeof(char *)) {
+		if (fh->csub >= (int)(sizeof(cmds)/sizeof(char *))) {
 			snprintf(subclass2, (int)sizeof(subclass2), "(%d?)", fh->csub);
 			subclass = subclass2;
 		} else {
@@ -418,7 +403,7 @@ void iax_showframe(struct iax_frame *f, struct ast_iax2_full_hdr *fhi, int rx, s
 snprintf(tmp, (int)sizeof(tmp), 
 "%s-Frame Retry[%s] -- OSeqno: %3.3d ISeqno: %3.3d Type: %s Subclass: %s\n",
 	(rx ? "Rx" : "Tx"),
-	retries, fh->oseqno, fh->iseqno, class, subclass);
+	retries, fh->oseqno, fh->iseqno, clas, subclass);
 	outputf(tmp);
 snprintf(tmp, (int)sizeof(tmp), 
 "   Timestamp: %05lums  SCall: %5.5d  DCall: %5.5d [%s:%d]\n",
@@ -430,7 +415,7 @@ snprintf(tmp, (int)sizeof(tmp),
 		dump_ies(fh->iedata, datalen);
 }
 
-int iax_ie_append_raw(struct iax_ie_data *ied, unsigned char ie, void *data, int datalen)
+int iax_ie_append_raw(struct iax_ie_data *ied, unsigned char ie, const void *data, int datalen)
 {
 	char tmp[256];
 	if (datalen > ((int)sizeof(ied->buf) - ied->pos)) {
@@ -464,9 +449,9 @@ int iax_ie_append_short(struct iax_ie_data *ied, unsigned char ie, unsigned shor
 	return iax_ie_append_raw(ied, ie, &newval, (int)sizeof(newval));
 }
 
-int iax_ie_append_str(struct iax_ie_data *ied, unsigned char ie, unsigned char *str)
+int iax_ie_append_str(struct iax_ie_data *ied, unsigned char ie, const char *str)
 {
-	return iax_ie_append_raw(ied, ie, str, strlen((char *) str));
+	return iax_ie_append_raw(ied, ie, str, (int)strlen(str));
 }
 
 int iax_ie_append_byte(struct iax_ie_data *ied, unsigned char ie, unsigned char dat)
@@ -803,7 +788,7 @@ void iax_frame_wrap(struct iax_frame *fr, struct ast_frame *f)
 struct iax_frame *iax_frame_new(int direction, int datalen)
 {
 	struct iax_frame *fr;
-	fr = malloc((int)sizeof(struct iax_frame) + datalen);
+	fr = (struct iax_frame *)malloc((int)sizeof(struct iax_frame) + datalen);
 	if (fr) {
 		fr->direction = direction;
 		fr->retrans = -1;

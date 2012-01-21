@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: tone_generate.h,v 1.29 2007/04/08 08:16:18 steveu Exp $
+ * $Id: tone_generate.h,v 1.31 2007/11/26 17:35:51 steveu Exp $
  */
 
 /*! \file */
@@ -45,17 +45,19 @@ use an exhaustive test to prove the oscillator is stable under all the
 conditions in which we will use it. 
 */
 
+typedef struct
+{
+    int32_t phase_rate;
+    float gain;
+} tone_gen_tone_descriptor_t;
+
 /*!
     Cadenced dual tone generator descriptor.
 */
 typedef struct
 {
-    int32_t phase_rate[2];
-    float gain[2];
-    int modulate;
-    
+    tone_gen_tone_descriptor_t tone[4];
     int duration[4];
-
     int repeat;
 } tone_gen_descriptor_t;
 
@@ -65,14 +67,10 @@ typedef struct
 */
 typedef struct
 {
-    int32_t phase_rate[2];
-    float gain[2];
-    int modulate;
+    tone_gen_tone_descriptor_t tone[4];
 
-    uint32_t phase[2];
-
+    uint32_t phase[4];
     int duration[4];
-    
     int repeat;
 
     int current_section;
@@ -109,7 +107,7 @@ void make_tone_gen_descriptor(tone_gen_descriptor_t *s,
                               int d4,
                               int repeat);
 
-void tone_gen_init(tone_gen_state_t *s, tone_gen_descriptor_t *t);
+tone_gen_state_t *tone_gen_init(tone_gen_state_t *s, tone_gen_descriptor_t *t);
 
 int tone_gen(tone_gen_state_t *s, int16_t amp[], int max_samples);
 

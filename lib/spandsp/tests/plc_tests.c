@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: plc_tests.c,v 1.18 2006/11/19 14:07:27 steveu Exp $
+ * $Id: plc_tests.c,v 1.20 2007/11/10 11:14:58 steveu Exp $
  */
 
 /*! \page plc_tests_page Packet loss concealment tests
@@ -46,17 +46,10 @@ audio file, called post_plc.wav. This file contains 8000 sample/second
 #include "config.h"
 #endif
 
-#include <stdio.h>
-#include <inttypes.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
 #include <string.h>
-#if defined(HAVE_TGMATH_H)
-#include <tgmath.h>
-#endif
-#if defined(HAVE_MATH_H)
-#include <math.h>
-#endif
-#include <tiffio.h>
 
 #include <audiofile.h>
 
@@ -85,33 +78,33 @@ int main(int argc, char *argv[])
     int i;
     uint32_t phase_acc;
     int32_t phase_rate;
+    int opt;
 
     loss_rate = 25;
     block_len = 160;
     block_real = FALSE;
     block_synthetic = FALSE;
     tone = -1;
-    for (i = 1;  i < argc;  i++)
+    while ((opt = getopt(argc, argv, "b:l:rst:")) != -1)
     {
-        if (strcmp(argv[i], "-l") == 0)
+        switch (opt)
         {
-            loss_rate = atoi(argv[++i]);
-            continue;
-        }
-        if (strcmp(argv[i], "-b") == 0)
-        {
-            block_len = atoi(argv[++i]);
-            continue;
-        }
-        if (strcmp(argv[i], "-t") == 0)
-        {
-            tone = atoi(argv[++i]);
-            continue;
-        }
-        if (strcmp(argv[i], "-r") == 0)
+        case 'b':
+            block_len = atoi(optarg);
+            break;
+        case 'l':
+            loss_rate = atoi(optarg);
+            break;
+        case 'r':
             block_real = TRUE;
-        if (strcmp(argv[i], "-s") == 0)
+            break;
+        case 's':
             block_synthetic = TRUE;
+            break;
+        case 't':
+            tone = atoi(optarg);
+            break;
+        }
     }
     if ((filesetup = afNewFileSetup()) == AF_NULL_FILESETUP)
     {

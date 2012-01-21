@@ -1,3 +1,11 @@
+1.1.0
+	kill -HUP now makes the modems wait to restart when they're on-hook
+	improve IAX2 call rejection when the modem is busy by using
+	    REJECT instead of ACCEPT+CONGSTN+HANGUP
+	add "nodaemon" config file feature
+	add "iax2debug" and "dspdebug" config file features
+	update spandsp to 20080110 snapshot
+	update libiax2 to current iaxclient/lib/libiax2 + patches
 1.0.0
 	provide strndup for Solaris
 0.3.2

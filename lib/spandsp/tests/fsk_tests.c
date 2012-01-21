@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: fsk_tests.c,v 1.36 2007/06/28 13:10:59 steveu Exp $
+ * $Id: fsk_tests.c,v 1.39 2007/11/10 11:14:58 steveu Exp $
  */
 
 /*! \page fsk_tests_page FSK modem tests
@@ -46,19 +46,12 @@ These tests allow either:
 #include "config.h"
 #endif
 
-#include <inttypes.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <string.h>
-#if defined(HAVE_TGMATH_H)
-#include <tgmath.h>
-#endif
-#if defined(HAVE_MATH_H)
-#include <math.h>
-#endif
 #include <assert.h>
 #include <audiofile.h>
-#include <tiffio.h>
 
 #include "spandsp.h"
 #include "spandsp-sim.h"
@@ -206,6 +199,7 @@ int main(int argc, char *argv[])
     int line_model_no;
     int modem_under_test_1;
     int modem_under_test_2;
+    int modems_set;
     int log_audio;
     int channel_codec;
     int rbs_pattern;
@@ -213,6 +207,7 @@ int main(int argc, char *argv[])
     int off_at;
     tone_gen_descriptor_t tone_desc;
     tone_gen_state_t tone_tx;
+    int opt;
 
     channel_codec = MUNGE_CODEC_NONE;
     rbs_pattern = 0;
@@ -222,47 +217,44 @@ int main(int argc, char *argv[])
     modem_under_test_1 = FSK_V21CH1;
     modem_under_test_2 = FSK_V21CH2;
     log_audio = FALSE;
-    for (i = 1;  i < argc;  i++)
+    modems_set = 0;
+    while ((opt = getopt(argc, argv, "c:dlm:nr:s:")) != -1)
     {
-        if (strcmp(argv[i], "-c") == 0)
+        switch (opt)
         {
-            channel_codec = atoi(argv[++i]);
-            continue;
-        }
-        if (strcmp(argv[i], "-d") == 0)
-        {
-            i++;
-            decode_test_file = argv[i];
-            continue;
-        }
-        if (strcmp(argv[i], "-l") == 0)
-        {
+        case 'c':
+            channel_codec = atoi(optarg);
+            break;
+        case 'd':
+            decode_test_file = optarg;
+            break;
+        case 'l':
             log_audio = TRUE;
-            continue;
-        }
-        if (strcmp(argv[i], "-n") == 0)
-        {
+            break;
+        case 'm':
+            line_model_no = atoi(optarg);
+            break;
+        case 'n':
             noise_sweep = TRUE;
-            continue;
-        }
-        if (strcmp(argv[i], "-m") == 0)
-        {
-            i++;
-            line_model_no = atoi(argv[i]);
-            continue;
-        }
-        if (strcmp(argv[i], "-r") == 0)
-        {
-            rbs_pattern = atoi(argv[++i]);
-            continue;
-        }
-        if (strcmp(argv[i], "-s") == 0)
-        {
-            i++;
-            modem_under_test_1 = atoi(argv[i]);
-            i++;
-            modem_under_test_2 = atoi(argv[i]);
-            continue;
+            break;
+        case 'r':
+            rbs_pattern = atoi(optarg);
+            break;
+        case 's':
+            switch (modems_set++)
+            {
+            case 0:
+                modem_under_test_1 = atoi(optarg);
+                break;
+            case 1:
+                modem_under_test_2 = atoi(optarg);
+                break;
+            }
+            break;
+        default:
+            //usage();
+            exit(2);
+            break;
         }
     }
 

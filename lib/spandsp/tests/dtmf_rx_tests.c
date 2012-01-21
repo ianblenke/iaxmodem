@@ -23,7 +23,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: dtmf_rx_tests.c,v 1.29 2007/06/26 15:54:12 steveu Exp $
+ * $Id: dtmf_rx_tests.c,v 1.33 2007/11/10 11:14:57 steveu Exp $
  */
 
 /*
@@ -89,19 +89,12 @@ they wish to give it away for free.
 #endif
 
 #include <stdlib.h>
-#include <inttypes.h>
 #include <string.h>
-#if defined(HAVE_TGMATH_H)
-#include <tgmath.h>
-#endif
-#if defined(HAVE_MATH_H)
-#include <math.h>
-#endif
 #include <stdio.h>
-#include <time.h>
 #include <fcntl.h>
+#include <unistd.h>
+#include <time.h>
 #include <audiofile.h>
-#include <tiffio.h>
 
 #include "spandsp.h"
 #include "spandsp-sim.h"
@@ -249,7 +242,7 @@ static void digit_delivery(void *data, const char *digits, int len)
 }
 /*- End of function --------------------------------------------------------*/
 
-static void digit_status(void *data, int signal, int level)
+static void digit_status(void *data, int signal, int level, int delay)
 {
     const char *s = ALL_POSSIBLE_DIGITS;
     int len;
@@ -850,29 +843,30 @@ static void decode_test(const char *test_file)
 int main(int argc, char *argv[])
 {
     int duration;
-    int i;
     time_t now;
     int channel_codec;
+    int opt;
 
     use_dialtone_filter = FALSE;
     channel_codec = MUNGE_CODEC_NONE;
     decode_test_file = NULL;
-    for (i = 1;  i < argc;  i++)
+    while ((opt = getopt(argc, argv, "c:d:f")) != -1)
     {
-        if (strcmp(argv[i], "-c") == 0)
+        switch (opt)
         {
-            channel_codec = atoi(argv[++i]);
-            continue;
-        }
-        if (strcmp(argv[i], "-d") == 0)
-        {
-            decode_test_file = argv[++i];
-            continue;
-        }
-        if (strcmp(argv[i], "-f") == 0)
-        {
+        case 'c':
+            channel_codec = atoi(optarg);
+            break;
+        case 'd':
+            decode_test_file = optarg;
+            break;
+        case 'f':
             use_dialtone_filter = TRUE;
-            continue;
+            break;
+        default:
+            //usage();
+            exit(2);
+            break;
         }
     }
     munge = codec_munge_init(channel_codec, 0);

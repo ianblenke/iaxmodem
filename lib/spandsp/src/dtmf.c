@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: dtmf.c,v 1.21 2007/06/26 15:54:12 steveu Exp $
+ * $Id: dtmf.c,v 1.32 2007/12/20 11:11:16 steveu Exp $
  */
  
 /*! \file dtmf.h */
@@ -46,15 +46,11 @@
 
 #include "spandsp/telephony.h"
 #include "spandsp/queue.h"
+#include "spandsp/complex.h"
 #include "spandsp/tone_detect.h"
 #include "spandsp/tone_generate.h"
 #include "spandsp/super_tone_rx.h"
 #include "spandsp/dtmf.h"
-
-#if !defined(M_PI)
-/* C99 systems may not define M_PI */
-#define M_PI 3.14159265358979323846264338327
-#endif
 
 //#define USE_3DNOW
 
@@ -62,7 +58,7 @@
 #define DEFAULT_DTMF_TX_ON_TIME     50
 #define DEFAULT_DTMF_TX_OFF_TIME    55
 
-#if defined(USE_FIXED_POINT_EXPERIMENTAL)
+#if defined(SPANDSP_USE_FIXED_POINT_EXPERIMENTAL)
 #define DTMF_THRESHOLD              1.0e5f
 #define DTMF_NORMAL_TWIST           6.3f    /* 8dB */
 #define DTMF_REVERSE_TWIST          2.5f    /* 4dB */
@@ -186,7 +182,7 @@ int dtmf_rx(dtmf_rx_state_t *s, const int16_t amp[], int samples)
 {
     float row_energy[4];
     float col_energy[4];
-#if defined(USE_FIXED_POINT_EXPERIMENTAL)
+#if defined(SPANDSP_USE_FIXED_POINT_EXPERIMENTAL)
     int famp;
     int v1;
 #else
@@ -223,17 +219,17 @@ int dtmf_rx(dtmf_rx_state_t *s, const int16_t amp[], int samples)
                 /* Sharp notches applied at 350Hz and 440Hz - the two common dialtone frequencies.
                    These are rather high Q, to achieve the required narrowness, without using lots of
                    sections. */
-                v1 = 0.98356f*famp + 1.8954426f*s->z350_1 - 0.9691396f*s->z350_2;
-                famp = v1 - 1.9251480f*s->z350_1 + s->z350_2;
-                s->z350_2 = s->z350_1;
-                s->z350_1 = v1;
+                v1 = 0.98356f*famp + 1.8954426f*s->z350[0] - 0.9691396f*s->z350[1];
+                famp = v1 - 1.9251480f*s->z350[0] + s->z350[1];
+                s->z350[1] = s->z350[0];
+                s->z350[0] = v1;
 
-                v1 = 0.98456f*famp + 1.8529543f*s->z440_1 - 0.9691396f*s->z440_2;
-                famp = v1 - 1.8819938f*s->z440_1 + s->z440_2;
-                s->z440_2 = s->z440_1;
-                s->z440_1 = v1;
+                v1 = 0.98456f*famp + 1.8529543f*s->z440[0] - 0.9691396f*s->z440[1];
+                famp = v1 - 1.8819938f*s->z440[0] + s->z440[1];
+                s->z440[1] = s->z440[0];
+                s->z440[0] = v1;
             }
-#if defined(USE_FIXED_POINT_EXPERIMENTAL)
+#if defined(SPANDSP_USE_FIXED_POINT_EXPERIMENTAL)
             famp >>= 8;
             s->energy += famp*famp;
             /* With GCC 2.95, the following unrolled code seems to take about 35%
@@ -394,7 +390,7 @@ int dtmf_rx(dtmf_rx_state_t *s, const int16_t amp[], int samples)
                     if (s->in_digit  ||  hit)
                     {
                         i = (s->in_digit  &&  !hit)  ?  -99  :  rintf(log10f(s->energy)*10.0f - 20.08f - DTMF_POWER_OFFSET + DBM0_MAX_POWER);
-                        s->realtime_callback(s->realtime_callback_data, hit, i);
+                        s->realtime_callback(s->realtime_callback_data, hit, i, 0);
                     }
                 }
                 else
@@ -481,10 +477,10 @@ void dtmf_rx_parms(dtmf_rx_state_t *s,
 {
     if (filter_dialtone >= 0)
     {
-        s->z350_1 = 0.0f;
-        s->z350_2 = 0.0f;
-        s->z440_1 = 0.0f;
-        s->z440_2 = 0.0f;
+        s->z350[0] = 0.0f;
+        s->z350[1] = 0.0f;
+        s->z440[0] = 0.0f;
+        s->z440[1] = 0.0f;
         s->filter_dialtone = filter_dialtone;
     }
     if (twist >= 0)
@@ -501,6 +497,12 @@ dtmf_rx_state_t *dtmf_rx_init(dtmf_rx_state_t *s,
     int i;
     static int initialised = FALSE;
 
+    if (s == NULL)
+    {
+        s = (dtmf_rx_state_t *) malloc(sizeof (*s));
+        if (s == NULL)
+            return  NULL;
+    }
     s->callback = callback;
     s->callback_data = user_data;
     s->realtime_callback = NULL;
@@ -532,6 +534,13 @@ dtmf_rx_state_t *dtmf_rx_init(dtmf_rx_state_t *s,
     s->current_digits = 0;
     s->digits[0] = '\0';
     return s;
+}
+/*- End of function --------------------------------------------------------*/
+
+int dtmf_rx_free(dtmf_rx_state_t *s)
+{
+    free(s);
+    return 0;
 }
 /*- End of function --------------------------------------------------------*/
 
@@ -577,25 +586,29 @@ int dtmf_tx(dtmf_tx_state_t *s, int16_t amp[], int max_samples)
     while (len < max_samples  &&  (digit = queue_read_byte(&s->queue)) >= 0)
     {
         /* Step to the next digit */
+        if (digit == 0)
+            continue;
         if ((cp = strchr(dtmf_positions, digit)) == NULL)
             continue;
-        tone_gen_init(&(s->tones), &(s->tone_descriptors[cp - dtmf_positions]));
+        tone_gen_init(&(s->tones), &dtmf_digit_tones[cp - dtmf_positions]);
         len += tone_gen(&(s->tones), amp + len, max_samples - len);
     }
     return len;
 }
 /*- End of function --------------------------------------------------------*/
 
-size_t dtmf_tx_put(dtmf_tx_state_t *s, const char *digits)
+size_t dtmf_tx_put(dtmf_tx_state_t *s, const char *digits, ssize_t len)
 {
-    size_t len;
     size_t space;
 
     /* This returns the number of characters that would not fit in the buffer.
        The buffer will only be loaded if the whole string of digits will fit,
        in which case zero is returned. */
-    if ((len = strlen(digits)) == 0)
-        return 0;
+    if (len < 0)
+    {
+        if ((len = strlen(digits)) == 0)
+            return 0;
+    }
     if ((space = queue_free_space(&s->queue)) < len)
         return len - space;
     if (queue_write(&s->queue, (const uint8_t *) digits, len) >= 0)
@@ -604,16 +617,34 @@ size_t dtmf_tx_put(dtmf_tx_state_t *s, const char *digits)
 }
 /*- End of function --------------------------------------------------------*/
 
+void dtmf_tx_set_level(dtmf_tx_state_t *s, int level, int twist)
+{
+    /* TODO: */
+}
+/*- End of function --------------------------------------------------------*/
+
 dtmf_tx_state_t *dtmf_tx_init(dtmf_tx_state_t *s)
 {
+    if (s == NULL)
+    {
+        s = (dtmf_tx_state_t *) malloc(sizeof (*s));
+        if (s == NULL)
+            return  NULL;
+    }
     if (!dtmf_tx_inited)
         dtmf_tx_initialise();
-    s->tone_descriptors = dtmf_digit_tones;
     tone_gen_init(&(s->tones), &dtmf_digit_tones[0]);
     s->current_sample = 0;
     queue_init(&s->queue, MAX_DTMF_DIGITS, QUEUE_READ_ATOMIC | QUEUE_WRITE_ATOMIC);
     s->tones.current_section = -1;
     return s;
+}
+/*- End of function --------------------------------------------------------*/
+
+int dtmf_tx_free(dtmf_tx_state_t *s)
+{
+    free(s);
+    return 0;
 }
 /*- End of function --------------------------------------------------------*/
 /*- End of file ------------------------------------------------------------*/

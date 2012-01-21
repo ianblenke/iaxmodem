@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: v42.c,v 1.35 2007/07/20 15:30:50 steveu Exp $
+ * $Id: v42.c,v 1.38 2007/12/13 11:31:32 steveu Exp $
  */
 
 /* THIS IS A WORK IN PROGRESS. IT IS NOT FINISHED. */
@@ -1111,11 +1111,13 @@ void lapm_restart(lapm_state_t *s)
 }
 /*- End of function --------------------------------------------------------*/
 
+#if 0
 static void lapm_init(lapm_state_t *s)
 {
     lapm_restart(s);
 }
 /*- End of function --------------------------------------------------------*/
+#endif
 
 static void negotiation_rx_bit(v42_state_t *s, int new_bit)
 {
@@ -1410,9 +1412,18 @@ fprintf(stderr, "Setting T400 i\n");
 
 v42_state_t *v42_init(v42_state_t *s, int caller, int detect, v42_frame_handler_t frame_handler, void *user_data)
 {
+    int alloced;
+    
     if (frame_handler == NULL)
         return NULL;
     /*endif*/
+    alloced = FALSE;
+    if (s == NULL)
+    {
+        if ((s = (v42_state_t *) malloc(sizeof(*s))) == NULL)
+            return NULL;
+        alloced = TRUE;
+    }
     memset(s, 0, sizeof(*s));
     s->caller = caller;
     s->detect = detect;
@@ -1423,8 +1434,12 @@ v42_state_t *v42_init(v42_state_t *s, int caller, int detect, v42_frame_handler_
     s->lapm.t402_timer =
     s->lapm.t403_timer = -1;
 
-    if ((s->lapm.tx_queue = queue_create(16384, 0)) == NULL)
+    if ((s->lapm.tx_queue = queue_init(NULL, 16384, 0)) == NULL)
+    {
+        if (alloced)
+            free(s);
         return NULL;
+    }
     /*endif*/
     span_log_init(&s->logging, SPAN_LOG_NONE, NULL);
     span_log_set_protocol(&s->logging, "V.42");

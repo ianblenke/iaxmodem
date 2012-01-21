@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: fsk.c,v 1.32 2007/06/28 13:10:59 steveu Exp $
+ * $Id: fsk.c,v 1.35 2007/12/20 12:08:35 steveu Exp $
  */
 
 /*! \file */
@@ -31,8 +31,8 @@
 #include <config.h>
 #endif
 
-#include <inttypes.h>
 #include <stdlib.h>
+#include <inttypes.h>
 #include <string.h>
 #if defined(HAVE_TGMATH_H)
 #include <tgmath.h>
@@ -122,6 +122,12 @@ fsk_tx_state_t *fsk_tx_init(fsk_tx_state_t *s,
                             get_bit_func_t get_bit,
                             void *user_data)
 {
+    if (s == NULL)
+    {
+        if ((s = (fsk_tx_state_t *) malloc(sizeof(*s))) == NULL)
+            return NULL;
+    }
+
     s->baud_rate = spec->baud_rate;
     s->get_bit = get_bit;
     s->user_data = user_data;
@@ -185,8 +191,8 @@ void fsk_tx_set_get_bit(fsk_tx_state_t *s, get_bit_func_t get_bit, void *user_da
 void fsk_rx_signal_cutoff(fsk_rx_state_t *s, float cutoff)
 {
     /* The 6.04 allows for the gain of the DC blocker */
-    s->carrier_on_power = (int32_t) (power_meter_level_dbm0(cutoff + 0.27f - 6.04f));
-    s->carrier_off_power = (int32_t) (power_meter_level_dbm0(cutoff - 0.27f - 6.04f));
+    s->carrier_on_power = (int32_t) (power_meter_level_dbm0(cutoff + 2.5f - 6.04f));
+    s->carrier_off_power = (int32_t) (power_meter_level_dbm0(cutoff - 2.5f - 6.04f));
 }
 /*- End of function --------------------------------------------------------*/
 
@@ -210,6 +216,12 @@ fsk_rx_state_t *fsk_rx_init(fsk_rx_state_t *s,
                             void *user_data)
 {
     int chop;
+
+    if (s == NULL)
+    {
+        if ((s = (fsk_rx_state_t *) malloc(sizeof(*s))) == NULL)
+            return NULL;
+    }
 
     memset(s, 0, sizeof(*s));
     s->baud_rate = spec->baud_rate;

@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: dtmf.h,v 1.13 2007/06/26 15:54:12 steveu Exp $
+ * $Id: dtmf.h,v 1.18 2007/12/20 11:11:16 steveu Exp $
  */
 
 #if !defined(_SPANDSP_DTMF_H_)
@@ -81,7 +81,6 @@ typedef void (*dtmf_rx_callback_t)(void *user_data, const char *digits, int len)
 */
 typedef struct
 {
-    tone_gen_descriptor_t *tone_descriptors;
     tone_gen_state_t tones;
     int current_sample;
     /* The queue structure MUST be followed immediately by the buffer */
@@ -110,14 +109,13 @@ typedef struct
     float reverse_twist;
 
     /*! 350Hz filter state for the optional dialtone filter */
-    float z350_1;
-    float z350_2;
+    float z350[2];
     /*! 440Hz filter state for the optional dialtone filter */
-    float z440_1;
-    float z440_2;
+    float z440[2];
 
-    /*! Tone detector working states */
+    /*! Tone detector working states for the row tones. */
     goertzel_state_t row_out[4];
+    /*! Tone detector working states for the column tones. */
     goertzel_state_t col_out[4];
     /*! The accumlating total energy on the same period over which the Goertzels work. */
     float energy;
@@ -152,14 +150,27 @@ int dtmf_tx(dtmf_tx_state_t *s, int16_t amp[], int max_samples);
 /*! \brief Put a string of digits in a DTMF generator's input buffer.
     \param s The DTMF generator context.
     \param digits The string of digits to be added.
+    \param len The length of the string of digits. If negative, the string is
+           assumed to be a NULL terminated string.
     \return The number of digits actually added. This may be less than the
             length of the digit string, if the buffer fills up. */
-size_t dtmf_tx_put(dtmf_tx_state_t *s, const char *digits);
+size_t dtmf_tx_put(dtmf_tx_state_t *s, const char *digits, ssize_t len);
+
+/*! \brief Change the transmit level for a DTMF tone generator context.
+    \param s The DTMF generator context.
+    \param level The level of the low tone, in dBm0.
+    \param twist The twist, in dB. */
+void dtmf_tx_set_level(dtmf_tx_state_t *s, int level, int twist);
 
 /*! \brief Initialise a DTMF tone generator context.
     \param s The DTMF generator context.
     \return A pointer to the DTMF generator context. */
 dtmf_tx_state_t *dtmf_tx_init(dtmf_tx_state_t *s);
+
+/*! \brief Free a DTMF tone generator context.
+    \param s The DTMF tone generator context.
+    \return 0 for OK, else -1. */
+int dtmf_tx_free(dtmf_tx_state_t *s);
 
 /*! Set a optional realtime callback for a DTMF receiver context. This function
     is called immediately a confirmed state change occurs in the received DTMF. It
@@ -217,6 +228,11 @@ size_t dtmf_rx_get(dtmf_rx_state_t *s, char *digits, int max);
 dtmf_rx_state_t *dtmf_rx_init(dtmf_rx_state_t *s,
                               dtmf_rx_callback_t callback,
                               void *user_data);
+
+/*! \brief Free a DTMF receiver context.
+    \param s The DTMF receiver context.
+    \return 0 for OK, else -1. */
+int dtmf_rx_free(dtmf_rx_state_t *s);
 
 #if defined(__cplusplus)
 }

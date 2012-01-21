@@ -15,7 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #
-# $Id: regression_tests.sh,v 1.42 2007/07/28 04:33:25 steveu Exp $
+# $Id: regression_tests.sh,v 1.47 2007/12/22 12:37:22 steveu Exp $
 #
 
 ITUTESTS_TIF=../itutests/fax/itutests.tif
@@ -197,6 +197,15 @@ then
 fi
 echo fsk_tests completed OK
 
+#./g1050_tests >$STDOUT_DEST 2>$STDERR_DEST
+#RETVAL=$?
+#if [ $RETVAL != 0 ]
+#then
+#    echo g1050_tests failed!
+#    exit $RETVAL
+#fi
+#echo g1050_tests completed OK
+
 ./g711_tests >$STDOUT_DEST 2>$STDERR_DEST
 RETVAL=$?
 if [ $RETVAL != 0 ]
@@ -360,6 +369,15 @@ then
     exit $RETVAL
 fi
 echo r2_mf_tx_tests completed OK
+
+#./rfc2198_sim_tests >$STDOUT_DEST 2>$STDERR_DEST
+#RETVAL=$?
+#if [ $RETVAL != 0 ]
+#then
+#    echo rfc2198_sim_tests failed!
+#    exit $RETVAL
+#fi
+#echo rfc2198_sim_tests completed OK
 
 ./schedule_tests >$STDOUT_DEST 2>$STDERR_DEST
 RETVAL=$?
@@ -577,15 +595,6 @@ then
     echo t4_tests failed!
     exit $RETVAL
 fi
-# Now use tiffcmp to check the results. It will return non-zero if any page images differ. The -t
-# option means the normal differences in tags will be ignored.
-tiffcmp -t ${ITUTESTS_TIF} t4_tests_receive.tif >/dev/null
-RETVAL=$?
-if [ $RETVAL != 0 ]
-then
-    echo t4_tests failed!
-    exit $RETVAL
-fi
 echo t4_tests completed OK
 
 #./time_scale_tests >$STDOUT_DEST 2>$STDERR_DEST
@@ -598,6 +607,15 @@ echo t4_tests completed OK
 #echo time_scale_tests completed OK
 echo time_scale_tests not enabled
 
+./tone_detect_tests >$STDOUT_DEST 2>$STDERR_DEST
+RETVAL=$?
+if [ $RETVAL != 0 ]
+then
+    echo tone_detect_tests failed!
+    exit $RETVAL
+fi
+echo tone_detect_tests completed OK
+
 #./tone_generate_tests >$STDOUT_DEST 2>$STDERR_DEST
 #RETVAL=$?
 #if [ $RETVAL != 0 ]
@@ -608,15 +626,35 @@ echo time_scale_tests not enabled
 #echo tone_generate_tests completed OK
 echo tone_generate_tests not enabled
 
-#./v17_tests >$STDOUT_DEST 2>$STDERR_DEST
-#RETVAL=$?
-#if [ $RETVAL != 0 ]
-#then
-#    echo v17_tests failed!
-#    exit $RETVAL
-#fi
-#echo v17_tests completed OK
-echo v17_tests not enabled
+./v17_tests -s -42 14400 >$STDOUT_DEST 2>$STDERR_DEST
+RETVAL=$?
+if [ $RETVAL != 0 ]
+then
+    echo v17_tests failed!
+    exit $RETVAL
+fi
+./v17_tests -s -42 12000 >$STDOUT_DEST 2>$STDERR_DEST
+RETVAL=$?
+if [ $RETVAL != 0 ]
+then
+    echo v17_tests failed!
+    exit $RETVAL
+fi
+./v17_tests -s -42 9600 >$STDOUT_DEST 2>$STDERR_DEST
+RETVAL=$?
+if [ $RETVAL != 0 ]
+then
+    echo v17_tests failed!
+    exit $RETVAL
+fi
+./v17_tests -s -42 7200 >$STDOUT_DEST 2>$STDERR_DEST
+RETVAL=$?
+if [ $RETVAL != 0 ]
+then
+    echo v17_tests failed!
+    exit $RETVAL
+fi
+echo v17_tests completed OK
 
 #./v22bis_tests >$STDOUT_DEST 2>$STDERR_DEST
 #RETVAL=$?

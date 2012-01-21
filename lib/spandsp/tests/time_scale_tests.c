@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: time_scale_tests.c,v 1.14 2006/11/19 14:07:27 steveu Exp $
+ * $Id: time_scale_tests.c,v 1.16 2007/11/26 13:29:00 steveu Exp $
  */
 
 /*! \page time_scale_tests_page Time scaling tests
@@ -40,18 +40,10 @@ This file also contains 8000 sample/second 16 bits/sample linear audio.
 #include "config.h"
 #endif
 
-#include <stdio.h>
-#include <inttypes.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
-#if defined(HAVE_TGMATH_H)
-#include <tgmath.h>
-#endif
-#if defined(HAVE_MATH_H)
-#include <math.h>
-#endif
 #include <audiofile.h>
-#include <tiffio.h>
 
 #include "spandsp.h"
 
@@ -69,7 +61,7 @@ int main(int argc, char *argv[])
     int new_frames;
     int out_frames;
     int count;
-    time_scale_t state;
+    time_scale_state_t state;
     float x;
     float rate;
     int16_t in[BLOCK_LEN];

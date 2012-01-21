@@ -16,7 +16,7 @@
 ## along with this program; if not, write to the Free Software
 ## Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 ##
-## $Id: Makefile.am,v 1.9 2007/02/10 11:54:57 steveu Exp $
+## $Id: Makefile.am,v 1.12 2007/09/30 11:42:39 steveu Exp $
 
 AM_CFLAGS = $(COMP_VENDOR_CFLAGS)
 
@@ -24,7 +24,7 @@ PBM2G3 = pbmtog3
 FAX2TIFF = fax2tiff
 
 EXTRA_DIST = itu1.pbm itu2.pbm itu3.pbm itu4.pbm itu5.pbm itu6.pbm itu7.pbm itu8.pbm \
-               test1.pbm test2.pbm test3.pbm test4.pbm
+             test1.pbm test2.pbm test3.pbm test4.pbm
 
 nobase_data_DATA =  itutests.tif \
                     itu1.tif \
@@ -41,24 +41,36 @@ nobase_data_DATA =  itutests.tif \
                     test4.tif \
                     dithered.tif \
                     100pages.tif \
+                    R1200_1200_A4.tif \
+                    R1200_1200_B4.tif \
+                    R1200_1200_A3.tif \
+                    R600_1200_A4.tif \
+                    R600_1200_B4.tif \
+                    R600_1200_A3.tif \
+                    R600_600_A4.tif \
+                    R600_600_B4.tif \
+                    R600_600_A3.tif \
+                    R16_800_A4.tif \
+                    R16_800_B4.tif \
+                    R16_800_A3.tif \
                     R16_154_A3.tif \
                     R16_154_A4.tif \
                     R16_154_B4.tif \
-                    R16_385_A3.tif \
-                    R16_385_A4.tif \
-                    R16_385_B4.tif \
-                    R16_77_A3.tif \
-                    R16_77_A4.tif \
-                    R16_77_B4.tif \
+                    R300_600_A4.tif \
+                    R300_600_B4.tif \
+                    R300_600_A3.tif \
+                    R300_300_A4.tif \
+                    R300_300_B4.tif \
+                    R300_300_A3.tif \
                     R8_154_A3.tif \
                     R8_154_A4.tif \
                     R8_154_B4.tif \
-                    R8_385_A3.tif \
-                    R8_385_A4.tif \
-                    R8_385_B4.tif \
                     R8_77_A3.tif \
                     R8_77_A4.tif \
-                    R8_77_B4.tif
+                    R8_77_B4.tif \
+                    R8_385_A3.tif \
+                    R8_385_A4.tif \
+                    R8_385_B4.tif
 
 noinst_PROGRAMS =   generate_dithered_tif \
                     generate_sized_pages
@@ -99,10 +111,34 @@ itutests.tif: itu1.g3 itu2.g3 itu3.g3 itu4.g3 itu5.g3 itu6.g3 itu7.g3 itu8.g3 \
 dithered.tif: generate_dithered_tif$(EXEEXT)
 	./generate_dithered_tif$(EXEEXT)
 
-R16_154_A3.tif R16_154_A4.tif R16_154_B4.tif \
-R16_385_A3.tif R16_385_A4.tif R16_385_B4.tif \
-R16_77_A3.tif R16_77_A4.tif R16_77_B4.tif \
-R8_154_A3.tif R8_154_A4.tif R8_154_B4.tif \
-R8_385_A3.tif R8_385_A4.tif R8_385_B4.tif \
-R8_77_A3.tif R8_77_A4.tif R8_77_B4.tif: generate_sized_pages$(EXEEXT)
+R1200_1200_A4.tif \
+R1200_1200_B4.tif \
+R1200_1200_A3.tif \
+R600_1200_A4.tif \
+R600_1200_B4.tif \
+R600_1200_A3.tif \
+R600_600_A4.tif \
+R600_600_B4.tif \
+R600_600_A3.tif \
+R16_800_A4.tif \
+R16_800_B4.tif \
+R16_800_A3.tif \
+R16_154_A3.tif \
+R16_154_A4.tif \
+R16_154_B4.tif \
+R300_600_A4.tif \
+R300_600_B4.tif \
+R300_600_A3.tif \
+R300_300_A4.tif \
+R300_300_B4.tif \
+R300_300_A3.tif \
+R8_154_A3.tif \
+R8_154_A4.tif \
+R8_154_B4.tif \
+R8_77_A3.tif \
+R8_77_A4.tif \
+R8_77_B4.tif \
+R8_385_A3.tif \
+R8_385_A4.tif \
+R8_385_B4.tif: generate_sized_pages$(EXEEXT)
 	./generate_sized_pages$(EXEEXT)

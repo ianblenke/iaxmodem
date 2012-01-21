@@ -16,13 +16,13 @@
 ## along with this program; if not, write to the Free Software
 ## Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 ##
-## $Id: Makefile.am,v 1.88 2007/07/28 04:33:25 steveu Exp $
+## $Id: Makefile.am,v 1.93 2007/12/21 18:40:11 steveu Exp $
 
 AM_CFLAGS = $(COMP_VENDOR_CFLAGS)
 
 LIBS += $(TESTLIBS)
 
-nobase_data_DATA = sound_c1_8k.wav sound_c3_8k.wav
+noinst_DATA = sound_c1_8k.wav sound_c3_8k.wav
 
 EXTRA_DIST = regression_tests.sh v42bis_tests.sh fax_tests.sh
  
@@ -71,6 +71,7 @@ noinst_PROGRAMS =   adsi_tests \
                     queue_tests \
                     r2_mf_rx_tests \
                     r2_mf_tx_tests \
+                    rfc2198_sim_tests \
                     schedule_tests \
                     sig_tone_tests \
                     super_tone_rx_tests \
@@ -83,6 +84,7 @@ noinst_PROGRAMS =   adsi_tests \
                     t38_terminal_tests \
                     t38_terminal_to_gateway_tests \
                     time_scale_tests \
+                    tone_detect_tests \
                     tone_generate_tests \
                     v17_tests \
                     v22bis_tests \
@@ -96,9 +98,10 @@ noinst_PROGRAMS =   adsi_tests \
                     testadsi \
                     testfax
 
-noinst_HEADERS =    modem_monitor.h \
-                    echo_monitor.h \
-                    line_model_monitor.h
+noinst_HEADERS =    echo_monitor.h \
+                    line_model_monitor.h \
+                    media_monitor.h \
+                    modem_monitor.h
 
 adsi_tests_SOURCES = adsi_tests.c
 adsi_tests_LDADD = $(LIBDIR) -lspandsp
@@ -217,6 +220,9 @@ r2_mf_rx_tests_LDADD = $(LIBDIR) -lspandsp
 r2_mf_tx_tests_SOURCES = r2_mf_tx_tests.c
 r2_mf_tx_tests_LDADD = $(LIBDIR) -lspandsp
 
+rfc2198_sim_tests_SOURCES = rfc2198_sim_tests.c media_monitor.cpp
+rfc2198_sim_tests_LDADD = -L$(top_builddir)/spandsp-sim -lspandsp-sim $(LIBDIR) -lspandsp
+
 schedule_tests_SOURCES = schedule_tests.c
 schedule_tests_LDADD = $(LIBDIR) -lspandsp 
 
@@ -232,8 +238,8 @@ super_tone_tx_tests_LDADD = $(LIBDIR) -lspandsp
 t4_tests_SOURCES = t4_tests.c
 t4_tests_LDADD = $(LIBDIR) -lspandsp
 
-t31_tests_SOURCES = t31_tests.c
-t31_tests_LDADD = $(LIBDIR) -lspandsp
+t31_tests_SOURCES = t31_tests.c media_monitor.cpp
+t31_tests_LDADD = -L$(top_builddir)/spandsp-sim -lspandsp-sim $(LIBDIR) -lspandsp
 
 t38_core_tests_SOURCES = t38_core_tests.c
 t38_core_tests_LDADD = $(LIBDIR) -lspandsp
@@ -252,6 +258,9 @@ t38_terminal_to_gateway_tests_LDADD = -L$(top_builddir)/spandsp-sim -lspandsp-si
 
 time_scale_tests_SOURCES = time_scale_tests.c
 time_scale_tests_LDADD = $(LIBDIR) -lspandsp
+
+tone_detect_tests_SOURCES = tone_detect_tests.c
+tone_detect_tests_LDADD = $(LIBDIR) -lspandsp
 
 tone_generate_tests_SOURCES = tone_generate_tests.c
 tone_generate_tests_LDADD = $(LIBDIR) -lspandsp

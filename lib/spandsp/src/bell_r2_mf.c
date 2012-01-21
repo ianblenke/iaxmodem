@@ -22,15 +22,16 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: bell_r2_mf.c,v 1.14 2007/06/22 12:40:35 steveu Exp $
+ * $Id: bell_r2_mf.c,v 1.20 2007/12/13 11:31:31 steveu Exp $
  */
 
-/*! \file bell_r2_mf.h */
+/*! \file */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
+#include <stdlib.h>
 #include <inttypes.h>
 #include <string.h>
 #include <time.h>
@@ -45,6 +46,7 @@
 #include "spandsp/telephony.h"
 #include "spandsp/queue.h"
 #include "spandsp/dc_restore.h"
+#include "spandsp/complex.h"
 #include "spandsp/dds.h"
 #include "spandsp/tone_detect.h"
 #include "spandsp/tone_generate.h"
@@ -185,22 +187,26 @@ static const mf_digit_tones_t socotel_tones[] =
 static char socotel_mf_tone_codes[] = "1234567890ABCDEFG";
 #endif
 
-#if defined(USE_FIXED_POINT_EXPERIMENTAL)
+#if defined(SPANDSP_USE_FIXED_POINT_EXPERIMENTAL)
 #define BELL_MF_THRESHOLD           (1.6e9f/65536.0f)
 #define BELL_MF_TWIST               4.0f    /* 6dB */
 #define BELL_MF_RELATIVE_PEAK       12.6f   /* 11dB */
+#define BELL_MF_SAMPLES_PER_BLOCK   120
 
 #define R2_MF_THRESHOLD             (5.0e8f/4096.0f)
 #define R2_MF_TWIST                 5.0f    /* 7dB */
 #define R2_MF_RELATIVE_PEAK         12.6f   /* 11dB */
+#define R2_MF_SAMPLES_PER_BLOCK     133
 #else
 #define BELL_MF_THRESHOLD           1.6e9f
 #define BELL_MF_TWIST               4.0f    /* 6dB */
 #define BELL_MF_RELATIVE_PEAK       12.6f   /* 11dB */
+#define BELL_MF_SAMPLES_PER_BLOCK   120
 
 #define R2_MF_THRESHOLD             5.0e8f
 #define R2_MF_TWIST                 5.0f    /* 7dB */
 #define R2_MF_RELATIVE_PEAK         12.6f   /* 11dB */
+#define R2_MF_SAMPLES_PER_BLOCK     133
 #endif
 
 static goertzel_descriptor_t bell_mf_detect_desc[6];
@@ -287,16 +293,18 @@ int bell_mf_tx(bell_mf_tx_state_t *s, int16_t amp[], int max_samples)
 }
 /*- End of function --------------------------------------------------------*/
 
-size_t bell_mf_tx_put(bell_mf_tx_state_t *s, const char *digits)
+size_t bell_mf_tx_put(bell_mf_tx_state_t *s, const char *digits, ssize_t len)
 {
-    size_t len;
     size_t space;
 
     /* This returns the number of characters that would not fit in the buffer.
        The buffer will only be loaded if the whole string of digits will fit,
        in which case zero is returned. */
-    if ((len = strlen(digits)) == 0)
-        return 0;
+    if (len < 0)
+    {
+        if ((len = strlen(digits)) == 0)
+            return 0;
+    }
     if ((space = queue_free_space(&s->queue)) < len)
         return len - space;
     if (queue_write(&s->queue, (const uint8_t *) digits, len) >= 0)
@@ -307,6 +315,13 @@ size_t bell_mf_tx_put(bell_mf_tx_state_t *s, const char *digits)
 
 bell_mf_tx_state_t *bell_mf_tx_init(bell_mf_tx_state_t *s)
 {
+    if (s == NULL)
+    {
+        if ((s = (bell_mf_tx_state_t *) malloc(sizeof(*s))) == NULL)
+            return NULL;
+    }
+    memset(s, 0, sizeof(*s));
+
     if (!bell_mf_gen_inited)
         bell_mf_gen_init();
     tone_gen_init(&(s->tones), &bell_mf_digit_tones[0]);
@@ -314,6 +329,13 @@ bell_mf_tx_state_t *bell_mf_tx_init(bell_mf_tx_state_t *s)
     queue_init(&s->queue, MAX_BELL_MF_DIGITS, QUEUE_READ_ATOMIC | QUEUE_WRITE_ATOMIC);
     s->tones.current_section = -1;
     return s;
+}
+/*- End of function --------------------------------------------------------*/
+
+int bell_mf_tx_free(bell_mf_tx_state_t *s)
+{
+    free(s);
+    return 0;
 }
 /*- End of function --------------------------------------------------------*/
 
@@ -359,6 +381,13 @@ r2_mf_tx_state_t *r2_mf_tx_init(r2_mf_tx_state_t *s, int fwd)
     int i;
     const mf_digit_tones_t *tones;
 
+    if (s == NULL)
+    {
+        if ((s = (r2_mf_tx_state_t *) malloc(sizeof(*s))) == NULL)
+            return NULL;
+    }
+    memset(s, 0, sizeof(*s));
+
     if (!r2_mf_gen_inited)
     {
         i = 0;
@@ -395,16 +424,22 @@ r2_mf_tx_state_t *r2_mf_tx_init(r2_mf_tx_state_t *s, int fwd)
         }
         r2_mf_gen_inited = TRUE;
     }
-    memset(s, 0, sizeof(*s));
     s->fwd = fwd;
     return s;
+}
+/*- End of function --------------------------------------------------------*/
+
+int r2_mf_tx_free(r2_mf_tx_state_t *s)
+{
+    free(s);
+    return 0;
 }
 /*- End of function --------------------------------------------------------*/
 
 int bell_mf_rx(bell_mf_rx_state_t *s, const int16_t amp[], int samples)
 {
     float energy[6];
-#if defined(USE_FIXED_POINT_EXPERIMENTAL)
+#if defined(SPANDSP_USE_FIXED_POINT_EXPERIMENTAL)
     int32_t famp;
     int32_t v1;
 #else
@@ -422,14 +457,14 @@ int bell_mf_rx(bell_mf_rx_state_t *s, const int16_t amp[], int samples)
     hit = 0;
     for (sample = 0;  sample < samples;  sample = limit)
     {
-        if ((samples - sample) >= (120 - s->current_sample))
-            limit = sample + (120 - s->current_sample);
+        if ((samples - sample) >= (BELL_MF_SAMPLES_PER_BLOCK - s->current_sample))
+            limit = sample + (BELL_MF_SAMPLES_PER_BLOCK - s->current_sample);
         else
             limit = samples;
         for (j = sample;  j < limit;  j++)
         {
             famp = amp[j];
-#if defined(USE_FIXED_POINT_EXPERIMENTAL)
+#if defined(SPANDSP_USE_FIXED_POINT_EXPERIMENTAL)
             famp >>= 8;
             /* With GCC 2.95, the following unrolled code seems to take about 35%
                (rough estimate) as long as a neat little 0-5 loop */
@@ -485,7 +520,7 @@ int bell_mf_rx(bell_mf_rx_state_t *s, const int16_t amp[], int samples)
 #endif
         }
         s->current_sample += (limit - sample);
-        if (s->current_sample < 120)
+        if (s->current_sample < BELL_MF_SAMPLES_PER_BLOCK)
             continue;
 
         /* We are at the end of an MF detection block */
@@ -628,10 +663,17 @@ bell_mf_rx_state_t *bell_mf_rx_init(bell_mf_rx_state_t *s,
     int i;
     static int initialised = FALSE;
 
+    if (s == NULL)
+    {
+        if ((s = (bell_mf_rx_state_t *) malloc(sizeof(*s))) == NULL)
+            return NULL;
+    }
+    memset(s, 0, sizeof(*s));
+
     if (!initialised)
     {
         for (i = 0;  i < 6;  i++)
-            make_goertzel_descriptor(&bell_mf_detect_desc[i], bell_mf_frequencies[i], 120);
+            make_goertzel_descriptor(&bell_mf_detect_desc[i], bell_mf_frequencies[i], BELL_MF_SAMPLES_PER_BLOCK);
         initialised = TRUE;
     }
     s->callback = callback;
@@ -653,10 +695,17 @@ bell_mf_rx_state_t *bell_mf_rx_init(bell_mf_rx_state_t *s,
 }
 /*- End of function --------------------------------------------------------*/
 
+int bell_mf_rx_free(bell_mf_rx_state_t *s)
+{
+    free(s);
+    return 0;
+}
+/*- End of function --------------------------------------------------------*/
+
 int r2_mf_rx(r2_mf_rx_state_t *s, const int16_t amp[], int samples)
 {
     float energy[6];
-#if defined(USE_FIXED_POINT_EXPERIMENTAL)
+#if defined(SPANDSP_USE_FIXED_POINT_EXPERIMENTAL)
     int32_t famp;
     int32_t v1;
 #else
@@ -676,14 +725,14 @@ int r2_mf_rx(r2_mf_rx_state_t *s, const int16_t amp[], int samples)
     hit_char = 0;
     for (sample = 0;  sample < samples;  sample = limit)
     {
-        if ((samples - sample) >= (s->samples - s->current_sample))
-            limit = sample + (s->samples - s->current_sample);
+        if ((samples - sample) >= (R2_MF_SAMPLES_PER_BLOCK - s->current_sample))
+            limit = sample + (R2_MF_SAMPLES_PER_BLOCK - s->current_sample);
         else
             limit = samples;
         for (j = sample;  j < limit;  j++)
         {
             famp = amp[j];
-#if defined(USE_FIXED_POINT_EXPERIMENTAL)
+#if defined(SPANDSP_USE_FIXED_POINT_EXPERIMENTAL)
             famp >>= 6;
             /* With GCC 2.95, the following unrolled code seems to take about 35%
                (rough estimate) as long as a neat little 0-5 loop */
@@ -739,7 +788,7 @@ int r2_mf_rx(r2_mf_rx_state_t *s, const int16_t amp[], int samples)
 #endif
         }
         s->current_sample += (limit - sample);
-        if (s->current_sample < s->samples)
+        if (s->current_sample < R2_MF_SAMPLES_PER_BLOCK)
             continue;
 
         /* We are at the end of an MF detection block */
@@ -834,14 +883,21 @@ r2_mf_rx_state_t *r2_mf_rx_init(r2_mf_rx_state_t *s, int fwd)
     int i;
     static int initialised = FALSE;
 
+    if (s == NULL)
+    {
+        if ((s = (r2_mf_rx_state_t *) malloc(sizeof(*s))) == NULL)
+            return NULL;
+    }
+    memset(s, 0, sizeof(*s));
+
     s->fwd = fwd;
 
     if (!initialised)
     {
         for (i = 0;  i < 6;  i++)
         {
-            make_goertzel_descriptor(&mf_fwd_detect_desc[i], r2_mf_fwd_frequencies[i], 133);
-            make_goertzel_descriptor(&mf_back_detect_desc[i], r2_mf_back_frequencies[i], 133);
+            make_goertzel_descriptor(&mf_fwd_detect_desc[i], r2_mf_fwd_frequencies[i], R2_MF_SAMPLES_PER_BLOCK);
+            make_goertzel_descriptor(&mf_back_detect_desc[i], r2_mf_back_frequencies[i], R2_MF_SAMPLES_PER_BLOCK);
         }
         initialised = TRUE;
     }
@@ -855,9 +911,15 @@ r2_mf_rx_state_t *r2_mf_rx_init(r2_mf_rx_state_t *s, int fwd)
         for (i = 0;  i < 6;  i++)
             goertzel_init(&s->out[i], &mf_back_detect_desc[i]);
     }
-    s->samples = 133;
     s->current_sample = 0;
     return s;
+}
+/*- End of function --------------------------------------------------------*/
+
+int r2_mf_rx_free(r2_mf_rx_state_t *s)
+{
+    free(s);
+    return 0;
 }
 /*- End of function --------------------------------------------------------*/
 /*- End of file ------------------------------------------------------------*/

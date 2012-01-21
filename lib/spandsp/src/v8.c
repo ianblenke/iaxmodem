@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: v8.c,v 1.22 2007/06/25 12:55:22 steveu Exp $
+ * $Id: v8.c,v 1.25 2007/11/30 12:20:35 steveu Exp $
  */
  
 /*! \file */
@@ -46,6 +46,7 @@
 #include "spandsp/logging.h"
 #include "spandsp/queue.h"
 #include "spandsp/async.h"
+#include "spandsp/complex.h"
 #include "spandsp/dds.h"
 #include "spandsp/tone_detect.h"
 #include "spandsp/tone_generate.h"
@@ -849,6 +850,11 @@ v8_state_t *v8_init(v8_state_t *s,
                     v8_result_handler_t *result_handler,
                     void *user_data)
 {
+    if (s == NULL)
+    {
+        if ((s = (v8_state_t *) malloc(sizeof(*s))) == NULL)
+            return NULL;
+    }
     memset(s, 0, sizeof(*s));
     s->caller = caller;
     s->available_modulations = available_modulations;
@@ -866,7 +872,7 @@ v8_state_t *v8_init(v8_state_t *s,
         s->state = V8_WAIT_200MS;
         s->negotiation_timer = ms_to_samples(200);
     }
-    if ((s->tx_queue = queue_create(1024, 0)) == NULL)
+    if ((s->tx_queue = queue_init(NULL, 1024, 0)) == NULL)
         return NULL;
     return s;
 }
@@ -874,7 +880,7 @@ v8_state_t *v8_init(v8_state_t *s,
 
 int v8_release(v8_state_t *s)
 {
-    return queue_delete(s->tx_queue);
+    return queue_free(s->tx_queue);
 }
 /*- End of function --------------------------------------------------------*/
 /*- End of file ------------------------------------------------------------*/

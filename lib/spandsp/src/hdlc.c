@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: hdlc.c,v 1.51 2007/07/29 17:56:41 steveu Exp $
+ * $Id: hdlc.c,v 1.55 2007/12/20 17:07:24 steveu Exp $
  */
 
 /*! \file */
@@ -31,9 +31,10 @@
 #include <config.h>
 #endif
 
+#include <stdlib.h>
 #include <inttypes.h>
-#include <stdio.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "spandsp/telephony.h"
 #include "spandsp/async.h"
@@ -114,9 +115,13 @@ static void rx_flag_or_abort(hdlc_rx_state_t *s)
         /* Hit HDLC abort */
         s->rx_aborts++;
         s->frame_handler(s->user_data, NULL, PUTBIT_ABORT, TRUE);
-        /* If we have not yet seen enough flags, restart the count. */
+        /* If we have not yet seen enough flags, restart the count. If we
+           are beyond that point, just back off one step, so we need to see
+           another flag before proceeding to collect frame octets. */
         if (s->flags_seen < s->framing_ok_threshold)
             s->flags_seen = 0;
+        else
+            s->flags_seen = s->framing_ok_threshold - 1;
         /* An abort starts octet counting */
         octet_set_and_count(s);
     }
@@ -195,37 +200,33 @@ static __inline__ void hdlc_rx_put_bit_core(hdlc_rx_state_t *s)
            flag or abort */
         if ((s->raw_bit_stream & 0x4000))
             rx_flag_or_abort(s);
+            return;
     }
-    else
+    s->num_bits++;
+    if (s->flags_seen < s->framing_ok_threshold)
     {
-        s->num_bits++;
-        if (s->flags_seen >= s->framing_ok_threshold)
+        if ((s->num_bits & 0x7) == 0)
+            octet_count(s);
+        return;
+    }
+    s->byte_in_progress = (s->byte_in_progress | (s->raw_bit_stream & 0x100)) >> 1;
+    if (s->num_bits == 8)
+    {
+        /* Ensure we do not accept an overlength frame, and especially that
+           we do not overflow our buffer */
+        if (s->len < s->max_frame_len)
         {
-            s->byte_in_progress = (s->byte_in_progress | (s->raw_bit_stream & 0x100)) >> 1;
-            if (s->num_bits == 8)
-            {
-                /* Ensure we do not accept an overlength frame, and especially that
-                   we do not overflow our buffer */
-                if (s->len < s->max_frame_len)
-                {
-                    s->buffer[s->len++] = (uint8_t) s->byte_in_progress;
-                }
-                else
-                {
-                    /* This is too long. Abandon the frame, and wait for the next
-                       flag octet. */
-                    s->len = sizeof(s->buffer) + 1;
-                    s->flags_seen = s->framing_ok_threshold - 1;
-                    octet_set_and_count(s);
-                }
-                s->num_bits = 0;
-            }
+            s->buffer[s->len++] = (uint8_t) s->byte_in_progress;
         }
         else
         {
-            if ((s->num_bits & 0x7) == 0)
-                octet_count(s);
+            /* This is too long. Abandon the frame, and wait for the next
+               flag octet. */
+            s->len = sizeof(s->buffer) + 1;
+            s->flags_seen = s->framing_ok_threshold - 1;
+            octet_set_and_count(s);
         }
+        s->num_bits = 0;
     }
 }
 /*- End of function --------------------------------------------------------*/

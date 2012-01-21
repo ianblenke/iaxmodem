@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: t35.c,v 1.22 2007/06/22 12:40:35 steveu Exp $
+ * $Id: t35.c,v 1.24 2007/11/10 16:27:29 steveu Exp $
  */
 
 /*
@@ -283,6 +283,65 @@ const char *t35_country_codes[256] =
     "Zaire",
     "Zambia",
     "Zimbabwe"
+    "Slovakia",
+    "Slovenia",
+    "(available)",
+    "(available)",
+    "(available)",
+    "(available)",
+    "(available)",
+    "(available)",
+    "(available)",
+    "(available)",
+    "(available)",
+    "(available)",                                  /* 0xD0 */
+    "(available)",
+    "(available)",
+    "(available)",
+    "(available)",
+    "(available)",
+    "(available)",
+    "(available)",
+    "(available)",
+    "(available)",
+    "(available)",
+    "(available)",
+    "(available)",
+    "(available)",
+    "(available)",
+    "(available)",
+    "(available)",                                  /* 0xE0 */
+    "(available)",
+    "(available)",
+    "(available)",
+    "(available)",
+    "(available)",
+    "(available)",
+    "(available)",
+    "(available)",
+    "(available)",
+    "(available)",
+    "(available)",
+    "(available)",
+    "(available)",
+    "(available)",
+    "(available)",
+    "(available)",                                  /* 0xF0 */
+    "(available)",
+    "(available)",
+    "(available)",
+    "(available)",
+    "(available)",
+    "(available)",
+    "Lithuania",
+    "Latvia",
+    "Estonia",
+    "US Virgin Islands",
+    "(available)",
+    "(available)",
+    "(Universal)",
+    "Taiwan",
+    "(extension)"
 };
 
 static const model_data_t Canon[] =
@@ -328,6 +387,12 @@ static const model_data_t Ricoh[] =
 static const model_data_t Samsung16[] =
 {
     {4, "\x00\x00\xA4\x01", "M545 6800"},
+    {0, NULL, NULL}
+};
+
+static const model_data_t Samsung5A[] =
+{
+    {4, "\x00\x00\xC0\x00", "SF-5100"},
     {0, NULL, NULL}
 };
 
@@ -556,7 +621,7 @@ static const nsf_data_t known_nsf[] =
     {"\x86\x00\x40", 3, "unknown - Korea 40", FALSE, NULL},
     {"\x86\x00\x48", 3, "unknown - Korea 48", FALSE, NULL},
     {"\x86\x00\x52", 3, "unknown - Korea 52", FALSE, NULL},
-    {"\x86\x00\x5A", 3, "unknown - Korea 5A", FALSE, NULL},
+    {"\x86\x00\x5A", 3, "Samsung", FALSE, Samsung5A},
     {"\x86\x00\x5E", 3, "unknown - Korea 5E", FALSE, NULL},
     {"\x86\x00\x66", 3, "unknown - Korea 66", FALSE, NULL},
     {"\x86\x00\x6E", 3, "unknown - Korea 6E", FALSE, NULL},

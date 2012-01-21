@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: g711_tests.c,v 1.5 2007/04/10 16:12:20 steveu Exp $
+ * $Id: g711_tests.c,v 1.7 2007/11/10 11:14:58 steveu Exp $
  */
 
 /*! \page g711_tests_page A-law and u-law conversion tests
@@ -35,20 +35,11 @@
 #include "config.h"
 #endif
 
-#include <inttypes.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <string.h>
-#if defined(HAVE_TGMATH_H)
-#include <tgmath.h>
-#endif
-#if defined(HAVE_MATH_H)
-#include <math.h>
-#endif
-#include <assert.h>
 #include <audiofile.h>
-#include <tiffio.h>
 
 #include "spandsp.h"
 
@@ -69,6 +60,7 @@ int main(int argc, char *argv[])
     int block;
     int pre;
     int post;
+    int post_post;
     int alaw_failures;
     int ulaw_failures;
     float worst_alaw;
@@ -177,6 +169,33 @@ int main(int argc, char *argv[])
         printf("%d u-law values with excessive error\n", ulaw_failures);
         printf("Tests failed\n");
         exit(2);
+    }
+    
+    printf("Cyclic conversion repeatability tests.\n");
+    /* Find what happens to every possible linear value after a round trip. */
+    for (i = 0;  i < 65536;  i++)
+    {
+        pre = i - 32768;
+        /* Make a round trip */
+        post = alaw_to_linear(linear_to_alaw(pre));
+        /* A second round trip should cause no further change */
+        post_post = alaw_to_linear(linear_to_alaw(post));
+        if (post_post != post)
+        {
+            printf("A-law second round trip mismatch - at %d, %d != %d\n", pre, post, post_post);
+            printf("Tests failed\n");
+            exit(2);
+        }
+        /* Make a round trip */
+        post = ulaw_to_linear(linear_to_ulaw(pre));
+        /* A second round trip should cause no further change */
+        post_post = ulaw_to_linear(linear_to_ulaw(post));
+        if (post_post != post)
+        {
+            printf("u-law round trip mismatch - at %d, %d != %d\n", pre, post, post_post);
+            printf("Tests failed\n");
+            exit(2);
+        }
     }
     
     printf("Reference power level tests.\n");

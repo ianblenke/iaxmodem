@@ -22,7 +22,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * $Id: t38_terminal_to_gateway_tests.c,v 1.40 2007/04/12 15:30:41 steveu Exp $
+ * $Id: t38_terminal_to_gateway_tests.c,v 1.46 2007/12/20 10:56:11 steveu Exp $
  */
 
 /*! \file */
@@ -42,17 +42,11 @@ These tests exercise the path
 #define ENABLE_GUI
 #endif
 
-#include <inttypes.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <fcntl.h>
+#include <unistd.h>
 #include <string.h>
-#if defined(HAVE_TGMATH_H)
-#include <tgmath.h>
-#endif
-#if defined(HAVE_MATH_H)
-#include <math.h>
-#endif
 #include <assert.h>
 #include <errno.h>
 #include <sys/socket.h>
@@ -65,7 +59,6 @@ These tests exercise the path
 #include <sys/select.h>
 #include <sys/time.h>
 #include <audiofile.h>
-#include <tiffio.h>
 
 #include "spandsp.h"
 #include "spandsp-sim.h"
@@ -125,6 +118,8 @@ static void phase_d_handler(t30_state_t *s, void *user_data, int result)
     printf("%c: Phase D: local ident '%s'\n", i, ident);
     t30_get_far_ident(s, ident);
     printf("%c: Phase D: remote ident '%s'\n", i, ident);
+
+    printf("%c: Phase D: bits per row - min %d, max %d\n", i, s->t4.min_row_bits, s->t4.max_row_bits);
 }
 /*- End of function --------------------------------------------------------*/
 
@@ -229,6 +224,7 @@ int main(int argc, char *argv[])
     int t38_version;
     int use_ecm;
     int use_tep;
+    int feedback_audio;
     int use_transmit_on_idle;
     const char *input_file_name;
     int i;
@@ -238,6 +234,7 @@ int main(int argc, char *argv[])
     double tx_when;
     double rx_when;
     int use_gui;
+    int opt;
 
     log_audio = FALSE;
     t38_version = 1;
@@ -248,53 +245,51 @@ int main(int argc, char *argv[])
     speed_pattern_no = 1;
     use_gui = FALSE;
     use_tep = FALSE;
+    feedback_audio = FALSE;
     use_transmit_on_idle = TRUE;
-    for (i = 1;  i < argc;  i++)
+    while ((opt = getopt(argc, argv, "efgi:Ilm:s:tv:")) != -1)
     {
-        if (strcmp(argv[i], "-e") == 0)
+        switch (opt)
         {
+        case 'e':
             use_ecm = TRUE;
-            continue;
-        }
-        if (strcmp(argv[i], "-g") == 0)
-        {
+            break;
+        case 'f':
+            feedback_audio = TRUE;
+            break;
+        case 'g':
+#if defined(ENABLE_GUI)
             use_gui = TRUE;
-            continue;
-        }
-        if (strcmp(argv[i], "-i") == 0)
-        {
-            input_file_name = argv[++i];
-            continue;
-        }
-        if (strcmp(argv[i], "-I") == 0)
-        {
+#else
+            fprintf(stderr, "Graphical monitoring not available\n");
+            exit(2);
+#endif
+            break;
+        case 'i':
+            input_file_name = optarg;
+            break;
+        case 'I':
             simulate_incrementing_repeats = TRUE;
-            continue;
-        }
-        if (strcmp(argv[i], "-l") == 0)
-        {
+            break;
+        case 'l':
             log_audio = TRUE;
-            continue;
-        }
-        if (strcmp(argv[i], "-m") == 0)
-        {
-            model_no = argv[++i][0] - 'A' + 1;
-            continue;
-        }
-        if (strcmp(argv[i], "-s") == 0)
-        {
-            speed_pattern_no = atoi(argv[++i]);
-            continue;
-        }
-        if (strcmp(argv[i], "-t") == 0)
-        {
+            break;
+        case 'm':
+            model_no = optarg[0] - 'A' + 1;
+            break;
+        case 's':
+            speed_pattern_no = atoi(optarg);
+            break;
+        case 't':
             use_tep = TRUE;
-            continue;
-        }
-        if (strcmp(argv[i], "-v") == 0)
-        {
-            t38_version = atoi(argv[++i]);
-            continue;
+            break;
+        case 'v':
+            t38_version = atoi(optarg);
+            break;
+        default:
+            //usage();
+            exit(2);
+            break;
         }
     }
 
@@ -422,6 +417,11 @@ int main(int argc, char *argv[])
                 t30_len_b = SAMPLES_PER_CHUNK;
             }
         }
+        if (feedback_audio)
+        {
+            for (i = 0;  i < t30_len_b;  i++)
+                t30_amp_b[i] += t38_amp_b[i] >> 1;
+        }
         if (log_audio)
         {
             for (i = 0;  i < t30_len_b;  i++)
@@ -479,6 +479,8 @@ int main(int argc, char *argv[])
             media_monitor_update_display();
 #endif
     }
+    t38_terminal_release(&t38_state_a);
+    fax_release(&fax_state_b);
     if (log_audio)
     {
         if (afCloseFile(wave_handle) != 0)

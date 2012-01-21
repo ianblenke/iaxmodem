@@ -135,6 +135,9 @@ static char *dialextra = NULL;
 static int record = 0;
 static int replay = 0;
 static int nojitterbuffer = 0;
+static int iax2debug = 0;
+static int dspdebug = 0;
+static int nodaemon = 0;
 static int commalen = 2;
 
 struct modem {
@@ -198,7 +201,7 @@ cleanup(int sig)
     if (refreshreq && regstate == REGISTERED) {
 	struct iax_event *iaxevent = 0;
 	session[1] = iax_session_new();
-	iax_register(session[1], server, regpeer, regsecret, refreshreq, "Exiting");
+	iax_unregister(session[1], server, regpeer, regsecret, "Exiting");
 	while (!(iaxevent = iax_get_event(1)));
 	iax_event_free(iaxevent);
 	iax_destroy(session[1]);
@@ -237,6 +240,16 @@ sighandler(int sig)
     printlog(LOG_ERROR, "Terminating on signal %d...\n", sig);
 
     cleanup(sig);
+}
+
+void
+sighandler_hup(int sig)
+{
+    if (phonestate != PHONE_FREED || modemstate != MODEM_ONHOOK) {
+	gothup = 1;
+    } else {
+	sighandler(sig);
+    }
 }
 
 void
@@ -387,6 +400,18 @@ setconfigline(char *line)
     if (strncasecmp(line, "nojitterbuffer", 12) == 0) {
 	nojitterbuffer = 1;
 	printlog(LOG_INFO, "Disabling jitterbuffer\n");
+    }
+    if (strncasecmp(line, "iax2debug", 9) == 0) {
+	iax2debug = 1;
+	printlog(LOG_INFO, "Enabling IAX2 debugging\n");
+    }
+    if (strncasecmp(line, "dspdebug", 8) == 0) {
+	dspdebug = 1;
+	printlog(LOG_INFO, "Enabling DSP debugging\n");
+    }
+    if (strncasecmp(line, "nodaemon", 8) == 0) {
+	nodaemon = 1;
+	printlog(LOG_INFO, "This modem is exempt from daemon use.\n");
     }
 }
 
@@ -543,6 +568,7 @@ t31_call_control_handler(t31_state_t *s, void *user_data, int op, const char *nu
 		iax_hangup(session[0], "Normal disconnect");
 		iax_destroy(session[0]);
 		phonestate = PHONE_FREED;
+		if (gothup) sighandler(SIGHUP);
 	    }
 	    if (modemstate != MODEM_CALLING && modemstate != MODEM_CONNECTED) return -1;
 	    break;
@@ -599,7 +625,7 @@ t31_call_control_handler(t31_state_t *s, void *user_data, int op, const char *nu
 }
 
 void
-iaxmodem(const char *config, int nolog)
+iaxmodem(const char *config, int nondaemon)
 {
     /*
      * IAXmodem is started as root, but drops privileges once the
@@ -629,7 +655,7 @@ iaxmodem(const char *config, int nolog)
     strcpy(cidname, "IAXmodem");
     strcpy(cidnumber, "");
 
-    if (!nolog) {
+    if (!nondaemon) {
 	/* We don't read it, so close stdin. */
 	close(STDIN_FILENO);
 
@@ -656,9 +682,15 @@ iaxmodem(const char *config, int nolog)
 
     readconfig(config);
 
+    if (!nondaemon && nodaemon) {
+	/* This modem is exempted from daemon use. */
+	_exit(0);
+    }
+
+    gothup = 0;
     signal(SIGINT, sighandler);
     signal(SIGTERM, sighandler);
-    signal(SIGHUP, sighandler);
+    signal(SIGHUP, sighandler_hup);
     signal(SIGALRM, sighandler_alarm);
 
     int iaxnetfd;
@@ -843,8 +875,11 @@ iaxmodem(const char *config, int nolog)
     /*
      * We disable debugging because the screen writes can slow things down.
      */
-    iax_disable_debug();
-//    iax_enable_debug();
+    if (iax2debug) {
+	iax_enable_debug();
+    } else {
+	iax_disable_debug();
+    }
 
     if (t31_init(&t31_state, at_tx_handler, NULL, t31_call_control_handler, NULL, NULL, NULL) < 0) {
 	printlog(LOG_ERROR, "Cannot initialize the T.31 modem\n");
@@ -854,10 +889,12 @@ iaxmodem(const char *config, int nolog)
     /*
      * Again, debugging should be minimal for normal use as the writes slow things too much.
      */
-//    t31_state.logging.level = SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_FLOW;
-//    t31_state.v17rx.logging.level = SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_FLOW;
-//    t31_state.v29rx.logging.level = SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_FLOW;
-//    t31_state.v27ter_rx.logging.level = SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_FLOW;
+    if (dspdebug) {
+	t31_state.logging.level = SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_FLOW;
+	t31_state.v17_rx.logging.level = SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_FLOW;
+	t31_state.v29_rx.logging.level = SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_FLOW;
+	t31_state.v27ter_rx.logging.level = SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_FLOW;
+    }
 
     int selectfd, selectretval, selectblock, avail, audiobalance = 0, skew = 0;
     struct timeval tv;
@@ -951,6 +988,7 @@ iaxmodem(const char *config, int nolog)
 		tv.tv_sec = nexteventms / 1000;
 		tv.tv_usec = (nexteventms % 1000) * 1000;
 	    }
+
 	    selectretval = select(selectfd, &select_rfds, NULL, NULL, &tv);
 	} else if (selectblock) {
 	    /*
@@ -1076,6 +1114,7 @@ iaxmodem(const char *config, int nolog)
 	    iax_destroy(session[0]);
 	    phonestate = PHONE_FREED;
 	    modemstate = MODEM_ONHOOK;
+	    if (gothup) sighandler(SIGHUP);
 	}
 	/*
 	 * Is there any IAX event that we should handle?
@@ -1084,15 +1123,22 @@ iaxmodem(const char *config, int nolog)
 	    modemstate == MODEM_CONNECTED || !iax_time_to_next_event()) {
 	    while ((iaxevent = iax_get_event(0))) {
 		switch (iaxevent->etype) {
+#ifdef IAX_EVENT_NULL
+		    case IAX_EVENT_NULL:
+			/* Just ignore it, per lib/libiax2/src/iax-client.h */
+			break;
+#endif
 		    case IAX_EVENT_REGACK:
 			printlog(LOG_INFO, "Registration completed successfully.\n");
 			if (iaxevent->ies.refresh > 0) refresh = iaxevent->ies.refresh;
 			regstate = REGISTERED;
+			iax_destroy(session[1]);
 			break;
 		    case IAX_EVENT_REGREJ:
 			printlog(LOG_ERROR, "Registration failed.\n");
 			/* To prevent fast looping with registration-attempts, we leave regstate PENDING. */
 			//regstate = UNREGISTERED;
+			iax_destroy(session[1]);
 			break;
 		    case IAX_EVENT_TIMEOUT:
 			if (regstate == PENDING) {
@@ -1150,9 +1196,7 @@ iaxmodem(const char *config, int nolog)
 			/* incoming call detected */
 			if (phonestate != PHONE_FREED || modemstate != MODEM_ONHOOK || timediff(now, lasthangup) < 5000000) {
 			    /* we can only handle one call at a time, enforce automatic post-hangup busy-out */
-			    iax_accept(iaxevent->session, codec);
-			    iax_congestion(iaxevent->session);
-			    iax_hangup(iaxevent->session, "Busy");
+			    iax_reject(iaxevent->session, "Busy");
 			    break;
 			}
 			codec = CODEC_SUPPORT;
@@ -1208,6 +1252,7 @@ iaxmodem(const char *config, int nolog)
 			modemstate = MODEM_ONHOOK;
 			t31_call_event(&t31_state, AT_CALL_EVENT_BUSY);
 			iax_hangup(session[0], "Normal disconnect");
+			if (gothup) sighandler(SIGHUP);
 			break;
 		    case IAX_EVENT_HANGUP:
 			printlog(LOG_INFO, "Remote hangup.\n");
@@ -1234,6 +1279,7 @@ iaxmodem(const char *config, int nolog)
 			}
 			dspaudiofd = -1;
 			iaxaudiofd = -1;
+			if (gothup) sighandler(SIGHUP);
 			break;
 		    case IAX_EVENT_CNG:
 			/* pseudo-silence */
@@ -1340,6 +1386,7 @@ iaxmodem(const char *config, int nolog)
 			    modemstate = MODEM_ONHOOK;
 			}
 			phonestate = PHONE_FREED;
+			if (gothup) sighandler(SIGHUP);
 			break;
 		    case IAX_EVENT_DTMF:
 			/* only report DTMF if the modem is in command-mode */
@@ -1368,7 +1415,7 @@ iaxmodem(const char *config, int nolog)
 	    if (regstate == UNREGISTERED || now.tv_sec > lastreg.tv_sec + refresh - 5 || (now.tv_sec == lastreg.tv_sec + refresh - 5 && now.tv_usec >= lastreg.tv_usec)) {
 		/* refresh our registration */
 		session[1] = iax_session_new();
-		iax_register(session[1], server, regpeer, regsecret, refreshreq, NULL);
+		iax_register(session[1], server, regpeer, regsecret, refreshreq);
 		lastreg = now;
 		regstate = PENDING;
 	    }
@@ -1497,6 +1544,17 @@ terminate_modems()
       }
 }
 
+void
+reload_modems()
+{
+    struct modem *m;
+
+    for (m = modems; m != NULL; m = m->next)
+      {
+	kill(m->pid, SIGHUP);
+      }
+}
+
 int
 spawn_modems(void)
 {
@@ -1605,7 +1663,7 @@ ctrl_hup_sighandler(int sig)
     }
     close(fd);  
 
-    terminate_modems();
+    reload_modems();
 }
 
 int

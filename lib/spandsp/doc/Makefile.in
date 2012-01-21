@@ -88,6 +88,10 @@ EGREP = @EGREP@
 EXEEXT = @EXEEXT@
 F77 = @F77@
 FFLAGS = @FFLAGS@
+INSERT_INTTYPES_HEADER = @INSERT_INTTYPES_HEADER@
+INSERT_MATH_HEADER = @INSERT_MATH_HEADER@
+INSERT_STDINT_HEADER = @INSERT_STDINT_HEADER@
+INSERT_TGMATH_HEADER = @INSERT_TGMATH_HEADER@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
@@ -114,6 +118,7 @@ SHELL = @SHELL@
 SPANDSP_LT_AGE = @SPANDSP_LT_AGE@
 SPANDSP_LT_CURRENT = @SPANDSP_LT_CURRENT@
 SPANDSP_LT_REVISION = @SPANDSP_LT_REVISION@
+SPANDSP_USE_FIXED_POINT = @SPANDSP_USE_FIXED_POINT@
 STRIP = @STRIP@
 TESTLIBS = @TESTLIBS@
 VERSION = @VERSION@
@@ -161,7 +166,13 @@ sharedstatedir = @sharedstatedir@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 MAINTAINERCLEANFILES = Makefile.in
-EXTRA_DIST = css.css
+EXTRA_DIST = css.css \
+             t38-gateway.dia \
+             t38-terminal.dia \
+             t38_manual.xml \
+             wrapper.xsl \
+             t38_manual/css.css
+
 all: all-am
 
 .SUFFIXES:
@@ -212,6 +223,7 @@ CTAGS:
 
 
 distdir: $(DISTFILES)
+	$(mkdir_p) $(distdir)/t38_manual
 	@srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`; \
 	topsrcdirstrip=`echo "$(top_srcdir)" | sed 's|.|.|g'`; \
 	list='$(DISTFILES)'; for file in $$list; do \
@@ -324,8 +336,13 @@ uninstall-am: uninstall-info-am
 	uninstall-info-am
 
 
-all:
+all: doxydocs t38_manual/index.html
+
+doxydocs:
 	doxygen libspandsp-doxygen
+
+t38_manual/index.html: t38_manual.xml
+	cd t38_manual ; xsltproc ../wrapper.xsl ../t38_manual.xml
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:
