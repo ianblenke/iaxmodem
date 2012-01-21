@@ -29,6 +29,22 @@
 
 #define IAX_WINDOW			64
 
+static inline unsigned int get_unaligned_uint32(void *p)
+{
+       struct { unsigned int d; } __attribute__((packed)) *pp = (void *)p;
+
+       return pp->d;
+}
+
+static inline unsigned short get_unaligned_uint16(void *p)
+{
+       struct { unsigned short d; } __attribute__((packed)) *pp = (void *)p;
+
+       return pp->d;
+}
+
+
+
 /* Subclass for AST_FRAME_IAX */
 #define IAX_COMMAND_NEW		1
 #define IAX_COMMAND_PING	2

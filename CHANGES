@@ -1,3 +1,7 @@
+1.1.1
+	fix unaligned errors in libiax2 (Gus Bourg)
+	improve training in spandsp V.27ter receive (Steve Underwood)
+	fix a potential crash (divide by zero) in spandsp V.17 receive (Steve Underwood)
 1.1.0
 	kill -HUP now makes the modems wait to restart when they're on-hook
 	improve IAX2 call rejection when the modem is busy by using

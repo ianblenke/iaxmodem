@@ -771,8 +771,9 @@ static const char *at_cmd_D(at_state_t *s, const char *t)
                 if (!s->p.pulse_dial)
                     *u++ = ch;
                 break;
+            case ' ':
             case '-':
-                /* Ignore dashes */
+                /* Ignore whitespace and dashes */
                 /* This is not a standards based thing. It just improves
                    compatibility with some other modems. */
                 break;

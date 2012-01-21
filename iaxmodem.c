@@ -650,7 +650,7 @@ iaxmodem(const char *config, int nondaemon)
     uucp_gid = pwent->pw_gid;
 
     strcpy(devlink, "/dev/iaxmodem");
-    strcpy(server, "");
+    strcpy(server, "127.0.0.1");
     strcpy(regpeer, "");
     strcpy(cidname, "IAXmodem");
     strcpy(cidnumber, "");

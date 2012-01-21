@@ -655,7 +655,7 @@ static void process_half_baud(v17_rx_state_t *s, const complexf_t *sample)
             /* Step back a few symbols so we don't get ISI distorting things. */
             i = (s->training_count - 8) & ~1;
             /* Avoid the possibility of a divide by zero */
-            if (i)
+            if (i - 100 + 8)
             {
                 j = i & 0xF;
                 ang = (s->angles[j] - s->start_angles[0])/(i - 100 + 8)
