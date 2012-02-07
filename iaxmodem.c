@@ -1661,8 +1661,6 @@ spawn_modems(void)
 	}
       }
 
-    closedir(cfdir);
-
     if (pid == 0) {
       /* Start the modem */
       iaxmodem(config, 0);
@@ -1670,6 +1668,7 @@ spawn_modems(void)
       return 1;
     }
 
+    closedir(cfdir);
     return 0;
 }
 

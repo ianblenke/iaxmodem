@@ -1,3 +1,4 @@
+	move call to closedir to resolve problems on BSD (John Bayly)
 	if the timestamp jumps too much the jitterbuffer ignores it (Ivan Tikhonov)
 	update to spandsp-20100228
 	some changes for FreeBSD support to iaxmodem.c
