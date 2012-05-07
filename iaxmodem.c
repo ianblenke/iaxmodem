@@ -1402,6 +1402,9 @@ iaxmodem(const char *config, int nondaemon)
 				    audiodata = convertedbuf;
 				    break;
 				default:
+				    units = 0;
+				    memcpy(convertedbuf, 0, iaxevent->datalen);
+				    audiodata = convertedbuf;
 				    printlog(LOG_ERROR, "Unknown codec!\n");
 				    break;
 			    }
