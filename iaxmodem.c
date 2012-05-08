@@ -144,9 +144,10 @@ static int defskew = 0;
 static int skew;
 
 struct modem {
+    struct modem *next;
     int pid;
     char *config;
-    struct modem *next;
+    time_t last_started;
 };
 
 static int numchild;			/* number of children */
@@ -1467,89 +1468,80 @@ iaxmodem(const char *config, int nondaemon)
     }
 } 
 
-void
-add_modem(int pid, char *config)
-{
+struct modem *modem_for_config(const char *config) {
     struct modem *m;
+
+    for (m = modems; (m != NULL) && (strcmp(m->config, config) != 0); m = m->next) /* just walking the list... */;
+    return m;
+}
+
+struct modem *modem_for_pid(pid_t pid) {
+    struct modem *m;
+
+    for (m = modems; (m != NULL) && (m->pid != pid); m = m->next) /* just walking the list... */;
+    return m;
+}
+
+void
+add_modem(char *config)
+{
     struct modem *nm;
 
     nm = malloc(sizeof(struct modem));
 
-    for (m = modems; (m != NULL) && (m->next != NULL); m = m->next);
-
-    nm->pid = pid;
-    nm->config = config;
-    nm->next = NULL;
-
-    if (m != NULL)
-      m->next = nm;
-    else
-      modems = nm;
+    nm->pid = 0;
+    nm->last_started = 0;
+    nm->config = strdup(config);
+    nm->next = modems;
+    modems = nm;
 
     numchild++;
 }
 
 void
-restart_modem(pid_t pid)
+remove_modem(struct modem **m)
 {
-    struct modem *m;
-
-    for (m = modems; m != NULL; m = m->next) {
-	if (m->pid == pid) {
-	    pid_t newpid = fork();
-	    if (newpid == 0) {
-		/* child */
-		iaxmodem(m->config, 0);
-		_exit(255);		/* shouldn't ever get here */
-	    } else if (newpid > 0) {
-		/* parent */
-		m->pid = newpid;
-	    } else {
-		/* failed */
-		printlog(LOG_ERROR, "Error: fork failed: %s\n", strerror(errno));
-	    }
-	    break;
-	}
-    }
-}
-
-void
-remove_modem(int pid)
-{
-    struct modem *m;
-    struct modem *p = NULL;
-
-    for (m = modems; (m != NULL) && (m->next != NULL); p = m,  m = m->next)
-      {
-	if (m->pid == pid) {
-	  if (p != NULL)
-	    p->next = m->next;
-
-	  if (m == modems)
-	    modems = NULL;
-
-	  free(m->config);
-	  free(m);
-	  numchild--;
-
-	  break;
-	}
-      }
+    struct modem *n = (*m)->next;
+    free((*m)->config);
+    free(*m);
+    *m = n;
+    numchild--;
 }
 
 void
 remove_all_modems()
 {
-    struct modem *m;
-    struct modem *p = NULL;
+    while (numchild) 
+	remove_modem(&modems);
+}
 
-    for (m = modems; m != NULL; p = m,  m = m->next)
-      {
-	free(p->config);
-	free(p);
-      }
+void start_modem(struct modem *m) {
+    pid_t newpid = fork();
+    if (newpid == 0) {
+        /* child */
+        const char *config=strdup(m->config);
+	remove_all_modems();    /* Children don't need info about siblings */
+        iaxmodem(config, 0);    /* Fax away */
+        _exit(255);		/* shouldn't ever get here */
+    } else if (newpid > 0) {
+        /* parent */
+        printlog(LOG_ERROR, "Process %d started for config %s.\n", newpid, m->config);
+        m->pid = newpid;
+        m->last_started = time(NULL);
+    } else {
+        /* failed */
+        printlog(LOG_ERROR, "Error: no modem could be started for %s (fork failed: %s)\n", m->config, strerror(errno));
+    }
+}
 
-    modems = NULL;
+void
+respawn_modem(struct modem *m)
+{
+    if (time(NULL)-m->last_started < 5) {
+        printlog(LOG_INFO, "Process for config file %s respawning too fast, not restarting.\n", m->config);
+    } else {
+        start_modem(m);
+    }
 }
 
 void
@@ -1558,23 +1550,22 @@ wait_for_modems()
     pid_t pid;
     int status;
 
-    while (numchild > 0) {
-	/* Wait for any child to exit */
-	pid = waitpid(-1, &status, 0);
-
-	if (pid > 0) {
-	    if ((status & 0xFF) == 0x00) status >>= 8;
-	    if (status == SIGHUP) {
-		printlog(LOG_ERROR, "iaxmodem process %d ended w/SIGHUP, attempting to restart\n", pid);
-		restart_modem(pid);
-	    } else {
-		printlog(LOG_ERROR, "iaxmodem process %d ended, status 0x%X\n", pid, status);
-		remove_modem(pid);
-	    }
+    /* Wait for any child to exit */
+    while ((pid = waitpid(-1, &status, 0)) > 0) {
+	struct modem *m = modem_for_pid(pid);
+	if ((status & 0xff) == 0) {
+	    printlog(LOG_ERROR, "iaxmodem process %d terminated on %s.\n", pid, strsignal(status>>8));
 	} else {
-	    break;
+	    printlog(LOG_ERROR, "iaxmodem process %d ended, status 0x%X.\n", pid, status);
+	}
+	if (m == NULL) {
+	    printlog(LOG_ERROR, "forgot all about iaxmomdem process %d.\n", pid);
+	} else {
+	    printlog(LOG_ERROR, "respawning process for config: %s.\n", m->config);
+	    respawn_modem(modem_for_pid(pid));
 	}
     }
+    printlog(LOG_ERROR, "waitpid returned: %d\n", pid);
 }
 
 void
@@ -1583,140 +1574,94 @@ terminate_modems()
     struct modem *m;
 
     for (m = modems; m != NULL; m = m->next)
-      {
 	kill(m->pid, SIGTERM);
-      }
 }
 
 void
-reload_modems()
-{
-    struct modem *m;
-
-    for (m = modems; m != NULL; m = m->next)
-      {
-	kill(m->pid, SIGHUP);
-      }
-}
-
-int
 spawn_modems(void)
 {
     DIR *cfdir;
     struct dirent *cf;
     struct stat st;
     int len;
-    int pid = -1;
-    char *config = NULL;
     char filename[256];
+    struct modem *m, **mp;
 
+    /* purge existing list */
+    mp = &modems;
+    while (*mp != NULL) {
+	m = *mp;
+	snprintf(filename, sizeof(filename), "/etc/iaxmodem/%s", m->config);
+        if (stat(filename, &st) < 0)
+            printlog(LOG_INFO, "Config file %s disappeared (%s), forgetting about it.\n", filename, strerror(errno));
+        else if (!S_ISREG(st.st_mode))
+            printlog(LOG_INFO, "Config file %s was replaced by a non-regular file, forgetting about it.\n", filename);
+        else {
+	    mp = &(m->next);
+	    continue;
+	}
+        if (m->pid != 0) kill(m->pid, SIGTERM);
+        remove_modem(mp);
+    }
+    
     /* List configuration files */
     cfdir = opendir("/etc/iaxmodem");
 
     if (cfdir == NULL) {
       printlog(LOG_ERROR, "Error: could not open configuration directory: %s\n", strerror(errno));
-      return -1;
+      return;
     }
 
-    while ((cf = readdir(cfdir)) != NULL)
-      {
+    while ((cf = readdir(cfdir)) != NULL) {
 	/* Skip dotfiles and backup files */
 	len = strlen(cf->d_name);
 	if ((cf->d_name[0] == '.') || (cf->d_name[0] == '#') || (cf->d_name[len - 1] == '~'))
-	  continue;
+            continue;
 
 	/* Skip anything that isn't a file */
 	snprintf(filename, sizeof(filename), "/etc/iaxmodem/%s", cf->d_name);
-	if (stat(filename, &st) < 0)
-	  {
-	    printlog(LOG_INFO, "Could not stat configuration file %s: %s\n", cf->d_name, strerror(errno));
+	if (stat(filename, &st) < 0) {
+            printlog(LOG_INFO, "Could not stat configuration file %s: %s\n", cf->d_name, strerror(errno));
 	    continue;
-	  }
-
-	if (!S_ISREG(st.st_mode))
-	  {
-	    printlog(LOG_INFO, "bouh !\n");
+        }
+	if (!S_ISREG(st.st_mode)) {
+	    printlog(LOG_INFO, "%s: not a regular file, skipping.\n");
 	    continue;
-	  }
-
-	config = strdup(cf->d_name);
-
-	/* Spawn modem processes */
-	pid = fork();
-	if (pid == 0) {
-	  /* Child, get out of this loop */
-	  break;
-	} else if (pid > 0) {
-	  /* Controlling process */
-	  add_modem(pid, config);
-	} else {
-	  /* Failed */
-	  printlog(LOG_ERROR, "Error: fork failed: %s\n", strerror(errno));
-
-	  if (numchild > 0) {
-	    printlog(LOG_ERROR, "%d children spawned, continuing anyway (stopped at %s)\n", numchild, config);
-	  } else {
-	    return -1;
-	  }
-
-	  free(config);
-	  break;
-	}
-      }
-
-    if (pid == 0) {
-      /* Start the modem */
-      iaxmodem(config, 0);
-
-      return 1;
+        }
+        if (modem_for_config(cf->d_name) == NULL)
+            add_modem(cf->d_name);
     }
-
     closedir(cfdir);
-    return 0;
+    
+    for (m = modems; m != NULL; m = m->next) {
+        if (m->pid != 0 && kill(m->pid, 0)==0) /* child still running */
+            kill(m->pid, SIGHUP);
+        else
+            start_modem(m);
+    }
 }
 
 void
-ctrl_sighandler(int sig)
+ctrl_term_sighandler(int sig)
 {
-    signal(SIGHUP, NULL);
-    signal(SIGTERM, NULL);
-
-    printlog(LOG_ERROR, "Terminating...\n");
-
-    /* Terminate children */
-    terminate_modems();
+    /* nothing to do... the signal will interrupt waitpid, without gothup == 1
+       and that will cause the program to terminate. */
 }
 
 void
 ctrl_hup_sighandler(int sig)
 {
-    int fd;
-
     gothup = 1;
-
-    printlog(LOG_ERROR, "Configuration changed, restarting...\n");
-
-    /* Reopen the log file */
-    checklog("/var/log/iaxmodem/iaxmodem");
-    fd = open("/var/log/iaxmodem/iaxmodem", O_WRONLY | O_APPEND | O_CREAT | O_LARGEFILE, logmode);
-    if (fd < 0) {
-      printlog(LOG_ERROR, "Error: could not open /var/log/iaxmodem/iaxmodem: %s\n", strerror(errno));
-    } else {
-      dup2(fd, STDERR_FILENO);
-    }
-    close(fd);  
-
-    reload_modems();
 }
 
 int
 main(int argc, char** argv)
 {
-    int ret;
     char config[256];
     int isdaemon = 1;
     int fd;
     FILE *pidfile;
+    struct sigaction sa;
 
     if (geteuid() != 0) {
       printlog(LOG_ERROR, "Error: run iaxmodem as root\n");
@@ -1765,8 +1710,12 @@ main(int argc, char** argv)
 
     gothup = 1;
 
-    signal(SIGTERM, ctrl_sighandler);
-    signal(SIGHUP, ctrl_hup_sighandler);
+    sa.sa_handler = ctrl_term_sighandler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sigaction(SIGTERM, &sa, NULL);
+    sa.sa_handler = ctrl_hup_sighandler;
+    sigaction(SIGHUP, &sa, NULL);
 
     /* No config file specified, be a controlling process for modems */
     numchild = 0;
@@ -1784,31 +1733,28 @@ main(int argc, char** argv)
     }
     close(fd);
 
-    /* Redirect stderr to the log file */
-    checklog("/var/log/iaxmodem/iaxmodem");
-    fd = open("/var/log/iaxmodem/iaxmodem", O_WRONLY | O_APPEND | O_CREAT | O_LARGEFILE, logmode);
-    if (fd < 0) {
-      printlog(LOG_ERROR, "Error: could not open /var/log/iaxmodem/iaxmodem: %s\n", strerror(errno));
-    } else {
-      dup2(fd, STDERR_FILENO);
-    }
-    close(fd);
-
-    while (gothup)
-      {
-	ret = spawn_modems();
+    while (gothup) {
 	gothup = 0;
 
-	if (ret == 0) {
-	  wait_for_modems();
-	} else if (ret < 0) {
-	  exit(-1);
+	/* Reopen the log file */
+	checklog("/var/log/iaxmodem/iaxmodem");
+	fd = open("/var/log/iaxmodem/iaxmodem", O_WRONLY | O_APPEND | O_CREAT | O_LARGEFILE, logmode);
+	if (fd < 0) {
+	    printlog(LOG_ERROR, "Error: could not open /var/log/iaxmodem/iaxmodem: %s\n", strerror(errno));
 	} else {
-	  break;
+	    dup2(fd, STDERR_FILENO);
 	}
-      }
+	close(fd);
 
-    /* Control process only */
+	/* kill/spawn/restart children */
+	spawn_modems();
+	if (numchild <= 0)
+	    break;
+	wait_for_modems();
+    }
+
+    printlog(LOG_ERROR, "Terminating...\n");
+    terminate_modems();
     unlink("/var/run/iaxmodem.pid");
 
     exit(0);
