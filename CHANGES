@@ -1,3 +1,4 @@
+	use the S7 register instead of a hard 45-second answer timeout
         refactored process management (Federico Heinz)
 	move call to closedir to resolve problems on BSD (John Bayly)
 	if the timestamp jumps too much the jitterbuffer ignores it (Ivan Tikhonov)

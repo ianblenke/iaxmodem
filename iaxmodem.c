@@ -1132,8 +1132,12 @@ iaxmodem(const char *config, int nondaemon)
 	}
 	/*
 	 * Did the DCE timeout in sending CONNECT response?
+	 * spandsp has an S-register (7) that is employed there.
+	 * We merely offer a fail-over 5 seconds later if that 
+	 * doesn't work
+	 *
 	 */
-	if (modemstate == MODEM_CALLING && timediff(now, lastdtedata) >= 45000000) {
+	if (modemstate == MODEM_CALLING && timediff(now, lastdtedata) >= (t31_state.at_state.p.s_regs[7] + 5) * 1000000) {
 	    t31_call_event(&t31_state, AT_CALL_EVENT_NO_ANSWER);
 	    /*
 	     * One would think that this would be appropriate here:
