@@ -1,3 +1,4 @@
+	patch libiax2 to recognize (but ignore) CallToken
 	use the S7 register instead of a hard 45-second answer timeout
         refactored process management (Federico Heinz)
 	move call to closedir to resolve problems on BSD (John Bayly)

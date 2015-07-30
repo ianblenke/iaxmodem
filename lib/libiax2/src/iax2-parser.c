@@ -568,7 +568,7 @@ int iax_parse_ies(struct iax_ies *ies, unsigned char *data, int datalen)
 				snprintf(tmp, (int)sizeof(tmp), "Expecting authmethods to be %d bytes long but was %d\n", (int)sizeof(unsigned short), len);
 				errorf(tmp);
 			} else
-				ies->authmethods = ntohs(get_uint16(data + 2));
+				ies->authmethods = ntohs(get_unaligned_uint16(data + 2));
 			break;
 		case IAX_IE_CHALLENGE:
 			ies->challenge = (char *) data + 2;
@@ -703,7 +703,7 @@ int iax_parse_ies(struct iax_ies *ies, unsigned char *data, int datalen)
 				snprintf(tmp, (int)sizeof(tmp), "Expecting callingtns to be %d bytes long but was %d\n", (int)sizeof(unsigned short), len);
 				errorf(tmp);
 			} else
-				ies->calling_tns = ntohs(get_uint16(data + 2));	
+				ies->calling_tns = ntohs(get_unaligned_uint16(data + 2));	
 			break;
 		case IAX_IE_RR_JITTER:
 			if (len != (int)sizeof(unsigned int)) {
@@ -718,7 +718,7 @@ int iax_parse_ies(struct iax_ies *ies, unsigned char *data, int datalen)
 				snprintf(tmp, (int)sizeof(tmp), "Expected loss rr to be %d bytes long but was %d\n", (int)sizeof(unsigned int), len);
 				errorf(tmp);
 			} else {
-				ies->rr_loss = ntohl(get_uint32(data + 2));
+				ies->rr_loss = ntohl(get_unaligned_uint32(data + 2));
 			}
 			break;
 		case IAX_IE_RR_PKTS:
@@ -734,7 +734,7 @@ int iax_parse_ies(struct iax_ies *ies, unsigned char *data, int datalen)
 				snprintf(tmp, (int)sizeof(tmp), "Expected loss rr to be %d bytes long but was %d\n", (int)sizeof(unsigned short), len);
 				errorf(tmp);
 			} else {
-				ies->rr_delay = ntohs(get_uint16(data + 2));
+				ies->rr_delay = ntohs(get_unaligned_uint16(data + 2));
 			}
 			break;
 		case IAX_IE_RR_DROPPED:
@@ -752,6 +752,9 @@ int iax_parse_ies(struct iax_ies *ies, unsigned char *data, int datalen)
 			} else {
 				ies->rr_ooo = ntohl(get_unaligned_uint32(data + 2));
 			}
+			break;
+		case IAX_IE_CALLTOKEN:
+			outputf("IAX2 CallToken currently unsupported and ignored.\n");
 			break;
 		default:
 			snprintf(tmp, (int)sizeof(tmp), "Ignoring unknown information element '%s' (%d) of length %d\n", iax_ie2str(ie), ie, len);
