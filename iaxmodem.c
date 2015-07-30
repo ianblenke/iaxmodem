@@ -1159,7 +1159,8 @@ iaxmodem(const char *config, int nondaemon)
 	 */
 	if ((modemstate != MODEM_CONNECTED && selectretval && FD_ISSET(iaxnetfd, &select_rfds)) ||
 	    modemstate == MODEM_CONNECTED || !iax_time_to_next_event()) {
-	    while ((iaxevent = iax_get_event(0))) {
+	    int times = 0;	// avoid a bug in libiax2 where iax_get_event() always retrieves voice data even after a call ends
+	    while (times++ < 100 && (iaxevent = iax_get_event(0))) {
 		switch (iaxevent->etype) {
 #ifdef IAX_EVENT_NULL
 		    case IAX_EVENT_NULL:
