@@ -969,15 +969,36 @@ iaxmodem(const char *config, int nondaemon)
 	    tv.tv_sec = 5; tv.tv_usec = 0;	/* ring every 5 seconds */
 	    timeradd(&lastring, &tv, &tv);
 	    timersub(&tv, &now, &tv);
+	    if (tv.tv_sec > 100 || tv.tv_sec < -100) {
+		/* This is a silly result.  The clock must have skipped. */
+		printlog(LOG_INFO, "Clock skip detected in ringing (%d seconds).  Compensating.\n", tv.tv_sec);
+		lastring = now;
+		tv.tv_sec = 5;
+		tv.tv_usec = 0;
+	    }
 	} else if (modemstate == MODEM_CALLING) {
 	    tv.tv_sec = 45; tv.tv_usec = 0;	/* give up after 45 seconds */
 	    timeradd(&lastdtedata, &tv, &tv);
 	    timersub(&tv, &now, &tv);
+	    if (tv.tv_sec > 500 || tv.tv_sec < -500) {
+		/* This is a silly result.  The clock must have skipped. */
+		lastdtedata = now;
+		printlog(LOG_INFO, "Clock skip detected in DTE communication (%d seconds).  Compensating.\n", tv.tv_sec);
+		tv.tv_sec = 45;
+		tv.tv_usec = 0;
+	    }
 	} else if (refreshreq) {
 	    /* Handle maintaining registration every refresh - 5 seconds. */
 	    tv.tv_sec = refresh - 5; tv.tv_usec = 0;
 	    timeradd(&lastreg, &tv, &tv);
 	    timersub(&tv, &now, &tv);
+	    if (tv.tv_sec > 10000 || tv.tv_sec < -10000) {
+		/* This is a silly result.  The clock must have skipped. */
+		printlog(LOG_INFO, "Clock skip detected in IAX2 registration (%d seconds).  Compensating.\n", tv.tv_sec);
+		lastreg = now;
+		tv.tv_sec = refresh - 5;
+		tv.tv_usec = 0;
+	    }
 	} else if (iax_time_to_next_event() >= 0) {
 	    /* The actual calculations will be done later. */
 	    tv.tv_sec = 60; tv.tv_usec = 0;

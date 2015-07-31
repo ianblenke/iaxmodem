@@ -1,3 +1,4 @@
+	fix problem on some platforms triggered by large clock skips
 	avoid a bug in libiax2 sometimes after a call ends
 	patch libiax2 to recognize (but ignore) CallToken
 	use the S7 register instead of a hard 45-second answer timeout
