@@ -21,8 +21,6 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: adsi.h,v 1.31 2008/05/05 11:25:01 steveu Exp $
  */
 
 /*! \file */
@@ -249,7 +247,7 @@ enum
 /*! Message waiting/not waiting */
 #define MCLASS_VISUAL_INDICATOR         0x0B
 
-/*! Definitions for CLIP (Calling Line Identity Presentation) */
+/*! Definitions for CLIP (Calling Line Identity Presentation) (from ETS 300 659-1) */
 enum
 {
     /*! Multiple data message caller ID */
@@ -262,31 +260,37 @@ enum
     CLIP_MDMF_SMS =                     0x89
 };
 
-/*! CLIP message IDs */
+/*! CLIP message IDs (from ETS 300 659-1) */
 enum
 {
     /*! Date and time (MMDDHHMM) */
     CLIP_DATETIME =                     0x01,
-    /*! Caller number */
+    /*! Caller number (AKA calling line identity) */
     CLIP_CALLER_NUMBER =                0x02,
-    /*! Dialed number */
+    /*! Dialed number (AKA called line identity) */
     CLIP_DIALED_NUMBER =                0x03,
-    /*! Caller number absent: 'O' or 'P' */
+    /*! Caller number absent: 'O' or 'P' (AKA reason for absence of calling line identity) */
     CLIP_ABSENCE1 =                     0x04,
-    /*! Caller's name */
+    /*! Caller's name (AKA calling party name) */
     CLIP_CALLER_NAME =                  0x07,
-    /*! Caller's name absent: 'O' or 'P' */
+    /*! Caller's name absent: 'O' or 'P' (AKA reason for absence of calling party name) */
     CLIP_ABSENCE2 =                     0x08,
     /*! Visual indicator */
     CLIP_VISUAL_INDICATOR =             0x0B,
     /*! Message ID */
     CLIP_MESSAGE_ID =                   0x0D,
-    /*! Voice call, ring-back-when-free call, or msg waiting call */
+    /*! Complementary calling line identity */
+    CLIP_COMPLEMENTARY_CALLER_NUMBER =  0x10,
+    /*! Call type - voice call (1), ring-back-when-free call (2), calling name delivery (3) or msg waiting call(0x81) */
     CLIP_CALLTYPE =                     0x11,
     /*! Number of messages */
     CLIP_NUM_MSG =                      0x13,
+    /*! Type of forwarded call */
+    CLIP_TYPE_OF_FORWARDED_CALL =       0x15,
+    /*! Type of calling user */
+    CLIP_TYPE_OF_CALLING_USER =         0x16,
     /*! Redirecting number */
-    CLIP_REDIR_NUMBER =                 0x03,
+    CLIP_REDIR_NUMBER =                 0x1A,
     /*! Charge */
     CLIP_CHARGE =                       0x20,
     /*! Duration of the call */
@@ -348,9 +352,11 @@ enum
     JCLIP_ABSENCE =                     0x04
 };
 
-/*! Definitions for CLIP-DTMF and its variants */
+/* Definitions for CLIP-DTMF and its variants */
 
+/*! Caller number is '#' terminated DTMF. */
 #define CLIP_DTMF_HASH_TERMINATED       '#'
+/*! Caller number is 'C' terminated DTMF. */
 #define CLIP_DTMF_C_TERMINATED          'C'
 
 /*! Caller number */
@@ -371,63 +377,24 @@ enum
     ADSI transmitter descriptor. This contains all the state information for an ADSI
     (caller ID, CLASS, CLIP, ACLIP) transmit channel.
  */
-typedef struct
-{
-    int standard;
-
-    tone_gen_descriptor_t alert_tone_desc;
-    tone_gen_state_t alert_tone_gen;
-    fsk_tx_state_t fsktx;
-    dtmf_tx_state_t dtmftx;
-    async_tx_state_t asynctx;
-    
-    int tx_signal_on;
-    
-    int byte_no;
-    int bit_pos;
-    int bit_no;
-    uint8_t msg[256];
-    int msg_len;
-    int preamble_len;
-    int preamble_ones_len;
-    int postamble_ones_len;
-    int stop_bits;
-    int baudot_shift;
-    
-    logging_state_t logging;
-} adsi_tx_state_t;
+typedef struct adsi_tx_state_s adsi_tx_state_t;
 
 /*!
     ADSI receiver descriptor. This contains all the state information for an ADSI
     (caller ID, CLASS, CLIP, ACLIP, JCLIP) receive channel.
  */
-typedef struct
-{
-    int standard;
-    put_msg_func_t put_msg;
-    void *user_data;
-
-    fsk_rx_state_t fskrx;
-    dtmf_rx_state_t dtmfrx;
-    async_rx_state_t asyncrx;
-    
-    int consecutive_ones;
-    int bit_pos;
-    int in_progress;
-    uint8_t msg[256];
-    int msg_len;
-    int baudot_shift;
-    
-    /*! A count of the framing errors. */
-    int framing_errors;
-
-    logging_state_t logging;
-} adsi_rx_state_t;
+typedef struct adsi_rx_state_s adsi_rx_state_t;
 
 #if defined(__cplusplus)
 extern "C"
 {
 #endif
+
+/*! Get the logging context associated with an ADSI receive context.
+    \brief Get the logging context associated with an ADSI receive context.
+    \param s The ADSI receive context.
+    \return A pointer to the logging context */
+SPAN_DECLARE(logging_state_t *) adsi_rx_get_logging_state(adsi_rx_state_t *s);
 
 /*! \brief Initialise an ADSI receive context.
     \param s The ADSI receive context.
@@ -437,7 +404,22 @@ extern "C"
     \param user_data An opaque pointer for the callback routine.
     \return A pointer to the initialised context, or NULL if there was a problem.
 */
-adsi_rx_state_t *adsi_rx_init(adsi_rx_state_t *s, int standard, put_msg_func_t put_msg, void *user_data);
+SPAN_DECLARE(adsi_rx_state_t *) adsi_rx_init(adsi_rx_state_t *s,
+                                             int standard,
+                                             put_msg_func_t put_msg,
+                                             void *user_data);
+
+/*! \brief Release an ADSI receive context.
+    \param s The ADSI receive context.
+    \return 0 for OK.
+*/
+SPAN_DECLARE(int) adsi_rx_release(adsi_rx_state_t *s);
+
+/*! \brief Free the resources of an ADSI receive context.
+    \param s The ADSI receive context.
+    \return 0 for OK.
+*/
+SPAN_DECLARE(int) adsi_rx_free(adsi_rx_state_t *s);
 
 /*! \brief Receive a chunk of ADSI audio.
     \param s The ADSI receive context.
@@ -445,14 +427,26 @@ adsi_rx_state_t *adsi_rx_init(adsi_rx_state_t *s, int standard, put_msg_func_t p
     \param len The number of samples in the buffer.
     \return The number of samples unprocessed.
 */
-int adsi_rx(adsi_rx_state_t *s, const int16_t *amp, int len);
+SPAN_DECLARE(int) adsi_rx(adsi_rx_state_t *s, const int16_t amp[], int len);
 
 /*! \brief Initialise an ADSI transmit context.
     \param s The ADSI transmit context.
     \param standard The code for the ADSI standard to be used.
     \return A pointer to the initialised context, or NULL if there was a problem.
 */
-adsi_tx_state_t *adsi_tx_init(adsi_tx_state_t *s, int standard);
+SPAN_DECLARE(adsi_tx_state_t *) adsi_tx_init(adsi_tx_state_t *s, int standard);
+
+/*! \brief Release an ADSI transmit context.
+    \param s The ADSI transmit context.
+    \return 0 for OK.
+*/
+SPAN_DECLARE(int) adsi_tx_release(adsi_tx_state_t *s);
+
+/*! \brief Free the resources of an ADSI transmit context.
+    \param s The ADSI transmit context.
+    \return 0 for OK.
+*/
+SPAN_DECLARE(int) adsi_tx_free(adsi_tx_state_t *s);
 
 /*! \brief Adjust the preamble associated with an ADSI transmit context.
     \param s The ADSI transmit context.
@@ -461,11 +455,11 @@ adsi_tx_state_t *adsi_tx_init(adsi_tx_state_t *s, int standard);
     \param postamble_ones_len The number of bits of continuous one after a message.
     \param stop_bits The number of stop bits per character.
 */
-void adsi_tx_set_preamble(adsi_tx_state_t *s,
-                          int preamble_len,
-                          int preamble_ones_len,
-                          int postamble_ones_len,
-                          int stop_bits);
+SPAN_DECLARE(void) adsi_tx_set_preamble(adsi_tx_state_t *s,
+                                        int preamble_len,
+                                        int preamble_ones_len,
+                                        int postamble_ones_len,
+                                        int stop_bits);
 
 /*! \brief Generate a block of ADSI audio samples.
     \param s The ADSI transmit context.
@@ -473,12 +467,12 @@ void adsi_tx_set_preamble(adsi_tx_state_t *s,
     \param max_len The number of samples to be generated.
     \return The number of samples actually generated.
 */
-int adsi_tx(adsi_tx_state_t *s, int16_t *amp, int max_len);
+SPAN_DECLARE(int) adsi_tx(adsi_tx_state_t *s, int16_t amp[], int max_len);
 
 /*! \brief Request generation of an ADSI alert tone.
     \param s The ADSI transmit context.
 */
-void adsi_tx_send_alert_tone(adsi_tx_state_t *s);
+SPAN_DECLARE(void) adsi_tx_send_alert_tone(adsi_tx_state_t *s);
 
 /*! \brief Put a message into the input buffer of an ADSI transmit context.
     \param s The ADSI transmit context.
@@ -486,9 +480,10 @@ void adsi_tx_send_alert_tone(adsi_tx_state_t *s);
     \param len The length of the message.
     \return The length actually added. If a message is already in progress
             in the transmitter, this function will return zero, as it will
-            not successfully add the message to the buffer.
+            not successfully add the message to the buffer. If the message is
+            invalid (e.g. it is too long), this function will return -1.
 */
-int adsi_tx_put_message(adsi_tx_state_t *s, const uint8_t *msg, int len);
+SPAN_DECLARE(int) adsi_tx_put_message(adsi_tx_state_t *s, const uint8_t *msg, int len);
 
 /*! \brief Get a field from an ADSI message.
     \param s The ADSI receive context.
@@ -499,7 +494,7 @@ int adsi_tx_put_message(adsi_tx_state_t *s, const uint8_t *msg, int len);
     \param field_body Pointer to the body of the field.
     \param field_len The length of the field, or -1 for no more fields, or -2 for message structure corrupt.
 */
-int adsi_next_field(adsi_rx_state_t *s, const uint8_t *msg, int msg_len, int pos, uint8_t *field_type, uint8_t const **field_body, int *field_len);
+SPAN_DECLARE(int) adsi_next_field(adsi_rx_state_t *s, const uint8_t *msg, int msg_len, int pos, uint8_t *field_type, uint8_t const **field_body, int *field_len);
 
 /*! \brief Insert the header or a field into an ADSI message.
     \param s The ADSI transmit context.
@@ -509,13 +504,13 @@ int adsi_next_field(adsi_rx_state_t *s, const uint8_t *msg, int msg_len, int pos
     \param field_body Pointer to the body of the new field.
     \param field_len The length of the new field.
 */
-int adsi_add_field(adsi_tx_state_t *s, uint8_t *msg, int len, uint8_t field_type, uint8_t const *field_body, int field_len);
+SPAN_DECLARE(int) adsi_add_field(adsi_tx_state_t *s, uint8_t *msg, int len, uint8_t field_type, uint8_t const *field_body, int field_len);
 
 /*! \brief Return a short name for an ADSI standard
     \param standard The code for the standard.
     \return A pointer to the name.
 */
-const char *adsi_standard_to_str(int standard);
+SPAN_DECLARE(const char *) adsi_standard_to_str(int standard);
 
 #if defined(__cplusplus)
 }

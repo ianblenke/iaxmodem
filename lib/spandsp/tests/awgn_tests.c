@@ -21,8 +21,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: awgn_tests.c,v 1.17 2008/05/13 13:17:25 steveu Exp $
  */
 
 /*! \page awgn_tests_page AWGN tests
@@ -37,6 +35,10 @@
 #include <stdio.h>
 #include <string.h>
 
+//#if defined(WITH_SPANDSP_INTERNALS)
+#define SPANDSP_EXPOSE_INTERNAL_STRUCTURES
+//#endif
+
 #include "spandsp.h"
 
 #if !defined(M_PI)
@@ -47,7 +49,7 @@
 
 /* Some simple sanity tests for the Gaussian noise generation routines */
 
-int main (int argc, char *argv[])
+int main(int argc, char *argv[])
 {
     int i;
     int j;
@@ -88,7 +90,7 @@ int main (int argc, char *argv[])
         }
         error = 100.0*(1.0 - sqrt(total/total_samples)/noise_source.rms);
         printf("RMS = %.3f (expected %d) %.2f%% error [clipped samples %d+%d]\n",
-               log10(sqrt(total/total_samples)/32768.0)*20.0 + DBM0_MAX_POWER,
+               10.0*log10((total/total_samples)/(32768.0*32768.0) + 1.0e-10) + DBM0_MAX_POWER,
                j,
                error,
                clip_low,

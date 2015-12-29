@@ -22,8 +22,6 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: g168models.h,v 1.8 2008/04/17 14:27:00 steveu Exp $
  */
 
 /*! \file */
@@ -52,6 +50,7 @@ const int32_t line_model_d2_coeffs[] =
         73,   -119,   -109,   -176,   -359,   -407,   -512,   -580,
       -704,   -618,   -685,   -791,   -772,   -820,   -839,   -724  
 };
+#define LINE_MODEL_D2_GAIN      1.39E-5f
 
 /*!
     The line model from section D.3 of G.168.
@@ -75,6 +74,7 @@ const int32_t line_model_d3_coeffs[] =
       -381,   -479,   -479,   -512,   -479,   -397,   -430,   -397,
       -298,   -265,   -249,   -216,   -249,   -265,   -166,   -232
 };
+#define LINE_MODEL_D3_GAIN      1.44E-5f
 
 /*!
     The line model from section D.4 of G.168.
@@ -98,6 +98,7 @@ const int32_t line_model_d4_coeffs[] =
       -230,   -233,   -333,   -356,   -390,   -310,   -265,   -368,
       -310,   -310,   -390,   -482,   -459,   -482,   -551,   -573
 };
+#define LINE_MODEL_D4_GAIN      1.52E-5f
 
 /*!
     The line model from section D.5 of G.168.
@@ -125,6 +126,7 @@ const int32_t line_model_d5_coeffs[] =
         30,     84,    -13,    -68,   -241,    -68,    -24,     19, 
        -57,    -24,     30,    -68,     84,   -155,    -68,     19
 };
+#define LINE_MODEL_D5_GAIN      1.77E-5f
 
 /*!
     The line model from section D.6 of G.168.
@@ -148,6 +150,7 @@ const int32_t line_model_d6_coeffs[] =
       -468,   -513,   -473,   -588,   -612,   -652,   -616,   -566,
       -515,   -485,   -404,   -344,   -290,   -202,   -180,   -123
 };
+#define LINE_MODEL_D6_GAIN      9.33E-6f
 
 /*!
     The line model from section D.7 of G.168.
@@ -174,6 +177,7 @@ const int32_t line_model_d7_coeffs[] =
       -490,   -638,   -764,   -836,   -800,   -859,   -838,   -837,
       -834,   -740,   -673,   -581,   -493,   -436,   -327,   -201
 };
+#define LINE_MODEL_D7_GAIN      1.51E-5f
 
 /*!
     The line model from section D.8 of G.168.
@@ -197,6 +201,7 @@ const int32_t line_model_d8_coeffs[] =
       -523,   -325,   -245,   -255,    -60,     35,    218,    149,
        340,    233,    365,    303,    251,    230,    209,    179
 };
+#define LINE_MODEL_D8_GAIN      2.33E-5f
 
 /*!
     The line model from section D.9 of G.168.
@@ -208,7 +213,7 @@ const int32_t line_model_d8_coeffs[] =
 const int32_t line_model_d9_coeffs[] =
 {
         80,     31,      4,     42,     42,    -61,    -81,    -64,
-       121,   -102,    -26,   1002,  -9250, -22562,  39321,  35681,
+      -121,   -102,    -26,   1002,  -9250, -22562,  39321,  35681,
     -35289,  25312,  -1457,   -229,  15659,  -6786,  16791,   3860,
       2239, -28730, -11885,  33871,   -176, -16421,  18173,  -9669,
     -10163,   9941, -19365,   3592,  -5907, -10257,   5336, -12933,
@@ -221,10 +226,11 @@ const int32_t line_model_d9_coeffs[] =
        427,    291,    356,    147,    107,    -50,    -88,    -59,
       -238,   -165,   -183
 };
+#define LINE_MODEL_D9_GAIN      1.33E-5f
 
 /*!
     The filter coefficients for the bandpass filter specified for level measurements
-    in G.168.
+    in section 6.4.1.2.1 of G.168.
 */
 const float level_measurement_bp_coeffs[] =
 {
@@ -252,7 +258,7 @@ const float level_measurement_bp_coeffs[] =
 };
 
 /*!
-    The composite source signal "voiced" section from section C.1 of G.168.
+    The composite source signal "voiced" section from table C.1 of G.168.
 */
 const int css_c1[] =
 {
@@ -276,7 +282,7 @@ const int css_c1[] =
 };
 
 /*!
-    The composite source signal "voiced" section from section C.3 of G.168.
+    The composite source signal "voiced" section from table C.3 of G.168.
 */
 const int css_c3[] =
 {

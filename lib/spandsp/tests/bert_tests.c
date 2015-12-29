@@ -21,8 +21,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: bert_tests.c,v 1.24 2008/05/13 13:17:25 steveu Exp $
  */
 
 /*! \file */
@@ -40,7 +38,11 @@ These tests exercise each of the BERT standards supported by the BERT module.
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
-#include <audiofile.h>
+#include <sndfile.h>
+
+//#if defined(WITH_SPANDSP_INTERNALS)
+#define SPANDSP_EXPOSE_INTERNAL_STRUCTURES
+//#endif
 
 #include "spandsp.h"
 
@@ -58,7 +60,7 @@ static void reporter(void *user_data, int reason, bert_results_t *results)
     int channel;
 
     channel = (int) (intptr_t) user_data;
-    printf("BERT report '%s' ", bert_event_to_str(reason));
+    printf("%d: BERT report '%s' ", channel, bert_event_to_str(reason));
     switch (reason)
     {
     case BERT_REPORT_REGULAR:
@@ -208,7 +210,7 @@ int main(int argc, char *argv[])
             zeros++;
         }
         bert_put_bit(&rx_bert, bit);        
-        test[tx_bert.tx_reg]++;
+        test[tx_bert.tx.reg]++;
     }
     failed = FALSE;
     if (test[0] != 0)
@@ -252,7 +254,7 @@ int main(int argc, char *argv[])
             zeros++;
         }
         bert_put_bit(&rx_bert, bit);        
-        test[tx_bert.tx_reg]++;
+        test[tx_bert.tx.reg]++;
     }
     failed = FALSE;
     if (test[0] != 0)
@@ -296,7 +298,7 @@ int main(int argc, char *argv[])
             zeros++;
         }
         bert_put_bit(&rx_bert, bit);        
-        test[tx_bert.tx_reg]++;
+        test[tx_bert.tx.reg]++;
     }
     failed = FALSE;
     if (test[0] != 0)
@@ -340,7 +342,7 @@ int main(int argc, char *argv[])
             zeros++;
         }
         bert_put_bit(&rx_bert, bit);        
-        test[tx_bert.tx_reg]++;
+        test[tx_bert.tx.reg]++;
     }
     failed = FALSE;
     if (test[0] != 0)
@@ -381,7 +383,7 @@ int main(int argc, char *argv[])
             zeros++;
         }
         bert_put_bit(&rx_bert, bit);        
-        test[tx_bert.tx_reg]++;
+        test[tx_bert.tx.reg]++;
     }
     failed = FALSE;
     if (test[0] != 0)
@@ -423,7 +425,7 @@ int main(int argc, char *argv[])
     bert_set_report(&bert, 100000, reporter, (intptr_t) 0);
     for (;;)
     {
-        if ((bit = bert_get_bit(&bert)) == PUTBIT_END_OF_DATA)
+        if ((bit = bert_get_bit(&bert)) == SIG_STATUS_END_OF_DATA)
         {
             bert_result(&bert, &bert_results);
             printf("Rate test: %d bits, %d bad bits, %d resyncs\n", bert_results.total_bits, bert_results.bad_bits, bert_results.resyncs);

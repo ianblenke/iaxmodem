@@ -24,30 +24,29 @@
  *
  * This code is based on the widely used GSM 06.10 code available from
  * http://kbs.cs.tu-berlin.de/~jutta/toast.html
- *
- * $Id: gsm0610_preprocess.c,v 1.13 2008/07/02 14:48:25 steveu Exp $
  */
 
 /*! \file */
 
 #if defined(HAVE_CONFIG_H)
-#include <config.h>
+#include "config.h"
 #endif
 
 #include <assert.h>
 #include <inttypes.h>
-#include "floating_fudge.h"
 #if defined(HAVE_TGMATH_H)
 #include <tgmath.h>
 #endif
 #if defined(HAVE_MATH_H)
 #include <math.h>
 #endif
+#include "floating_fudge.h"
 #include <stdlib.h>
 
 #include "spandsp/telephony.h"
+#include "spandsp/fast_convert.h"
 #include "spandsp/bitstream.h"
-#include "spandsp/dc_restore.h"
+#include "spandsp/saturated.h"
 #include "spandsp/gsm0610.h"
 
 #include "gsm0610_local.h"
@@ -92,15 +91,16 @@ void gsm0610_preprocess(gsm0610_state_t *s, const int16_t amp[GSM0610_FRAME_LEN]
         /* 4.2.1   Downscaling of the input signal */
         SO = (amp[k] >> 1) & ~3;
 
-        assert(SO >= -0x4000); // downscaled by
-        assert(SO <=  0x3FFC); // previous routine.
+        /* This is supposed to have been downscaled by previous routine. */
+        assert(SO >= -0x4000);
+        assert(SO <=  0x3FFC);
 
         /* 4.2.2   Offset compensation */
 
         /*  This part implements a high-pass filter and requires extended
             arithmetic precision for the recursive part of this filter.
             The input of this procedure is the array so[0...159] and the
-            output the array sof[ 0...159 ].
+            output the array sof[0...159].
         */
         /* Compute the non-recursive part */
         s1 = SO - z1;
@@ -121,7 +121,7 @@ void gsm0610_preprocess(gsm0610_state_t *s, const int16_t amp[GSM0610_FRAME_LEN]
          * L_temp = (++L_temp) >> 1;
          * L_z2 = L_z2 - L_temp;
          */
-        L_z2 = gsm_l_add(L_z2, L_s2);
+        L_z2 = saturated_add32(L_z2, L_s2);
 #else
         /* This does L_z2  = L_z2 * 0x7FD5/0x8000 + L_s2 */
         msp = (int16_t) (L_z2 >> 15);
@@ -129,16 +129,16 @@ void gsm0610_preprocess(gsm0610_state_t *s, const int16_t amp[GSM0610_FRAME_LEN]
 
         L_s2 += gsm_mult_r(lsp, 32735);
         L_temp = (int32_t) msp*32735;
-        L_z2 = gsm_l_add(L_temp, L_s2);
+        L_z2 = saturated_add32(L_temp, L_s2);
 #endif
 
         /* Compute sof[k] with rounding */
-        L_temp = gsm_l_add(L_z2, 16384);
+        L_temp = saturated_add32(L_z2, 16384);
 
         /* 4.2.3  Preemphasis */
         msp = gsm_mult_r(mp, -28180);
         mp = (int16_t) (L_temp >> 15);
-        so[k] = gsm_add(mp, msp);
+        so[k] = saturated_add16(mp, msp);
     }
     /*endfor*/
 

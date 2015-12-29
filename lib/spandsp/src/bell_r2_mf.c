@@ -21,8 +21,6 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: bell_r2_mf.c,v 1.29 2008/07/02 14:48:25 steveu Exp $
  */
 
 /*! \file */
@@ -36,15 +34,17 @@
 #include <string.h>
 #include <time.h>
 #include <fcntl.h>
-#include "floating_fudge.h"
 #if defined(HAVE_TGMATH_H)
 #include <tgmath.h>
 #endif
 #if defined(HAVE_MATH_H)
 #include <math.h>
 #endif
+#include "floating_fudge.h"
 
 #include "spandsp/telephony.h"
+#include "spandsp/logging.h"
+#include "spandsp/fast_convert.h"
 #include "spandsp/queue.h"
 #include "spandsp/dc_restore.h"
 #include "spandsp/complex.h"
@@ -55,13 +55,19 @@
 #include "spandsp/dtmf.h"
 #include "spandsp/bell_r2_mf.h"
 
+#include "spandsp/private/logging.h"
+#include "spandsp/private/queue.h"
+#include "spandsp/private/tone_generate.h"
+#include "spandsp/private/bell_r2_mf.h"
+
 #if !defined(M_PI)
 /* C99 systems may not define M_PI */
 #define M_PI 3.14159265358979323846264338327
 #endif
 
-#define ms_to_samples(t)            (((t)*SAMPLE_RATE)/1000)
-
+/*!
+    MF tone descriptor.
+*/
 typedef struct
 {
     int         f1;         /* First freq */
@@ -256,7 +262,7 @@ static void bell_mf_gen_init(void)
     while (tones->on_time)
     {
         /* Note: The duration of KP is longer than the other signals. */
-        make_tone_gen_descriptor(&bell_mf_digit_tones[i++],
+        tone_gen_descriptor_init(&bell_mf_digit_tones[i++],
                                  tones->f1,
                                  tones->level1,
                                  tones->f2,
@@ -272,7 +278,7 @@ static void bell_mf_gen_init(void)
 }
 /*- End of function --------------------------------------------------------*/
 
-int bell_mf_tx(bell_mf_tx_state_t *s, int16_t amp[], int max_samples)
+SPAN_DECLARE(int) bell_mf_tx(bell_mf_tx_state_t *s, int16_t amp[], int max_samples)
 {
     int len;
     const char *cp;
@@ -282,21 +288,21 @@ int bell_mf_tx(bell_mf_tx_state_t *s, int16_t amp[], int max_samples)
     if (s->tones.current_section >= 0)
     {
         /* Deal with the fragment left over from last time */
-        len = tone_gen(&(s->tones), amp, max_samples);
+        len = tone_gen(&s->tones, amp, max_samples);
     }
     while (len < max_samples  &&  (digit = queue_read_byte(&s->queue.queue)) >= 0)
     {
         /* Step to the next digit */
         if ((cp = strchr(bell_mf_tone_codes, digit)) == NULL)
             continue;
-        tone_gen_init(&(s->tones), &bell_mf_digit_tones[cp - bell_mf_tone_codes]);
-        len += tone_gen(&(s->tones), amp + len, max_samples - len);
+        tone_gen_init(&s->tones, &bell_mf_digit_tones[cp - bell_mf_tone_codes]);
+        len += tone_gen(&s->tones, amp + len, max_samples - len);
     }
     return len;
 }
 /*- End of function --------------------------------------------------------*/
 
-size_t bell_mf_tx_put(bell_mf_tx_state_t *s, const char *digits, int len)
+SPAN_DECLARE(int) bell_mf_tx_put(bell_mf_tx_state_t *s, const char *digits, int len)
 {
     size_t space;
 
@@ -308,15 +314,15 @@ size_t bell_mf_tx_put(bell_mf_tx_state_t *s, const char *digits, int len)
         if ((len = strlen(digits)) == 0)
             return 0;
     }
-    if ((space = queue_free_space(&s->queue.queue)) < len)
-        return len - space;
+    if ((space = queue_free_space(&s->queue.queue)) < (size_t) len)
+        return len - (int) space;
     if (queue_write(&s->queue.queue, (const uint8_t *) digits, len) >= 0)
         return 0;
     return -1;
 }
 /*- End of function --------------------------------------------------------*/
 
-bell_mf_tx_state_t *bell_mf_tx_init(bell_mf_tx_state_t *s)
+SPAN_DECLARE(bell_mf_tx_state_t *) bell_mf_tx_init(bell_mf_tx_state_t *s)
 {
     if (s == NULL)
     {
@@ -327,7 +333,7 @@ bell_mf_tx_state_t *bell_mf_tx_init(bell_mf_tx_state_t *s)
 
     if (!bell_mf_gen_inited)
         bell_mf_gen_init();
-    tone_gen_init(&(s->tones), &bell_mf_digit_tones[0]);
+    tone_gen_init(&s->tones, &bell_mf_digit_tones[0]);
     s->current_sample = 0;
     queue_init(&s->queue.queue, MAX_BELL_MF_DIGITS, QUEUE_READ_ATOMIC | QUEUE_WRITE_ATOMIC);
     s->tones.current_section = -1;
@@ -335,14 +341,20 @@ bell_mf_tx_state_t *bell_mf_tx_init(bell_mf_tx_state_t *s)
 }
 /*- End of function --------------------------------------------------------*/
 
-int bell_mf_tx_free(bell_mf_tx_state_t *s)
+SPAN_DECLARE(int) bell_mf_tx_release(bell_mf_tx_state_t *s)
+{
+    return 0;
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE(int) bell_mf_tx_free(bell_mf_tx_state_t *s)
 {
     free(s);
     return 0;
 }
 /*- End of function --------------------------------------------------------*/
 
-int r2_mf_tx(r2_mf_tx_state_t *s, int16_t amp[], int samples)
+SPAN_DECLARE(int) r2_mf_tx(r2_mf_tx_state_t *s, int16_t amp[], int samples)
 {
     int len;
 
@@ -359,7 +371,7 @@ int r2_mf_tx(r2_mf_tx_state_t *s, int16_t amp[], int samples)
 }
 /*- End of function --------------------------------------------------------*/
 
-int r2_mf_tx_put(r2_mf_tx_state_t *s, char digit)
+SPAN_DECLARE(int) r2_mf_tx_put(r2_mf_tx_state_t *s, char digit)
 {
     char *cp;
 
@@ -379,7 +391,7 @@ int r2_mf_tx_put(r2_mf_tx_state_t *s, char digit)
 }
 /*- End of function --------------------------------------------------------*/
 
-r2_mf_tx_state_t *r2_mf_tx_init(r2_mf_tx_state_t *s, int fwd)
+SPAN_DECLARE(r2_mf_tx_state_t *) r2_mf_tx_init(r2_mf_tx_state_t *s, int fwd)
 {
     int i;
     const mf_digit_tones_t *tones;
@@ -397,7 +409,7 @@ r2_mf_tx_state_t *r2_mf_tx_init(r2_mf_tx_state_t *s, int fwd)
         tones = r2_mf_fwd_tones;
         while (tones->on_time)
         {
-            make_tone_gen_descriptor(&r2_mf_fwd_digit_tones[i++],
+            tone_gen_descriptor_init(&r2_mf_fwd_digit_tones[i++],
                                      tones->f1,
                                      tones->level1,
                                      tones->f2,
@@ -413,7 +425,7 @@ r2_mf_tx_state_t *r2_mf_tx_init(r2_mf_tx_state_t *s, int fwd)
         tones = r2_mf_back_tones;
         while (tones->on_time)
         {
-            make_tone_gen_descriptor(&r2_mf_back_digit_tones[i++],
+            tone_gen_descriptor_init(&r2_mf_back_digit_tones[i++],
                                      tones->f1,
                                      tones->level1,
                                      tones->f2,
@@ -432,14 +444,20 @@ r2_mf_tx_state_t *r2_mf_tx_init(r2_mf_tx_state_t *s, int fwd)
 }
 /*- End of function --------------------------------------------------------*/
 
-int r2_mf_tx_free(r2_mf_tx_state_t *s)
+SPAN_DECLARE(int) r2_mf_tx_release(r2_mf_tx_state_t *s)
+{
+    return 0;
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE(int) r2_mf_tx_free(r2_mf_tx_state_t *s)
 {
     free(s);
     return 0;
 }
 /*- End of function --------------------------------------------------------*/
 
-int bell_mf_rx(bell_mf_rx_state_t *s, const int16_t amp[], int samples)
+SPAN_DECLARE(int) bell_mf_rx(bell_mf_rx_state_t *s, const int16_t amp[], int samples)
 {
 #if defined(SPANDSP_USE_FIXED_POINT)
     int32_t energy[6];
@@ -592,7 +610,7 @@ int bell_mf_rx(bell_mf_rx_state_t *s, const int16_t amp[], int samples)
 }
 /*- End of function --------------------------------------------------------*/
 
-size_t bell_mf_rx_get(bell_mf_rx_state_t *s, char *buf, int max)
+SPAN_DECLARE(size_t) bell_mf_rx_get(bell_mf_rx_state_t *s, char *buf, int max)
 {
     if (max > s->current_digits)
         max = s->current_digits;
@@ -607,9 +625,9 @@ size_t bell_mf_rx_get(bell_mf_rx_state_t *s, char *buf, int max)
 }
 /*- End of function --------------------------------------------------------*/
 
-bell_mf_rx_state_t *bell_mf_rx_init(bell_mf_rx_state_t *s,
-                                    digits_rx_callback_t callback,
-                                    void *user_data)
+SPAN_DECLARE(bell_mf_rx_state_t *) bell_mf_rx_init(bell_mf_rx_state_t *s,
+                                                   digits_rx_callback_t callback,
+                                                   void *user_data)
 {
     int i;
     static int initialised = FALSE;
@@ -624,7 +642,7 @@ bell_mf_rx_state_t *bell_mf_rx_init(bell_mf_rx_state_t *s,
     if (!initialised)
     {
         for (i = 0;  i < 6;  i++)
-            make_goertzel_descriptor(&bell_mf_detect_desc[i], bell_mf_frequencies[i], BELL_MF_SAMPLES_PER_BLOCK);
+            make_goertzel_descriptor(&bell_mf_detect_desc[i], (float) bell_mf_frequencies[i], BELL_MF_SAMPLES_PER_BLOCK);
         initialised = TRUE;
     }
     s->digits_callback = callback;
@@ -646,14 +664,20 @@ bell_mf_rx_state_t *bell_mf_rx_init(bell_mf_rx_state_t *s,
 }
 /*- End of function --------------------------------------------------------*/
 
-int bell_mf_rx_free(bell_mf_rx_state_t *s)
+SPAN_DECLARE(int) bell_mf_rx_release(bell_mf_rx_state_t *s)
+{
+    return 0;
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE(int) bell_mf_rx_free(bell_mf_rx_state_t *s)
 {
     free(s);
     return 0;
 }
 /*- End of function --------------------------------------------------------*/
 
-int r2_mf_rx(r2_mf_rx_state_t *s, const int16_t amp[], int samples)
+SPAN_DECLARE(int) r2_mf_rx(r2_mf_rx_state_t *s, const int16_t amp[], int samples)
 {
 #if defined(SPANDSP_USE_FIXED_POINT)
     int32_t energy[6];
@@ -764,7 +788,7 @@ int r2_mf_rx(r2_mf_rx_state_t *s, const int16_t amp[], int samples)
         }
         if (s->current_digit != hit_digit  &&  s->callback)
         {
-            i = (hit_digit)  ?  -99  :  -10;
+            i = (hit_digit)  ?  -10  :  -99;
             s->callback(s->callback_data, hit_digit, i, 0);
         }
         s->current_digit = hit_digit;
@@ -774,16 +798,16 @@ int r2_mf_rx(r2_mf_rx_state_t *s, const int16_t amp[], int samples)
 }
 /*- End of function --------------------------------------------------------*/
 
-int r2_mf_rx_get(r2_mf_rx_state_t *s)
+SPAN_DECLARE(int) r2_mf_rx_get(r2_mf_rx_state_t *s)
 {
     return s->current_digit;
 }
 /*- End of function --------------------------------------------------------*/
 
-r2_mf_rx_state_t *r2_mf_rx_init(r2_mf_rx_state_t *s,
-                                int fwd,
-                                tone_report_func_t callback,
-                                void *user_data)
+SPAN_DECLARE(r2_mf_rx_state_t *) r2_mf_rx_init(r2_mf_rx_state_t *s,
+                                               int fwd,
+                                               tone_report_func_t callback,
+                                               void *user_data)
 {
     int i;
     static int initialised = FALSE;
@@ -801,8 +825,8 @@ r2_mf_rx_state_t *r2_mf_rx_init(r2_mf_rx_state_t *s,
     {
         for (i = 0;  i < 6;  i++)
         {
-            make_goertzel_descriptor(&mf_fwd_detect_desc[i], r2_mf_fwd_frequencies[i], R2_MF_SAMPLES_PER_BLOCK);
-            make_goertzel_descriptor(&mf_back_detect_desc[i], r2_mf_back_frequencies[i], R2_MF_SAMPLES_PER_BLOCK);
+            make_goertzel_descriptor(&mf_fwd_detect_desc[i], (float) r2_mf_fwd_frequencies[i], R2_MF_SAMPLES_PER_BLOCK);
+            make_goertzel_descriptor(&mf_back_detect_desc[i], (float) r2_mf_back_frequencies[i], R2_MF_SAMPLES_PER_BLOCK);
         }
         initialised = TRUE;
     }
@@ -824,7 +848,13 @@ r2_mf_rx_state_t *r2_mf_rx_init(r2_mf_rx_state_t *s,
 }
 /*- End of function --------------------------------------------------------*/
 
-int r2_mf_rx_free(r2_mf_rx_state_t *s)
+SPAN_DECLARE(int) r2_mf_rx_release(r2_mf_rx_state_t *s)
+{
+    return 0;
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE(int) r2_mf_rx_free(r2_mf_rx_state_t *s)
 {
     free(s);
     return 0;

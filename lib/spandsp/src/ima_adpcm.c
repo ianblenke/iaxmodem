@@ -22,30 +22,30 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: ima_adpcm.c,v 1.28 2008/07/02 14:48:25 steveu Exp $
  */
 
 /*! \file */
 
 #if defined(HAVE_CONFIG_H)
-#include <config.h>
+#include "config.h"
 #endif
 
 #include <stdlib.h>
 #include <inttypes.h>
 #include <string.h>
-#include "floating_fudge.h"
 #if defined(HAVE_TGMATH_H)
 #include <tgmath.h>
 #endif
 #if defined(HAVE_MATH_H)
 #include <math.h>
 #endif
+#include "floating_fudge.h"
 
 #include "spandsp/telephony.h"
-#include "spandsp/dc_restore.h"
+#include "spandsp/fast_convert.h"
+#include "spandsp/saturated.h"
 #include "spandsp/ima_adpcm.h"
+#include "spandsp/private/ima_adpcm.h"
 
 /*
  * Intel/DVI ADPCM coder/decoder.
@@ -113,20 +113,24 @@
    to indicate a partially filled last octet.
 */
 
+/*! The number of ADPCM step sizes */
 #define STEP_MAX 88
 
 /* Intel ADPCM step variation table */
 static const int step_size[STEP_MAX + 1] =
 {
-        7,     8,     9,   10,     11,    12,    13,    14,    16,    17,
-       19,    21,    23,   25,     28,    31,    34,    37,    41,    45,
-       50,    55,    60,   66,     73,    80,    88,    97,   107,   118,
-      130,   143,   157,   173,   190,   209,   230,   253,   279,   307,
-      337,   371,   408,   449,   494,   544,   598,   658,   724,   796,
-      876,   963,  1060,  1166,  1282,  1411,  1552,  1707,  1878,  2066,
-     2272,  2499,  2749,  3024,  3327,  3660,  4026,  4428,  4871,  5358,
-     5894,  6484,  7132,  7845,  8630,  9493, 10442, 11487, 12635, 13899,
-    15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794, 32767
+        7,     8,     9,    10,    11,    12,    13,    14,
+       16,    17,    19,    21,    23,    25,    28,    31,
+       34,    37,    41,    45,    50,    55,    60,    66,
+       73,    80,    88,    97,   107,   118,   130,   143,
+      157,   173,   190,   209,   230,   253,   279,   307,
+      337,   371,   408,   449,   494,   544,   598,   658,
+      724,   796,   876,   963,  1060,  1166,  1282,  1411,
+     1552,  1707,  1878,  2066,  2272,  2499,  2749,  3024,
+     3327,  3660,  4026,  4428,  4871,  5358,  5894,  6484,
+     7132,  7845,  8630,  9493, 10442, 11487, 12635, 13899,
+    15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794,
+    32767
 };
 
 static const int step_adjustment[8] =
@@ -272,7 +276,9 @@ static uint8_t encode(ima_adpcm_state_t *s, int16_t linear)
 }
 /*- End of function --------------------------------------------------------*/
 
-ima_adpcm_state_t *ima_adpcm_init(ima_adpcm_state_t *s, int variant, int chunk_size)
+SPAN_DECLARE(ima_adpcm_state_t *) ima_adpcm_init(ima_adpcm_state_t *s,
+                                                 int variant,
+                                                 int chunk_size)
 {
     if (s == NULL)
     {
@@ -287,17 +293,23 @@ ima_adpcm_state_t *ima_adpcm_init(ima_adpcm_state_t *s, int variant, int chunk_s
 }
 /*- End of function --------------------------------------------------------*/
 
-int ima_adpcm_release(ima_adpcm_state_t *s)
+SPAN_DECLARE(int) ima_adpcm_release(ima_adpcm_state_t *s)
+{
+    return 0;
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE(int) ima_adpcm_free(ima_adpcm_state_t *s)
 {
     free(s);
     return 0;
 }
 /*- End of function --------------------------------------------------------*/
 
-int ima_adpcm_decode(ima_adpcm_state_t *s,
-                     int16_t amp[],
-                     const uint8_t ima_data[],
-                     int ima_bytes)
+SPAN_DECLARE(int) ima_adpcm_decode(ima_adpcm_state_t *s,
+                                   int16_t amp[],
+                                   const uint8_t ima_data[],
+                                   int ima_bytes)
 {
     int i;
     int j;
@@ -410,10 +422,10 @@ int ima_adpcm_decode(ima_adpcm_state_t *s,
 }
 /*- End of function --------------------------------------------------------*/
 
-int ima_adpcm_encode(ima_adpcm_state_t *s,
-                     uint8_t ima_data[],
-                     const int16_t amp[],
-                     int len)
+SPAN_DECLARE(int) ima_adpcm_encode(ima_adpcm_state_t *s,
+                                   uint8_t ima_data[],
+                                   const int16_t amp[],
+                                   int len)
 {
     int i;
     int bytes;

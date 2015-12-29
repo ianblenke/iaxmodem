@@ -25,29 +25,28 @@
  * This code is based on the U.S. Department of Defense reference
  * implementation of the LPC-10 2400 bps Voice Coder. They do not
  * exert copyright claims on their code, and it may be freely used.
- *
- * $Id: lpc10_encode.c,v 1.23 2008/07/02 14:48:25 steveu Exp $
  */
 
 #if defined(HAVE_CONFIG_H)
-#include <config.h>
+#include "config.h"
 #endif
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <inttypes.h>
 #include <memory.h>
-#include "floating_fudge.h"
 #if defined(HAVE_TGMATH_H)
 #include <tgmath.h>
 #endif
 #if defined(HAVE_MATH_H)
 #include <math.h>
 #endif
+#include "floating_fudge.h"
 
 #include "spandsp/telephony.h"
 #include "spandsp/dc_restore.h"
 #include "spandsp/lpc10.h"
+#include "spandsp/private/lpc10.h"
 
 #include "lpc10_encdecs.h"
 
@@ -265,7 +264,7 @@ static void high_pass_100hz(lpc10_encode_state_t *s, float speech[], int start, 
 }
 /*- End of function --------------------------------------------------------*/
 
-lpc10_encode_state_t *lpc10_encode_init(lpc10_encode_state_t *s, int error_correction)
+SPAN_DECLARE(lpc10_encode_state_t *) lpc10_encode_init(lpc10_encode_state_t *s, int error_correction)
 {
     int i;
     int j;
@@ -362,14 +361,20 @@ lpc10_encode_state_t *lpc10_encode_init(lpc10_encode_state_t *s, int error_corre
 }
 /*- End of function --------------------------------------------------------*/
 
-int lpc10_encode_release(lpc10_encode_state_t *s)
+SPAN_DECLARE(int) lpc10_encode_release(lpc10_encode_state_t *s)
+{
+    return 0;
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE(int) lpc10_encode_free(lpc10_encode_state_t *s)
 {
     free(s);
     return 0;
 }
 /*- End of function --------------------------------------------------------*/
 
-int lpc10_encode(lpc10_encode_state_t *s, uint8_t code[], const int16_t amp[], int len)
+SPAN_DECLARE(int) lpc10_encode(lpc10_encode_state_t *s, uint8_t code[], const int16_t amp[], int len)
 {
     int32_t voice[2];
     int32_t pitch;

@@ -22,8 +22,6 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: oki_adpcm.h,v 1.20 2008/04/17 14:27:00 steveu Exp $
  */
 
 /*! \file */
@@ -49,25 +47,7 @@ by Bob Edgar. pg 272-276. */
     a single working instance of the Oki ADPCM converter. This is used for
     either linear to ADPCM or ADPCM to linear conversion.
 */
-typedef struct
-{
-    /*! \brief The bit rate - 24000 or 32000. */
-    int bit_rate;
-    /*! \brief The last state of the ADPCM algorithm. */
-    int16_t last;
-    /*! \brief Current index into the step size table. */
-    int16_t step_index;
-    /*! \brief The compressed data byte in progress. */
-    uint8_t oki_byte;
-    /*! \brief The signal history for the sample rate converter. */
-    int16_t history[32];
-    /*! \brief Pointer into the history buffer. */
-    int ptr;
-    /*! \brief Odd/even sample counter. */
-    int mark;
-    /*! \brief Phase accumulator for the sample rate converter. */
-    int phase;
-} oki_adpcm_state_t;
+typedef struct oki_adpcm_state_s oki_adpcm_state_t;
 
 #if defined(__cplusplus)
 extern "C"
@@ -79,12 +59,18 @@ extern "C"
     \param bit_rate The required bit rate for the ADPCM data.
            The valid rates are 24000 and 32000.
     \return A pointer to the Oki ADPCM context, or NULL for error. */
-oki_adpcm_state_t *oki_adpcm_init(oki_adpcm_state_t *s, int bit_rate);
+SPAN_DECLARE(oki_adpcm_state_t *) oki_adpcm_init(oki_adpcm_state_t *s,
+                                                 int bit_rate);
+
+/*! Release an Oki ADPCM encode or decode context.
+    \param s The Oki ADPCM context.
+    \return 0 for OK. */
+SPAN_DECLARE(int) oki_adpcm_release(oki_adpcm_state_t *s);
 
 /*! Free an Oki ADPCM encode or decode context.
     \param s The Oki ADPCM context.
     \return 0 for OK. */
-int oki_adpcm_release(oki_adpcm_state_t *s);
+SPAN_DECLARE(int) oki_adpcm_free(oki_adpcm_state_t *s);
 
 /*! Decode a buffer of Oki ADPCM data to linear PCM.
     \param s The Oki ADPCM context.
@@ -92,10 +78,10 @@ int oki_adpcm_release(oki_adpcm_state_t *s);
     \param oki_data
     \param oki_bytes
     \return The number of samples returned. */
-int oki_adpcm_decode(oki_adpcm_state_t *s,
-                     int16_t amp[],
-                     const uint8_t oki_data[],
-                     int oki_bytes);
+SPAN_DECLARE(int) oki_adpcm_decode(oki_adpcm_state_t *s,
+                                   int16_t amp[],
+                                   const uint8_t oki_data[],
+                                   int oki_bytes);
 
 /*! Encode a buffer of linear PCM data to Oki ADPCM.
     \param s The Oki ADPCM context.
@@ -103,10 +89,10 @@ int oki_adpcm_decode(oki_adpcm_state_t *s,
     \param amp The audio sample buffer.
     \param len The number of samples in the buffer.
     \return The number of bytes of Oki ADPCM data produced. */
-int oki_adpcm_encode(oki_adpcm_state_t *s,
-                     uint8_t oki_data[],
-                     const int16_t amp[],
-                     int len);
+SPAN_DECLARE(int) oki_adpcm_encode(oki_adpcm_state_t *s,
+                                   uint8_t oki_data[],
+                                   const int16_t amp[],
+                                   int len);
 
 #if defined(__cplusplus)
 }

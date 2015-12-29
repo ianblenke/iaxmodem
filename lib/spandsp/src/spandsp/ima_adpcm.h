@@ -1,8 +1,8 @@
 /*
  * SpanDSP - a series of DSP components for telephony
  *
- * imaadpcm.c - Conversion routines between linear 16 bit PCM data and
- *		        IMA/DVI/Intel ADPCM format.
+ * ima_adpcm.c - Conversion routines between linear 16 bit PCM data and
+ *		         IMA/DVI/Intel ADPCM format.
  *
  * Written by Steve Underwood <steveu@coppice.org>
  *
@@ -25,8 +25,6 @@
  *
  * Based on a bit from here, a bit from there, eye of toad,
  * ear of bat, etc - plus, of course, my own 2 cents.
- *
- * $Id: ima_adpcm.h,v 1.20 2008/04/17 14:27:00 steveu Exp $
  */
 
 /*! \file */
@@ -59,19 +57,7 @@ enum
     a single working instance of the IMA ADPCM converter. This is used for
     either linear to ADPCM or ADPCM to linear conversion.
 */
-typedef struct
-{
-    int variant;
-    /*! \brief The size of a chunk, in samples. */
-    int chunk_size;
-    /*! \brief The last state of the ADPCM algorithm. */
-    int last;
-    /*! \brief Current index into the step size table. */
-    int step_index;
-    /*! \brief The current IMA code byte in progress. */
-    uint16_t ima_byte;
-    int bits;
-} ima_adpcm_state_t;
+typedef struct ima_adpcm_state_s ima_adpcm_state_t;
 
 #if defined(__cplusplus)
 extern "C"
@@ -79,18 +65,25 @@ extern "C"
 #endif
 
 /*! Initialise an IMA ADPCM encode or decode context.
-    \param s The IMA ADPCM context
-    \param variant ???
+    \param s The IMA ADPCM context.
+    \param variant IMA_ADPCM_IMA4, IMA_ADPCM_DVI4, or IMA_ADPCM_VDVI.
     \param chunk_size The size of a chunk, in samples. A chunk size of
            zero sample samples means treat each encode or decode operation
            as a chunk.
     \return A pointer to the IMA ADPCM context, or NULL for error. */
-ima_adpcm_state_t *ima_adpcm_init(ima_adpcm_state_t *s, int variant, int chunk_size);
+SPAN_DECLARE(ima_adpcm_state_t *) ima_adpcm_init(ima_adpcm_state_t *s,
+                                                 int variant,
+                                                 int chunk_size);
+
+/*! Release an IMA ADPCM encode or decode context.
+    \param s The IMA ADPCM context.
+    \return 0 for OK. */
+SPAN_DECLARE(int) ima_adpcm_release(ima_adpcm_state_t *s);
 
 /*! Free an IMA ADPCM encode or decode context.
     \param s The IMA ADPCM context.
     \return 0 for OK. */
-int ima_adpcm_release(ima_adpcm_state_t *s);
+SPAN_DECLARE(int) ima_adpcm_free(ima_adpcm_state_t *s);
 
 /*! Encode a buffer of linear PCM data to IMA ADPCM.
     \param s The IMA ADPCM context.
@@ -98,21 +91,21 @@ int ima_adpcm_release(ima_adpcm_state_t *s);
     \param amp The audio sample buffer.
     \param len The number of samples in the buffer.
     \return The number of bytes of IMA ADPCM data produced. */
-int ima_adpcm_encode(ima_adpcm_state_t *s,
-                     uint8_t ima_data[],
-                     const int16_t amp[],
-                     int len);
+SPAN_DECLARE(int) ima_adpcm_encode(ima_adpcm_state_t *s,
+                                   uint8_t ima_data[],
+                                   const int16_t amp[],
+                                   int len);
 
 /*! Decode a buffer of IMA ADPCM data to linear PCM.
     \param s The IMA ADPCM context.
     \param amp The audio sample buffer.
-    \param ima_data
-    \param ima_bytes
+    \param ima_data The IMA ADPCM data
+    \param ima_bytes The number of bytes of IMA ADPCM data
     \return The number of samples returned. */
-int ima_adpcm_decode(ima_adpcm_state_t *s,
-                     int16_t amp[],
-                     const uint8_t ima_data[],
-                     int ima_bytes);
+SPAN_DECLARE(int) ima_adpcm_decode(ima_adpcm_state_t *s,
+                                   int16_t amp[],
+                                   const uint8_t ima_data[],
+                                   int ima_bytes);
 
 #if defined(__cplusplus)
 }

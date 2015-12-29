@@ -24,8 +24,6 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: filter_tools.c,v 1.7 2008/07/02 14:48:25 steveu Exp $
  */
  
 #if defined(HAVE_CONFIG_H)
@@ -34,14 +32,13 @@
 
 #include <inttypes.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include "floating_fudge.h"
 #if defined(HAVE_TGMATH_H)
 #include <tgmath.h>
 #endif
 #if defined(HAVE_MATH_H)
 #include <math.h>
 #endif
+#include "floating_fudge.h"
 #include <string.h>
 #include <stdio.h>
 #include <time.h>
@@ -51,13 +48,18 @@
 #include "spandsp/complex.h"
 #include "filter_tools.h"
 
+#if !defined(FALSE)
 #define FALSE 0
+#endif
+#if !defined(TRUE)
 #define TRUE (!FALSE)
+#endif
 
 #define MAXPZ	    8192
-#define SEQLEN      8192
+#define SEQ_LEN     8192
+#define MAX_FFT_LEN SEQ_LEN
 
-static complex_t circle[SEQLEN/2];
+static complex_t circle[MAX_FFT_LEN/2];
 
 static __inline__ complex_t expj(double theta)
 {
@@ -93,7 +95,7 @@ static void fftx(complex_t data[], complex_t temp[], int n)
         fftx(&temp[0], &data[0], h);
         fftx(&temp[h], &data[h], h);
         p = 0;
-        t = SEQLEN/n;
+        t = MAX_FFT_LEN/n;
         for (i = 0;  i < h;  i++)
         {
             wkt = complex_mul(&circle[p], &temp[h + i]);
@@ -109,12 +111,12 @@ void ifft(complex_t data[], int len)
 {
     int i;
     double x;
-    complex_t temp[SEQLEN];
+    complex_t temp[MAX_FFT_LEN];
 
     /* A very slow and clunky FFT, that's just fine for filter design. */
-    for (i = 0;  i < SEQLEN/2;  i++)
+    for (i = 0;  i < MAX_FFT_LEN/2;  i++)
     {
-        x = (2.0*3.1415926535*i)/(double) SEQLEN;
+        x = (2.0*3.1415926535*i)/(double) MAX_FFT_LEN;
         circle[i] = expj(x);
     }
     fftx(data, temp, len);
@@ -133,7 +135,7 @@ void compute_raised_cosine_filter(double coeffs[],
     double f1;
     double f2;
     double tau;
-    complex_t vec[SEQLEN];
+    complex_t vec[SEQ_LEN];
     int i;
     int j;
     int h;
@@ -142,39 +144,39 @@ void compute_raised_cosine_filter(double coeffs[],
     f2 = (1.0 + beta)*alpha;
     tau = 0.5/alpha;
     /* (Root) raised cosine */
-    for (i = 0;  i <= SEQLEN/2;  i++)
+    for (i = 0;  i <= SEQ_LEN/2;  i++)
     {
-        f = (double) i/(double) SEQLEN;
+        f = (double) i/(double) SEQ_LEN;
         if (f <= f1)
             vec[i] = complex_set(1.0, 0.0);
         else if (f <= f2)
-            vec[i] = complex_set(0.5*(1.0 + cos((3.1415926535*tau/beta) * (f - f1))), 0.0);
+            vec[i] = complex_set(0.5*(1.0 + cos((3.1415926535*tau/beta)*(f - f1))), 0.0);
         else
             vec[i] = complex_set(0.0, 0.0);
     }
     if (root)
     {
-        for (i = 0;  i <= SEQLEN/2;  i++)
+        for (i = 0;  i <= SEQ_LEN/2;  i++)
             vec[i].re = sqrt(vec[i].re);
     }
     if (sinc_compensate)
     {
-        for (i = 1;  i <= SEQLEN/2;  i++)
+        for (i = 1;  i <= SEQ_LEN/2;  i++)
 	    {
-            x = 3.1415926535*(double) i/(double) SEQLEN;
+            x = 3.1415926535*(double) i/(double) SEQ_LEN;
 	        vec[i].re *= (x/sin(x));
 	    }
     }
-    for (i = 0;  i <= SEQLEN/2;  i++)
+    for (i = 0;  i <= SEQ_LEN/2;  i++)
         vec[i].re *= tau;
-    for (i = 1;  i < SEQLEN/2;  i++)
-        vec[SEQLEN - i] = vec[i];
-    ifft(vec, SEQLEN);
+    for (i = 1;  i < SEQ_LEN/2;  i++)
+        vec[SEQ_LEN - i] = vec[i];
+    ifft(vec, SEQ_LEN);
     h = (len - 1)/2;
     for (i = 0;  i < len;  i++)
     {
-        j = (SEQLEN - h + i)%SEQLEN;
-        coeffs[i] = vec[j].re/(double) SEQLEN;
+        j = (SEQ_LEN - h + i)%SEQ_LEN;
+        coeffs[i] = vec[j].re/(double) SEQ_LEN;
     }
 }
 /*- End of function --------------------------------------------------------*/

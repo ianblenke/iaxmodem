@@ -921,9 +921,9 @@ iaxmodem(const char *config, int nondaemon)
      */
     if (dspdebug) {
 	t31_state.logging.level = SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_FLOW;
-	t31_state.audio.modems.v17_rx.logging.level = SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_FLOW;
-	t31_state.audio.modems.v29_rx.logging.level = SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_FLOW;
-	t31_state.audio.modems.v27ter_rx.logging.level = SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_FLOW;
+	t31_state.audio.modems.fast_modems.v17_rx.logging.level = SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_FLOW;
+	t31_state.audio.modems.fast_modems.v29_rx.logging.level = SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_FLOW;
+	t31_state.audio.modems.fast_modems.v27ter_rx.logging.level = SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_FLOW;
     }
 
     int selectfd, selectretval, selectblock, avail, audiobalance = 0;
@@ -1430,7 +1430,7 @@ iaxmodem(const char *config, int nondaemon)
 				    break;
 				default:
 				    units = 0;
-				    memcpy(convertedbuf, 0, iaxevent->datalen);
+				    memset(convertedbuf, 0, iaxevent->datalen);
 				    audiodata = convertedbuf;
 				    printlog(LOG_ERROR, "Unknown codec!\n");
 				    break;

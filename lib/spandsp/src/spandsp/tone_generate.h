@@ -21,8 +21,6 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: tone_generate.h,v 1.33 2008/04/17 14:27:01 steveu Exp $
  */
 
 /*! \file */
@@ -45,37 +43,18 @@ use an exhaustive test to prove the oscillator is stable under all the
 conditions in which we will use it. 
 */
 
-typedef struct
-{
-    int32_t phase_rate;
-    float gain;
-} tone_gen_tone_descriptor_t;
+typedef struct tone_gen_tone_descriptor_s tone_gen_tone_descriptor_t;
 
 /*!
-    Cadenced dual tone generator descriptor.
+    Cadenced multi-tone generator descriptor.
 */
-typedef struct
-{
-    tone_gen_tone_descriptor_t tone[4];
-    int duration[4];
-    int repeat;
-} tone_gen_descriptor_t;
+typedef struct tone_gen_descriptor_s tone_gen_descriptor_t;
 
 /*!
-    Cadenced dual tone generator state descriptor. This defines the state of
+    Cadenced multi-tone generator state descriptor. This defines the state of
     a single working instance of a generator.
 */
-typedef struct
-{
-    tone_gen_tone_descriptor_t tone[4];
-
-    uint32_t phase[4];
-    int duration[4];
-    int repeat;
-
-    int current_section;
-    int current_position;
-} tone_gen_state_t;
+typedef struct tone_gen_state_s tone_gen_state_t;
 
 #if defined(__cplusplus)
 extern "C"
@@ -96,20 +75,29 @@ extern "C"
     \param d3 x
     \param d4 x
     \param repeat x */
-void make_tone_gen_descriptor(tone_gen_descriptor_t *s,
-                              int f1,
-                              int l1,
-                              int f2,
-                              int l2,
-                              int d1,
-                              int d2,
-                              int d3,
-                              int d4,
-                              int repeat);
+SPAN_DECLARE(tone_gen_descriptor_t *) tone_gen_descriptor_init(tone_gen_descriptor_t *s,
+                                                               int f1,
+                                                               int l1,
+                                                               int f2,
+                                                               int l2,
+                                                               int d1,
+                                                               int d2,
+                                                               int d3,
+                                                               int d4,
+                                                               int repeat);
 
-tone_gen_state_t *tone_gen_init(tone_gen_state_t *s, tone_gen_descriptor_t *t);
+/* For backwards compatibility */
+#define make_tone_gen_descriptor    tone_gen_descriptor_init
 
-int tone_gen(tone_gen_state_t *s, int16_t amp[], int max_samples);
+SPAN_DECLARE(void) tone_gen_descriptor_free(tone_gen_descriptor_t *s);
+
+SPAN_DECLARE_NONSTD(int) tone_gen(tone_gen_state_t *s, int16_t amp[], int max_samples);
+
+SPAN_DECLARE(tone_gen_state_t *) tone_gen_init(tone_gen_state_t *s, tone_gen_descriptor_t *t);
+
+SPAN_DECLARE(int) tone_gen_release(tone_gen_state_t *s);
+
+SPAN_DECLARE(int) tone_gen_free(tone_gen_state_t *s);
 
 #if defined(__cplusplus)
 }

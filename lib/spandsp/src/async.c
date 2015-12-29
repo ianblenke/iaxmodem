@@ -21,14 +21,12 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: async.c,v 1.11 2008/05/13 13:17:21 steveu Exp $
  */
 
 /*! \file */
 
 #if defined(HAVE_CONFIG_H)
-#include <config.h>
+#include "config.h"
 #endif
 
 #include <inttypes.h>
@@ -39,13 +37,56 @@
 #include "spandsp/telephony.h"
 #include "spandsp/async.h"
 
-async_rx_state_t *async_rx_init(async_rx_state_t *s,
-                                int data_bits,
-                                int parity,
-                                int stop_bits,
-                                int use_v14,
-                                put_byte_func_t put_byte,
-                                void *user_data)
+#include "spandsp/private/async.h"
+
+SPAN_DECLARE(const char *) signal_status_to_str(int status)
+{
+    switch (status)
+    {
+    case SIG_STATUS_CARRIER_DOWN:
+        return "Carrier down";
+    case SIG_STATUS_CARRIER_UP:
+        return "Carrier up";
+    case SIG_STATUS_TRAINING_IN_PROGRESS:
+        return "Training in progress";
+    case SIG_STATUS_TRAINING_SUCCEEDED:
+        return "Training succeeded";
+    case SIG_STATUS_TRAINING_FAILED:
+        return "Training failed";
+    case SIG_STATUS_FRAMING_OK:
+        return "Framing OK";
+    case SIG_STATUS_END_OF_DATA:
+        return "End of data";
+    case SIG_STATUS_ABORT:
+        return "Abort";
+    case SIG_STATUS_BREAK:
+        return "Break";
+    case SIG_STATUS_SHUTDOWN_COMPLETE:
+        return "Shutdown complete";
+    case SIG_STATUS_OCTET_REPORT:
+        return "Octet report";
+    case SIG_STATUS_POOR_SIGNAL_QUALITY:
+        return "Poor signal quality";
+    case SIG_STATUS_MODEM_RETRAIN_OCCURRED:
+        return "Modem retrain occurred";
+    case SIG_STATUS_LINK_CONNECTED:
+        return "Link connected";
+    case SIG_STATUS_LINK_DISCONNECTED:
+        return "Link disconnected";
+    case SIG_STATUS_LINK_ERROR:
+        return "Link error";
+    }
+    return "???";
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE(async_rx_state_t *) async_rx_init(async_rx_state_t *s,
+                                               int data_bits,
+                                               int parity,
+                                               int stop_bits,
+                                               int use_v14,
+                                               put_byte_func_t put_byte,
+                                               void *user_data)
 {
     if (s == NULL)
     {
@@ -70,7 +111,20 @@ async_rx_state_t *async_rx_init(async_rx_state_t *s,
 }
 /*- End of function --------------------------------------------------------*/
 
-void async_rx_put_bit(void *user_data, int bit)
+SPAN_DECLARE(int) async_rx_release(async_rx_state_t *s)
+{
+    return 0;
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE(int) async_rx_free(async_rx_state_t *s)
+{
+    free(s);
+    return 0;
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE_NONSTD(void) async_rx_put_bit(void *user_data, int bit)
 {
     async_rx_state_t *s;
 
@@ -80,12 +134,12 @@ void async_rx_put_bit(void *user_data, int bit)
         /* Special conditions */
         switch (bit)
         {
-        case PUTBIT_CARRIER_UP:
-        case PUTBIT_CARRIER_DOWN:
-        case PUTBIT_TRAINING_IN_PROGRESS:
-        case PUTBIT_TRAINING_SUCCEEDED:
-        case PUTBIT_TRAINING_FAILED:
-        case PUTBIT_END_OF_DATA:
+        case SIG_STATUS_CARRIER_UP:
+        case SIG_STATUS_CARRIER_DOWN:
+        case SIG_STATUS_TRAINING_IN_PROGRESS:
+        case SIG_STATUS_TRAINING_SUCCEEDED:
+        case SIG_STATUS_TRAINING_FAILED:
+        case SIG_STATUS_END_OF_DATA:
             s->put_byte(s->user_data, bit);
             s->bitpos = 0;
             s->byte_in_progress = 0;
@@ -125,7 +179,7 @@ void async_rx_put_bit(void *user_data, int bit)
         {
             /* Align the received value */
             if (s->data_bits < 8)
-                s->byte_in_progress >>= (8 - s->data_bits);
+                s->byte_in_progress = (s->byte_in_progress & 0xFF) >> (8 - s->data_bits);
             s->put_byte(s->user_data, s->byte_in_progress);
             s->bitpos = 0;
         }
@@ -136,7 +190,7 @@ void async_rx_put_bit(void *user_data, int bit)
                rate adaption specified in V.14 */
             /* Align the received value */
             if (s->data_bits < 8)
-                s->byte_in_progress >>= (8 - s->data_bits);
+                s->byte_in_progress = (s->byte_in_progress & 0xFF) >> (8 - s->data_bits);
             s->put_byte(s->user_data, s->byte_in_progress);
             s->bitpos = 1;
             s->parity_bit = 0;
@@ -151,13 +205,13 @@ void async_rx_put_bit(void *user_data, int bit)
 }
 /*- End of function --------------------------------------------------------*/
 
-async_tx_state_t *async_tx_init(async_tx_state_t *s,
-                                int data_bits,
-                                int parity,
-                                int stop_bits,
-                                int use_v14,
-                                get_byte_func_t get_byte,
-                                void *user_data)
+SPAN_DECLARE(async_tx_state_t *) async_tx_init(async_tx_state_t *s,
+                                               int data_bits,
+                                               int parity,
+                                               int stop_bits,
+                                               int use_v14,
+                                               get_byte_func_t get_byte,
+                                               void *user_data)
 {
     if (s == NULL)
     {
@@ -183,7 +237,20 @@ async_tx_state_t *async_tx_init(async_tx_state_t *s,
 }
 /*- End of function --------------------------------------------------------*/
 
-int async_tx_get_bit(void *user_data)
+SPAN_DECLARE(int) async_tx_release(async_tx_state_t *s)
+{
+    return 0;
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE(int) async_tx_free(async_tx_state_t *s)
+{
+    free(s);
+    return 0;
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE_NONSTD(int) async_tx_get_bit(void *user_data)
 {
     async_tx_state_t *s;
     int bit;
@@ -194,7 +261,7 @@ int async_tx_get_bit(void *user_data)
         if ((s->byte_in_progress = s->get_byte(s->user_data)) < 0)
         {
             /* No more data */
-            bit = PUTBIT_END_OF_DATA;
+            bit = SIG_STATUS_END_OF_DATA;
         }
         else
         {

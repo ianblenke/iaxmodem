@@ -21,8 +21,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: queue_tests.c,v 1.10 2008/05/13 13:17:26 steveu Exp $
  */
 
 /* THIS IS A WORK IN PROGRESS. IT IS NOT FINISHED. */
@@ -32,7 +30,7 @@
 */
 
 #if defined(HAVE_CONFIG_H)
-#include <config.h>
+#include "config.h"
 #endif
 
 #include <stdlib.h>
@@ -42,6 +40,10 @@
 #include <assert.h>
 #include <pthread.h>
 #include <sched.h>
+
+//#if defined(WITH_SPANDSP_INTERNALS)
+#define SPANDSP_EXPOSE_INTERNAL_STRUCTURES
+//#endif
 
 #include "spandsp.h"
 
@@ -61,7 +63,7 @@ int total_out;
 static void tests_failed(void)
 {
     printf("Tests failed\n");
-    tests_failed();
+    exit(2);
 }
 /*- End of function --------------------------------------------------------*/
 
@@ -305,7 +307,7 @@ static void check_contents(int total_in, int total_out)
 static int monitored_queue_write(const uint8_t buf[], int len)
 {
     int lenx;
-    
+
     lenx = queue_write(queue, buf, len);
     if (lenx >= 0)
         total_in += lenx;
@@ -317,7 +319,7 @@ static int monitored_queue_write(const uint8_t buf[], int len)
 static int monitored_queue_write_byte(const uint8_t buf)
 {
     int res;
-    
+
     if ((res = queue_write_byte(queue, buf)) >= 0)
         total_in++;
     check_contents(total_in, total_out);
@@ -328,7 +330,7 @@ static int monitored_queue_write_byte(const uint8_t buf)
 static int monitored_queue_read(uint8_t buf[], int len)
 {
     int lenx;
-    
+
     lenx = queue_read(queue, buf, len);
     if (lenx >= 0)
         total_out += lenx;
@@ -340,7 +342,7 @@ static int monitored_queue_read(uint8_t buf[], int len)
 static int monitored_queue_read_byte(void)
 {
     int res;
-    
+
     if ((res = queue_read_byte(queue)) >= 0)
         total_out++;
     check_contents(total_in, total_out);
@@ -353,7 +355,7 @@ static void functional_stream_tests(void)
     uint8_t buf[MSG_LEN];
     int i;
     int res;
-    
+
     total_in = 0;
     total_out = 0;
 
@@ -566,7 +568,7 @@ static void functional_message_tests(void)
         if (monitored_queue_write_msg(buf, MSG_LEN) != MSG_LEN)
             break;
     }
-    printf("Full at chunk %d (expected %d)\n", i, BUF_LEN/(MSG_LEN + sizeof(uint16_t)) + 1);
+    printf("Full at chunk %d (expected %lu)\n", i, (unsigned long int) BUF_LEN/(MSG_LEN + sizeof(uint16_t)) + 1);
     if (i != BUF_LEN/(MSG_LEN + sizeof(uint16_t)) + 1)
         tests_failed();
     if ((len = monitored_queue_write_msg(buf, 5)) == 5)
@@ -624,7 +626,7 @@ static void functional_message_tests(void)
     }
     printf("Free space = %d (%d)\n", queue_free_space(queue), BUF_LEN - (total_in - total_out));
     display_queue_pointers();
-    printf("Full at chunk %d (expected %d)\n", i, BUF_LEN/(MSG_LEN + sizeof(uint16_t)));
+    printf("Full at chunk %d (expected %lu)\n", i, (unsigned long int) BUF_LEN/(MSG_LEN + sizeof(uint16_t)));
     if (i != BUF_LEN/(MSG_LEN + sizeof(uint16_t)))
         tests_failed();
     display_queue_pointers();

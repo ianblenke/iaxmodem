@@ -22,8 +22,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: ima_adpcm_tests.c,v 1.31 2008/05/13 13:17:25 steveu Exp $
  */
 
 /*! \file */
@@ -49,9 +47,14 @@ of the degradation in quality caused by the compression.
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include <audiofile.h>
+#include <sndfile.h>
+
+//#if defined(WITH_SPANDSP_INTERNALS)
+#define SPANDSP_EXPOSE_INTERNAL_STRUCTURES
+//#endif
 
 #include "spandsp.h"
+#include "spandsp-sim.h"
 
 #define IN_FILE_NAME    "../test-data/local/short_nb_voice.wav"
 #define OUT_FILE_NAME   "post_ima_adpcm.wav"
@@ -61,14 +64,11 @@ of the degradation in quality caused by the compression.
 int main(int argc, char *argv[])
 {
     int i;
-    AFfilehandle inhandle;
-    AFfilehandle outhandle;
-    AFfilesetup filesetup;
+    SNDFILE *inhandle;
+    SNDFILE *outhandle;
     int frames;
     int dec_frames;
-    int outframes;
     int ima_bytes;
-    float x;
     double pre_energy;
     double post_energy;
     double diff_energy;
@@ -123,39 +123,15 @@ int main(int argc, char *argv[])
         }
     }
 
-    if ((inhandle = afOpenFile(in_file_name, "r", 0)) == AF_NULL_FILEHANDLE)
+    if ((inhandle = sf_open_telephony_read(in_file_name, 1)) == NULL)
     {
-        fprintf(stderr, "    Cannot open wave file '%s'\n", in_file_name);
-        exit(2);
-    }
-    if ((x = afGetFrameSize(inhandle, AF_DEFAULT_TRACK, 1)) != 2.0)
-    {
-        fprintf(stderr, "    Unexpected frame size in wave file '%s'\n", in_file_name);
-        exit(2);
-    }
-    if ((x = afGetRate(inhandle, AF_DEFAULT_TRACK)) != (float) SAMPLE_RATE)
-    {
-        fprintf(stderr, "    Unexpected sample rate in wave file '%s'\n", in_file_name);
-        exit(2);
-    }
-    if ((x = afGetChannels(inhandle, AF_DEFAULT_TRACK)) != 1.0)
-    {
-        fprintf(stderr, "    Unexpected number of channels in wave file '%s'\n", in_file_name);
+        fprintf(stderr, "    Cannot open audio file '%s'\n", in_file_name);
         exit(2);
     }
 
-    if ((filesetup = afNewFileSetup()) == AF_NULL_FILESETUP)
+    if ((outhandle = sf_open_telephony_write(OUT_FILE_NAME, 1)) == NULL)
     {
-        fprintf(stderr, "    Failed to create file setup\n");
-        exit(2);
-    }
-    afInitSampleFormat(filesetup, AF_DEFAULT_TRACK, AF_SAMPFMT_TWOSCOMP, 16);
-    afInitRate(filesetup, AF_DEFAULT_TRACK, (float) SAMPLE_RATE);
-    afInitFileFormat(filesetup, AF_FILE_WAVE);
-    afInitChannels(filesetup, AF_DEFAULT_TRACK, 1);
-    if ((outhandle = afOpenFile(OUT_FILE_NAME, "w", filesetup)) == AF_NULL_FILEHANDLE)
-    {
-        fprintf(stderr, "    Cannot create wave file '%s'\n", OUT_FILE_NAME);
+        fprintf(stderr, "    Cannot create audio file '%s'\n", OUT_FILE_NAME);
         exit(2);
     }
 
@@ -179,7 +155,7 @@ int main(int argc, char *argv[])
     total_pre_samples = 0;
     total_compressed_bytes = 0;
     total_post_samples = 0;
-    while ((frames = afReadFrames(inhandle, AF_DEFAULT_TRACK, pre_amp, chunk_size)))
+    while ((frames = sf_readf_short(inhandle, pre_amp, chunk_size)))
     {
         total_pre_samples += frames;
         ima_bytes = ima_adpcm_encode(ima_enc_state, ima_data, pre_amp, frames);
@@ -203,19 +179,18 @@ int main(int argc, char *argv[])
                 hist_out = 0;
             diff_energy += (double) xx * (double) xx;
         }
-        outframes = afWriteFrames(outhandle, AF_DEFAULT_TRACK, post_amp, dec_frames);
+        sf_writef_short(outhandle, post_amp, dec_frames);
     }
-    if (afCloseFile(inhandle) != 0)
+    if (sf_close_telephony(inhandle))
     {
-        fprintf(stderr, "    Cannot close wave file '%s'\n", in_file_name);
+        fprintf(stderr, "    Cannot close audio file '%s'\n", in_file_name);
         exit(2);
     }
-    if (afCloseFile(outhandle) != 0)
+    if (sf_close_telephony(outhandle))
     {
-        fprintf(stderr, "    Cannot close wave file '%s'\n", OUT_FILE_NAME);
+        fprintf(stderr, "    Cannot close audio file '%s'\n", OUT_FILE_NAME);
         exit(2);
     }
-    afFreeFileSetup(filesetup);
     ima_adpcm_release(ima_enc_state);
     ima_adpcm_release(ima_dec_state);
 

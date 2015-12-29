@@ -21,8 +21,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: super_tone_tx_tests.c,v 1.22 2008/05/13 13:17:26 steveu Exp $
  */
 
 /*! \file */
@@ -35,6 +33,7 @@
 #include "config.h"
 #endif
 
+#include <inttypes.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <fcntl.h>
@@ -44,7 +43,7 @@
 #include <time.h>
 #include <inttypes.h>
 #include <sys/socket.h>
-#include <audiofile.h>
+#include <sndfile.h>
 
 #if defined(HAVE_LIBXML_XMLMEMORY_H)
 #include <libxml/xmlmemory.h>
@@ -56,15 +55,20 @@
 #include <libxml/xinclude.h>
 #endif
 
+//#if defined(WITH_SPANDSP_INTERNALS)
+#define SPANDSP_EXPOSE_INTERNAL_STRUCTURES
+//#endif
+
 #include "spandsp.h"
+#include "spandsp-sim.h"
 
 #define OUT_FILE_NAME   "super_tone.wav"
 
-AFfilehandle outhandle;
-AFfilesetup filesetup;
+SNDFILE *outhandle;
 
 super_tone_tx_step_t *tone_tree = NULL;
 
+#if defined(HAVE_LIBXML2)
 static void play_tones(super_tone_tx_state_t *tone, int max_samples)
 {
     int16_t amp[8000];
@@ -78,13 +82,10 @@ static void play_tones(super_tone_tx_state_t *tone, int max_samples)
     do
     {
         len = super_tone_tx(tone, amp, 160);
-        outframes = afWriteFrames(outhandle,
-                                  AF_DEFAULT_TRACK,
-                                  amp,
-                                  len);
+        outframes = sf_writef_short(outhandle, amp, len);
         if (outframes != len)
         {
-            fprintf(stderr, "    Error writing wave file\n");
+            fprintf(stderr, "    Error writing audio file\n");
             exit(2);
         }
         total_length += len;
@@ -94,7 +95,6 @@ static void play_tones(super_tone_tx_state_t *tone, int max_samples)
 }
 /*- End of function --------------------------------------------------------*/
 
-#if defined(HAVE_LIBXML2)
 static int parse_tone(super_tone_tx_step_t **tree, xmlDocPtr doc, xmlNsPtr ns, xmlNodePtr cur)
 {
     xmlChar *x;
@@ -171,14 +171,14 @@ static int parse_tone(super_tone_tx_step_t **tree, xmlDocPtr doc, xmlNsPtr ns, x
                                             length*1000.0 + 0.5,
                                             cycles);
             *tree = treep;
-            tree = &(treep->next);
-            parse_tone(&(treep->nest), doc, ns, cur);
+            tree = &treep->next;
+            parse_tone(&treep->nest, doc, ns, cur);
         }
         /*endif*/
         cur = cur->next;
     }
     /*endwhile*/
-    return  0;
+    return 0;
 }
 /*- End of function --------------------------------------------------------*/
 
@@ -198,7 +198,7 @@ static void parse_tone_set(xmlDocPtr doc, xmlNsPtr ns, xmlNodePtr cur)
             super_tone_tx_init(&tone, tone_tree);
 //printf("Len %p %p %d %d\n", (void *) tone.levels[0], (void *) tone_tree, tone_tree->length, tone_tree->tone);
             play_tones(&tone, 99999999);
-            super_tone_tx_free(tone_tree);
+            super_tone_tx_free_tone(tone_tree);
         }
         /*endif*/
         cur = cur->next;
@@ -209,33 +209,39 @@ static void parse_tone_set(xmlDocPtr doc, xmlNsPtr ns, xmlNodePtr cur)
 
 static void get_tone_set(const char *tone_file, const char *set_id)
 {
+    xmlParserCtxtPtr ctxt;
     xmlDocPtr doc;
     xmlNsPtr ns;
     xmlNodePtr cur;
-#if 0
-    xmlValidCtxt valid;
-#endif
     xmlChar *x;
 
-    ns = NULL;    
+    ns = NULL;
     xmlKeepBlanksDefault(0);
     xmlCleanupParser();
-    doc = xmlParseFile(tone_file);
-    if (doc == NULL)
+
+    if ((ctxt = xmlNewParserCtxt()) == NULL)
     {
-        fprintf(stderr, "No document\n");
+        fprintf(stderr, "Failed to allocate parser context\n");
+        printf("Test failed\n");
         exit(2);
     }
-    /*endif*/
-    xmlXIncludeProcess(doc);
-#if 0
-    if (!xmlValidateDocument(&valid, doc))
+    /* parse the file, activating the DTD validation option */
+    if ((doc = xmlCtxtReadFile(ctxt, tone_file, NULL, XML_PARSE_XINCLUDE | XML_PARSE_DTDVALID)) == NULL)
     {
-        fprintf(stderr, "Invalid document\n");
+        fprintf(stderr, "Failed to read the XML document\n");
+        printf("Test failed\n");
         exit(2);
     }
-    /*endif*/
-#endif
+    if (ctxt->valid == 0)
+    {
+        fprintf(stderr, "Failed to validate the XML document\n");
+    	xmlFreeDoc(doc);
+        xmlFreeParserCtxt(ctxt);
+        printf("Test failed\n");
+        exit(2);
+    }
+    xmlFreeParserCtxt(ctxt);
+
     /* Check the document is of the right kind */
     if ((cur = xmlDocGetRootElement(doc)) == NULL)
     {
@@ -282,17 +288,7 @@ static void get_tone_set(const char *tone_file, const char *set_id)
 
 int main(int argc, char *argv[])
 {
-    if ((filesetup = afNewFileSetup ()) == AF_NULL_FILESETUP)
-    {
-    	fprintf(stderr, "    Failed to create file setup\n");
-        exit(2);
-    }
-    afInitSampleFormat(filesetup, AF_DEFAULT_TRACK, AF_SAMPFMT_TWOSCOMP, 16);
-    afInitRate(filesetup, AF_DEFAULT_TRACK, 8000.0);
-    afInitFileFormat(filesetup, AF_FILE_WAVE);
-    afInitChannels(filesetup, AF_DEFAULT_TRACK, 1);
-
-    if ((outhandle = afOpenFile(OUT_FILE_NAME, "w", filesetup)) == AF_NULL_FILEHANDLE)
+    if ((outhandle = sf_open_telephony_write(OUT_FILE_NAME, 1)) == NULL)
     {
         fprintf(stderr, "    Cannot open audio file '%s'\n", OUT_FILE_NAME);
         exit(2);
@@ -300,12 +296,11 @@ int main(int argc, char *argv[])
 #if defined(HAVE_LIBXML2)
     get_tone_set("../spandsp/global-tones.xml", (argc > 1)  ?  argv[1]  :  "hk");
 #endif
-    if (afCloseFile (outhandle) != 0)
+    if (sf_close_telephony(outhandle))
     {
         fprintf(stderr, "    Cannot close audio file '%s'\n", OUT_FILE_NAME);
         exit(2);
     }
-    afFreeFileSetup(filesetup);
     printf("Done\n");
     return 0;
 }

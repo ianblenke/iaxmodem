@@ -21,8 +21,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: make_line_models.c,v 1.7 2008/07/25 13:56:54 steveu Exp $
  */
 
 /*! \page make_line_models_page Telephony line model construction
@@ -37,10 +35,11 @@
 #include "config.h"
 #endif
 
+#include <stdlib.h>
+#include <unistd.h>
 #include <inttypes.h>
 #include <string.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include "floating_fudge.h"
 #if defined(HAVE_FFTW3_H)
 #include <fftw3.h>
@@ -788,7 +787,7 @@ static void generate_ad_edd(void)
     float offset;
     float amp;
     float phase;
-    float delay;
+    //float delay;
     float pw;
 #if defined(HAVE_FFTW3_H)
     double in[FFT_SIZE][2];
@@ -837,7 +836,7 @@ static void generate_ad_edd(void)
                     amp = (1.0 - offset)*ad[l - 1].ad[j] + offset*ad[l].ad[j];
                     amp = pow(10.0, -amp/20.0);
                 }
-                delay = 0.0f;
+                //delay = 0.0f;
                 for (l = 0;  l < (int) (sizeof(edd)/sizeof(edd[0]));  l++)
                 {
                     if (f < edd[l].freq)
@@ -846,9 +845,10 @@ static void generate_ad_edd(void)
                 if (l < (int) (sizeof(edd)/sizeof(edd[0])))
                 {
                     offset = (f - edd[l - 1].freq)/(edd[l].freq - edd[l - 1].freq);
-                    delay = (1.0f - offset)*edd[l - 1].edd[k] + offset*edd[l].edd[k];
+                    //delay = (1.0f - offset)*edd[l - 1].edd[k] + offset*edd[l].edd[k];
                 }
-                phase = 2.0f*M_PI*f*delay*0.001f;
+                //phase = 2.0f*M_PI*f*delay*0.001f;
+                phase = 0.0f;
 #if defined(HAVE_FFTW3_H)    
                 in[i][0] = amp*cosf(phase);
                 in[i][1] = amp*sinf(phase);
@@ -873,7 +873,7 @@ static void generate_ad_edd(void)
 
             fprintf(outfile, "/* V.56bis AD-%d, EDD%d */\n", (j == 0)  ?  1  :  j + 4, k + 1);
 
-            fprintf(outfile, "float ad_%d_edd_%d_model[] =\n", (j == 0)  ?  1  :  j + 4, k + 1);
+            fprintf(outfile, "const float ad_%d_edd_%d_model[] =\n", (j == 0)  ?  1  :  j + 4, k + 1);
             fprintf(outfile, "{\n");
             /* Normalise the filter's gain */
             pw = 0.0f;
@@ -915,7 +915,7 @@ static void generate_proakis(void)
     float offset;
     float amp;
     float phase;
-    float delay;
+    //float delay;
     float pw;
     int index;
     int i;
@@ -953,8 +953,9 @@ static void generate_proakis(void)
 
         /* Linear interpolation */
         amp = ((1.0f - offset)*proakis[index].amp + offset*proakis[index + 1].amp)/2.3f;
-        delay = (1.0f - offset)*proakis[index].delay + offset*proakis[index + 1].delay;
-        phase = 2.0f*M_PI*f*delay*0.001f;
+        //delay = (1.0f - offset)*proakis[index].delay + offset*proakis[index + 1].delay;
+        //phase = 2.0f*M_PI*f*delay*0.001f;
+        phase = 0.0f;
 #if defined(HAVE_FFTW3_H)
         in[i][0] = amp*cosf(phase);
         in[i][1] = amp*sinf(phase);
@@ -977,7 +978,7 @@ static void generate_proakis(void)
     fprintf(outfile, "/* Medium range telephone line response\n");
     fprintf(outfile, "   (from p 537, Digital Communication, John G. Proakis */\n");
 
-    fprintf(outfile, "float proakis_line_model[] =\n");
+    fprintf(outfile, "const float proakis_line_model[] =\n");
     fprintf(outfile, "{\n");
     /* Normalise the filter's gain */
     pw = 0.0f;

@@ -1,16 +1,16 @@
 <?xml version="1.0"?>
-<!DOCTYPE global-tones SYSTEM "../tones.dtd">
+<!DOCTYPE global-tones SYSTEM "./tones.dtd">
 <global-tones>
   <tone-set country="Albania" uncode="al">
     <dial-tone>
       <step freq="425"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.3"/>
@@ -25,12 +25,12 @@
     </congestion-tone>
   </tone-set>
   <tone-set country="Algeria" uncode="dz">
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="25 || 50" level="-12" length="1.5"/>
         <step length="3.5"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="450" level="-12" length="0.5"/>
@@ -42,12 +42,12 @@
     <dial-tone>
       <step freq="400" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="25" level="-12" length="1.0"/>
         <step length="5.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.5"/>
@@ -82,12 +82,12 @@
       </step>
       <step freq="350+440" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440+480" level="-12" length="2.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="480+620" level="-12" length="0.5"/>
@@ -142,12 +142,12 @@
     <dial-tone type="recall">
       <step freq="350+440" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440+480" level="-12" length="2.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="480+620" level="-12" length="0.5"/>
@@ -180,12 +180,12 @@
     <dial-tone>
       <step freq="425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.3"/>
@@ -230,12 +230,12 @@
     <dial-tone>
       <step freq="425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.5"/>
@@ -273,12 +273,12 @@
     <dial-tone>
       <step freq="350+440" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440+480" level="-12" length="1.0"/>
         <step length="3.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="480+620" level="-12" length="0.5"/>
@@ -306,14 +306,14 @@
     <dial-tone domain="PABX">
       <step freq="154" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="383+417" level="-12" length="0.4"/>
         <step length="0.2"/>
         <step freq="383+417" level="-12" length="0.4"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.375"/>
@@ -365,6 +365,7 @@
       <step freq="525" level="-12" length="0.1"/>
       <step length="0.1"/>
     </offering-tone>
+    <!-- Billing signal: 12kHz/~2Vrms, differential/~125ms -->
   </tone-set>
   <tone-set country="Austria" uncode="at">
     <dial-tone>
@@ -376,12 +377,12 @@
     <dial-tone type="recall">
       <step freq="420" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="420 || 450" level="-12" length="1.0"/>
         <step length="5.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="420" level="-12" length="0.4"/>
@@ -444,14 +445,15 @@
       <step freq="380+420" level="-12" length="0.4"/>
       <step length="0.4"/>
     </negative-indication-tone>
+    <!-- Billing signal: 12kHz/~2Vrms, differential/~125ms -->
   </tone-set>
   <tone-set country="Bahamas" uncode="bs">
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440+480 || 400+440 || 400" level="-12" length="2.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="480 || 400" level="-12" length="0.5"/>
@@ -467,14 +469,14 @@
     <dial-tone>
       <step freq="330+440" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440 || 450" level="-12" length="0.4"/>
         <step length="0.2"/>
         <step freq="440 || 450" level="-12" length="0.4"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.375"/>
@@ -531,12 +533,12 @@
       </step>
       <step freq="350+440" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440+480" level="-12" length="2.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="480+620" level="-12" length="0.5"/>
@@ -551,12 +553,12 @@
     </congestion-tone>
   </tone-set>
   <tone-set country="Belarus" uncode="by">
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.8"/>
         <step length="3.2"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.4"/>
@@ -573,12 +575,12 @@
       <step freq="1020" level="-12" length="0.333"/>
       <step freq="1140" level="-12" length="0.333"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425 || 450" level="-12" length="1.0"/>
         <step length="3.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425 || 450" level="-12" length="0.5"/>
@@ -596,14 +598,15 @@
       <step freq="1380" level="-12" length="0.333"/>
       <step freq="1860" level="-12" length="0.333"/>
     </special-information-tone>
+    <!-- Billing signal: 16kHz/~2Vrms, differential/~125ms -->
   </tone-set>
   <tone-set country="Benin" uncode="bj">
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440" level="-12" length="1.5"/>
         <step length="3.5"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <payphone-recognition-tone>
       <step freq="1100+1750" level="-12" length="0.2"/>
       <step length="0.2"/>
@@ -615,12 +618,12 @@
     <dial-tone>
       <step freq="350+440" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440+480" level="-12" length="2.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="480+620" level="-12" length="0.5"/>
@@ -652,14 +655,14 @@
     <dial-tone>
       <step freq="400+25" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="400+25" level="-12" length="0.4"/>
         <step length="0.2"/>
         <step freq="400+25" level="-12" length="0.4"/>
         <step length="2.6"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.6"/>
@@ -686,14 +689,14 @@
     <dial-tone>
       <step freq="350+450" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="400 || 450" level="-12" length="0.4"/>
         <step length="0.2"/>
         <step freq="400 || 450" level="-12" length="0.4"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.375"/>
@@ -732,12 +735,12 @@
       <step freq="425" level="-12" length="0.975"/>
       <step length="0.05"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.25"/>
@@ -781,12 +784,12 @@
       </step>
       <step freq="350+440" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440+480" level="-12" length="2.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="480+620" level="-12" length="0.5"/>
@@ -838,14 +841,14 @@
     <dial-tone type="transmission">
       <step freq="1000" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="400+450" level="-12" length="0.4"/>
         <step length="0.3"/>
         <step freq="400+450" level="-12" length="0.4"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.375"/>
@@ -904,24 +907,24 @@
         <step length="1.0"/>
       </step>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="9.0"/>
       </step>
-    </ringback-tone>
-    <ringback-tone>
+    </ringing-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
-    <ringback-tone>
+    </ringing-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.83"/>
         <step length="3.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.25"/>
@@ -992,18 +995,18 @@
     <dial-tone domain="analogue">
       <step freq="350+440" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
-    <ringback-tone domain="analogue">
+    </ringing-tone>
+    <ringing-tone domain="analogue">
       <step cycles="endless">
         <step freq="440+480" level="-12" length="0.2"/>
         <step length="0.2"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.5"/>
@@ -1035,12 +1038,12 @@
     <dial-tone>
       <step freq="425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.7"/>
         <step length="3.3"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="450" level="-12" length="0.25"/>
@@ -1064,12 +1067,12 @@
     <dial-tone type="second">
       <step freq="330 || 440" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440" level="-12" length="1.7"/>
         <step length="3.3"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="440" level="-12" length="0.5"/>
@@ -1080,6 +1083,7 @@
       <step freq="440" level="-12" length="0.05"/>
       <step length="0.05"/>
     </route-tone>
+    <!-- Billing signal: 12kHz/~2Vrms, differential/~125ms -->
   </tone-set>
   <tone-set country="Canada" uncode="ca">
     <dial-tone>
@@ -1092,18 +1096,18 @@
       <step freq="350+440" level="-12" length="0.1"/>
       <step length="0.1"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440+480" level="-12" length="2.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
-    <ringback-tone domain="PABX">
+    </ringing-tone>
+    <ringing-tone domain="PABX">
       <step cycles="endless">
         <step freq="440+480" level="-12" length="1.0"/>
         <step length="3.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="480+620" level="-12" length="0.5"/>
@@ -1137,12 +1141,12 @@
     <dial-tone>
       <step freq="425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.5"/>
@@ -1169,12 +1173,12 @@
     <dial-tone type="second">
       <step freq="330+425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.7"/>
         <step length="3.3"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.5"/>
@@ -1201,19 +1205,20 @@
       <step freq="12000" level="-12" length="0.15"/>
       <step length="0.15"/>
     </pay-tone>
+    <!-- Billing signal: 12kHz/~2Vrms, differential/~125ms -->
   </tone-set>
   <tone-set country="Channel Islands: Jersey" uncode="??">
     <dial-tone>
       <step freq="350+450" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="400+450" level="-12" length="0.4"/>
         <step length="0.2"/>
         <step freq="400+450" level="-12" length="0.4"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.375"/>
@@ -1250,12 +1255,12 @@
     <dial-tone type="second">
       <step freq="330+440" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="1.0"/>
         <step length="3.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.5"/>
@@ -1305,12 +1310,12 @@
     <dial-tone type="second">
       <step freq="450" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="450" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="450" level="-12" length="0.35"/>
@@ -1359,12 +1364,12 @@
     <dial-tone type="second">
       <step freq="850" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.71"/>
         <step length="3.31"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.5"/>
@@ -1380,12 +1385,12 @@
     <dial-tone>
       <step freq="425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.2"/>
         <step length="4.6"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.3"/>
@@ -1404,12 +1409,12 @@
       <step freq="425" level="-12" length="0.4"/>
       <step length="0.04"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.5"/>
@@ -1478,24 +1483,24 @@
     <dial-tone type="second">
       <step freq="1050" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440+480 || 440+620 || 480+620" level="-12" length="2.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
-    <ringback-tone>
+    </ringing-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
-    <ringback-tone>
+    </ringing-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="380+460" level="-12" length="1.0"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="480+720 || 620+480 || 425" level="-12" length="0.5"/>
@@ -1532,20 +1537,20 @@
     <dial-tone>
       <step freq="350+450" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.5"/>
         <step length="3.0"/>
       </step>
-    </ringback-tone>
-    <ringback-tone>
+    </ringing-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="375+425" level="-12" length="0.4"/>
         <step length="0.2"/>
         <step freq="375+425" level="-12" length="0.4"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.5"/>
@@ -1599,12 +1604,12 @@
         <step length="0.660"/>
       </step>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.333"/>
@@ -1647,17 +1652,18 @@
       <step freq="425" level="-12" length="0.333"/>
       <step length="1.5"/>
     </offering-tone>
+    <!-- Billing signal: 16kHz/~2Vrms, differential/~125ms -->
   </tone-set>
   <tone-set country="Denmark" uncode="dk">
     <dial-tone>
       <step freq="425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.25"/>
@@ -1700,6 +1706,7 @@
       <step freq="1400+950" level="-12" length="0.2"/>
       <step length="2.0"/>
     </payphone-recognition-tone>
+    <!-- Billing signal: 12kHz/~2Vrms, differential/~125ms -->
   </tone-set>
   <tone-set country="Diego Garcia" uncode="??">
     <dial-tone>
@@ -1710,12 +1717,12 @@
         <step freq="480+620" level="-12" length="interrupted at 60 ipm"/>
       </step>
     </busy-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440+480" level="-12" length="1.0"/>
         <step length="3.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <number-unobtainable-tone>
       <step cycles="endless">
         <step freq="480+620" level="-12" length="interrupted at 120 ipm"/>
@@ -1726,12 +1733,12 @@
     <dial-tone>
       <step freq="425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.5"/>
         <step length="3.5"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.5"/>
@@ -1754,12 +1761,12 @@
       </step>
       <step freq="350+440" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440+480" level="-12" length="2.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="480+620" level="-12" length="0.5"/>
@@ -1811,14 +1818,14 @@
       <step freq="33" level="-12" length="0.0166"/>
       <step length="0.0166"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="400 || 450" level="-12" length="0.4"/>
         <step length="0.2"/>
         <step freq="400 || 450" level="-12" length="0.4"/>
         <step length="2.2"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.8"/>
@@ -1853,12 +1860,12 @@
     <dial-tone>
       <step freq="425" level="-12" length="15.0"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.2"/>
         <step length="4.65"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.333"/>
@@ -1877,12 +1884,12 @@
     </waiting-tone>
   </tone-set>
   <tone-set country="Egypt" uncode="eg">
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="375+475" level="-12" length="2.0"/>
         <step length="1.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="375+475" level="-12" length="1.0"/>
@@ -1915,12 +1922,12 @@
     <dial-tone>
       <step freq="425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.2"/>
         <step length="5.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.333"/>
@@ -1932,12 +1939,12 @@
     <dial-tone>
       <step freq="425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.3"/>
@@ -1967,17 +1974,18 @@
       <step freq="1800" level="-12" length="0.33"/>
       <step length="0.3"/>
     </waiting-tone>
+    <!-- Billing signal: 16kHz/~2Vrms, differential/~125ms -->
   </tone-set>
   <tone-set country="Ethiopia" uncode="et">
     <dial-tone>
       <step freq="425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.4"/>
@@ -2003,12 +2011,12 @@
     <dial-tone>
       <step freq="350+450" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="400+450" level="-12" length="0.4"/>
         <step length="0.2"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.375"/>
@@ -2042,12 +2050,12 @@
     <dial-tone>
       <step freq="425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.25"/>
@@ -2075,22 +2083,22 @@
     <dial-tone domain="PABX">
       <step freq="33.33" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="116.33+149.67 || 375+425" level="-12" length="0.4"/>
         <step length="0.2"/>
         <step freq="116.33+149.67 || 375+425" level="-12" length="0.4"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
-    <ringback-tone domain="PABX">
+    </ringing-tone>
+    <ringing-tone domain="PABX">
       <step cycles="endless">
         <step freq="383.33+416.67" level="-12" length="0.4"/>
         <step length="0.2"/>
         <step freq="383.33+416.67" level="-12" length="0.4"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.75"/>
@@ -2138,12 +2146,12 @@
       <step freq="425" level="-12" length="0.65"/>
       <step length="0.025"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.3"/>
@@ -2181,17 +2189,18 @@
       <step freq="425" level="-12" length="0.15"/>
       <step length="8.0"/>
     </waiting-tone>
+    <!-- Billing signal: 16kHz/~2Vrms, differential/~125ms -->
   </tone-set>
   <tone-set country="France" uncode="fr">
     <dial-tone>
       <step freq="330+440 || 440" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440" level="-12" length="1.5"/>
         <step length="3.5"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="440" level="-12" length="0.5"/>
@@ -2210,17 +2219,18 @@
       <step freq="440" level="-12" length="0.05"/>
       <step length="0.05"/>
     </route-tone>
+    <!-- Billing signal: 12kHz/~2Vrms, differential/~125ms -->
   </tone-set>
   <tone-set country="French Polynesia" uncode="pf">
     <dial-tone>
       <step freq="440 || 330+440" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440" level="-12" length="1.5"/>
         <step length="3.5"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="440" level="-12" length="0.5"/>
@@ -2250,18 +2260,18 @@
     <dial-tone type="second">
       <step freq="330+440" level="-12" length="7.0"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440" level="-12" length="1.5"/>
         <step length="3.0"/>
       </step>
-    </ringback-tone>
-    <ringback-tone>
+    </ringing-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.5"/>
         <step length="3.5"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="440" level="-12" length="0.5"/>
@@ -2293,12 +2303,12 @@
     <dial-tone>
       <step freq="425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.5"/>
@@ -2313,7 +2323,7 @@
     <dial-tone type="special">
       <step freq="400+425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425 || 450" level="-12" length="0.25"/>
         <step length="4.0"/>
@@ -2322,8 +2332,8 @@
         <step freq="425 || 450" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
-    <ringback-tone>
+    </ringing-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425 || 450" level="-12" length="0.5"/>
         <step length="4.0"/>
@@ -2332,19 +2342,19 @@
         <step freq="425 || 450" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
-    <ringback-tone>
+    </ringing-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425 || 450" level="-12" length="1.0"/>
         <step length="5.0"/>
       </step>
-    </ringback-tone>
-    <ringback-tone>
+    </ringing-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="450" level="-12" length="1.0"/>
         <step length="9.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.48"/>
@@ -2419,17 +2429,18 @@
         <step length="2.0"/>
       </step>
     </payphone-recognition-tone>
+    <!-- Billing signal: 16kHz/~2Vrms, differential/~125ms -->
   </tone-set>
   <tone-set country="Ghana" uncode="gh">
     <dial-tone>
       <step freq="400" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.25"/>
@@ -2471,14 +2482,14 @@
     <dial-tone>
       <step freq="350+400" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="400+450" level="-12" length="0.4"/>
         <step length="0.2"/>
         <step freq="400+450" level="-12" length="0.4"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.375"/>
@@ -2520,12 +2531,12 @@
         <step length="0.8"/>
       </step>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425 || 450" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425 || 450" level="-12" length="0.3"/>
@@ -2571,6 +2582,7 @@
         <step freq="450" level="-12"/>
       </step>
     </number-unobtainable-tone>
+    <!-- Billing signal: 16kHz/~2Vrms, differential/~125ms -->
   </tone-set>
   <tone-set country="Greenland" uncode="gl">
     <dial-tone>
@@ -2579,12 +2591,12 @@
     <dial-tone type="second">
       <step freq="445 || 425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="445 || 425" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="445 || 425" level="-12" length="0.25"/>
@@ -2618,12 +2630,12 @@
     </pay-tone>
   </tone-set>
   <tone-set country="Grenada" uncode="gd">
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440+480" level="-12" length="2.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="460+620" level="-12" length="0.5"/>
@@ -2640,12 +2652,12 @@
     <dial-tone>
       <step freq="440 || 330+440" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440" level="-12" length="1.5"/>
         <step length="3.5"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="440" level="-12" length="0.5"/>
@@ -2669,12 +2681,12 @@
     <dial-tone>
       <step freq="440 || 330+440" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440" level="-12" length="1.5"/>
         <step length="3.5"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="440" level="-12" length="0.5"/>
@@ -2695,12 +2707,12 @@
     </route-tone>
   </tone-set>
   <tone-set country="Guinea" uncode="gn">
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="450" level="-12" length="0.4"/>
         <step length="0.2"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="450" level="-12" length="0.2"/>
@@ -2715,12 +2727,12 @@
       <step freq="360+400" level="-12" length="0.2"/>
       <step length="0.5"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.75"/>
         <step length="3.25"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.5"/>
@@ -2746,14 +2758,14 @@
       <step freq="440" level="-12" length="0.135"/>
       <step length="0.135"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440" level="-12" length="0.5"/>
         <step length="4.0"/>
         <step freq="440" level="-12" length="2.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="440" level="-12" length="0.5"/>
@@ -2784,14 +2796,14 @@
       </step>
       <step freq="350+440 [1%]" level="-13 [-15 -5]" recognition-length="0.3"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440+480 [1%]" level="-13" length="0.4 [10%]"/>
         <step length="0.2 [10%]"/>
         <step freq="440+480 [1%]" level="-13" length="0.4 [10%]"/>
         <step length="3.0 [10%]" recognition-length="0.6"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="480+620 [1%]" level="-13" length="0.5 [10%]"/>
@@ -2827,12 +2839,12 @@
     <dial-tone type="special">
       <step freq="350+375+400" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.2"/>
         <step length="3.7"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.3"/>
@@ -2886,12 +2898,12 @@
       <step freq="425" level="-12" length="0.4"/>
       <step length="0.04"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.2"/>
         <step length="4.7"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.25"/>
@@ -2926,22 +2938,22 @@
     <dial-tone>
       <step freq="33 || 50 || 375+425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="375+425" level="-12" length="0.4"/>
         <step length="0.2"/>
         <step freq="375+425" level="-12" length="0.4"/>
         <step length="2.6"/>
       </step>
-    </ringback-tone>
-    <ringback-tone>
+    </ringing-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="133 || 375+425" level="-12" length="0.4"/>
         <step length="0.2"/>
         <step freq="133 || 375+425" level="-12" length="0.4"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.75"/>
@@ -2970,12 +2982,12 @@
     <dial-tone>
       <step freq="425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.5"/>
@@ -3025,12 +3037,12 @@
     <dial-tone type="recall">
       <step freq="425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.5"/>
@@ -3084,11 +3096,11 @@
       <step freq="133" level="-12" length="0.4"/>
       <step length="1.5"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="400" level="-12"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="1.0"/>
@@ -3100,14 +3112,14 @@
     <dial-tone>
       <step freq="400+425+450" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="400 || 450 || 400+450" level="-12" length="0.4"/>
         <step length="0.2"/>
         <step freq="400 || 450 || 400+450" level="-12" length="0.4"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.5"/>
@@ -3136,6 +3148,7 @@
       <step freq="750+1450" level="-12" length="0.2"/>
       <step length="2.0"/>
     </payphone-recognition-tone>
+    <!-- Billing signal: 12kHz/~2Vrms, differential/~125ms -->
   </tone-set>
   <tone-set country="Israel" uncode="il">
     <dial-tone>
@@ -3159,12 +3172,12 @@
       <step freq="400" level="-12" length="1.0"/>
       <step length="0.25"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="400 || 425 || 440" level="-12" length="1.0"/>
         <step length="3.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400 || 425 || 440" level="-12" length="0.5"/>
@@ -3227,6 +3240,7 @@
       <step freq="400" level="-12" length="0.05"/>
       <step length="2.0"/>
     </holding-tone>
+    <!-- Billing signal: 16kHz/~2Vrms, differential/~125ms -->
   </tone-set>
   <tone-set country="Italy" uncode="it">
     <dial-tone>
@@ -3235,29 +3249,30 @@
       <step freq="425" level="-12" length="0.2"/>
       <step length="0.2"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.2"/>
         <step length="0.2"/>
       </step>
     </busy-tone>
+    <!-- Billing signal: 12kHz/~2Vrms, differential/~125ms -->
   </tone-set>
   <tone-set country="Ivory Coast" uncode="ci">
     <dial-tone>
       <step freq="425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="50 || 375+475" level="-12" length="1.66"/>
         <step length="3.33"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.5"/>
@@ -3268,37 +3283,38 @@
       <step freq="425" level="-12" length="0.05"/>
       <step length="0.05"/>
     </route-tone>
+    <!-- Billing signal: 12kHz/~2Vrms, differential/~125ms -->
   </tone-set>
   <tone-set country="Jamaica" uncode="jm">
     <dial-tone>
       <step freq="350+440" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440+480" level="-12" length="2.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
-    <ringback-tone>
+    </ringing-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440+480" level="-12" length="1.5"/>
         <step length="4.5"/>
       </step>
-    </ringback-tone>
-    <ringback-tone>
+    </ringing-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440+480" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
-    <ringback-tone>
+    </ringing-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="400 || 133" level="-12" length="0.4"/>
         <step length="0.2"/>
         <step freq="400 || 133" level="-12" length="0.4"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.75"/>
@@ -3365,18 +3381,18 @@
     <dial-tone type="recall">
       <step freq="350+440" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="384+416" level="-12" length="1.0"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
-    <ringback-tone domain="PABX">
+    </ringing-tone>
+    <ringing-tone domain="PABX">
       <step cycles="endless">
         <step freq="380+420" level="-12" length="1.0"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.5"/>
@@ -3434,20 +3450,20 @@
     <dial-tone>
       <step freq="380+460 || 400+440" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="380+460 || 400+440" level="-12" length="1.2"/>
         <step length="4.8"/>
       </step>
-    </ringback-tone>
-    <ringback-tone>
+    </ringing-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="383.33+416.67" level="-12" length="0.4"/>
         <step length="0.2"/>
         <step freq="383.33+416.67" level="-12" length="0.4"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.75"/>
@@ -3510,7 +3526,7 @@
       <step freq="425" level="-12" length="0.75"/>
       <step length="0.75"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="4.0"/>
@@ -3521,7 +3537,7 @@
         <step freq="425" level="-12" length="0.4"/>
         <step length="0.2"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.5"/>
@@ -3567,14 +3583,14 @@
     <dial-tone>
       <step freq="425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.4"/>
         <step length="0.2"/>
         <step freq="425" level="-12" length="0.4"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.5"/>
@@ -3612,12 +3628,12 @@
       <step freq="400 || 450" level="-12" length="1.0"/>
       <step length="2.0"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440+480" level="-12" length="1.0"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="480+620" level="-12" length="0.5"/>
@@ -3666,18 +3682,18 @@
       <step freq="425" level="-12" length="0.4"/>
       <step length="0.04"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
-    <ringback-tone>
+    </ringing-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="1.0"/>
         <step length="3.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.5"/>
@@ -3726,12 +3742,12 @@
     </acceptance-tone>
   </tone-set>
   <tone-set country="Kyrgyzstan" uncode="kg">
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.8"/>
         <step length="3.2"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.4"/>
@@ -3759,12 +3775,12 @@
       <step freq="425" level="-12" length="0.4"/>
       <step length="0.04"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
@@ -3792,12 +3808,12 @@
     </confirmation-tone>
   </tone-set>
   <tone-set country="Lebanon" uncode="lb">
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="435" level="-12" length="1.2"/>
         <step length="4.4"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="435" level="-12" length="0.4"/>
@@ -3809,12 +3825,12 @@
     <dial-tone>
       <step freq="425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425 || 450" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.5"/>
@@ -3836,12 +3852,12 @@
     <dial-tone>
       <step freq="425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.8"/>
         <step length="3.2"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.4"/>
@@ -3859,12 +3875,12 @@
     <dial-tone>
       <step freq="425 || 450" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425 || 450" level="-12" length="0.5"/>
@@ -3908,12 +3924,12 @@
       <step freq="425" level="-12" length="1.8"/>
       <step length="0.2"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.5"/>
@@ -3944,12 +3960,12 @@
     </payphone-recognition-tone>
   </tone-set>
   <tone-set country="Madagascar" uncode="mg">
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="25" level="-12" length="1.66"/>
         <step length="3.33"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="450" level="-12" length="0.5"/>
@@ -3965,20 +3981,20 @@
     <dial-tone>
       <step freq="425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
-    <ringback-tone>
+    </ringing-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="400 || 133" level="-12" length="0.4"/>
         <step length="0.2"/>
         <step freq="400 || 133" level="-12" length="0.4"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.75"/>
@@ -4018,14 +4034,14 @@
       <step length="0.25"/>
       <step freq="425" level="-12" length="2.0"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.4"/>
         <step length="0.2"/>
         <step freq="425" level="-12" length="0.4"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.5"/>
@@ -4082,14 +4098,14 @@
     <dial-tone>
       <step freq="350+450" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.4"/>
         <step length="0.2"/>
         <step freq="400" level="-12" length="0.4"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.5"/>
@@ -4123,12 +4139,12 @@
       <step freq="425" level="-12" length="0.40"/>
       <step length="0.04"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.7"/>
         <step length="3.3"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.5"/>
@@ -4150,14 +4166,14 @@
     </acceptance-tone>
   </tone-set>
   <tone-set country="Malta" uncode="mt">
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="400+450 || 375+425 || 383.33+416.67" level="-12" length="0.4"/>
         <step length="0.2"/>
         <step freq="400+450 || 375+425 || 383.33+416.67" level="-12" length="0.4"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.375"/>
@@ -4181,17 +4197,18 @@
       <step freq="400" level="-12" length="0.15"/>
       <step length="0.15"/>
     </pay-tone>
+    <!-- Billing signal: 12kHz/~2Vrms, differential/~125ms -->
   </tone-set>
   <tone-set country="Martinique (French Dep.)" uncode="mq">
     <dial-tone>
       <step freq="440 || 330+440" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440" level="-12" length="1.5"/>
         <step length="3.5"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="440" level="-12" length="0.5"/>
@@ -4215,12 +4232,12 @@
     <dial-tone>
       <step freq="425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.5"/>
         <step length="3.5"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.5"/>
@@ -4236,12 +4253,12 @@
     <dial-tone>
       <step freq="425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.75"/>
@@ -4257,12 +4274,12 @@
     <dial-tone>
       <step freq="440 || 330+440" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440" level="-12" length="1.5"/>
         <step length="3.5"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="440" level="-12" length="0.5"/>
@@ -4286,12 +4303,12 @@
     <dial-tone>
       <step freq="425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.25"/>
@@ -4312,12 +4329,12 @@
     </warning-tone>
   </tone-set>
   <tone-set country="Moldova" uncode="md">
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.8"/>
         <step length="3.2"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.4"/>
@@ -4342,12 +4359,12 @@
       </step>
       <step freq="350+440" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440+480" level="-12" length="2.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="480+620" level="-12" length="0.5"/>
@@ -4402,12 +4419,12 @@
       <step freq="740" level="-12" length="0.3"/>
       <step length="0.2"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.66"/>
         <step length="3.33"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.5"/>
@@ -4420,12 +4437,12 @@
     </route-tone>
   </tone-set>
   <tone-set country="Mozambique" uncode="mz">
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="1.0"/>
         <step length="5.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.5"/>
@@ -4443,14 +4460,14 @@
     <dial-tone>
       <step freq="407+473" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="407+473" level="-12" length="0.4"/>
         <step length="0.2"/>
         <step freq="407+473" level="-12" length="0.4"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.75"/>
@@ -4500,20 +4517,20 @@
     <dial-tone type="recall" domain="PABX">
       <step freq="33" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
-    <ringback-tone domain="PABX">
+    </ringing-tone>
+    <ringing-tone domain="PABX">
       <step cycles="endless">
         <step freq="400+450" level="-12" length="0.4"/>
         <step length="0.2"/>
         <step freq="400+450" level="-12" length="0.4"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.5"/>
@@ -4545,12 +4562,12 @@
     <dial-tone>
       <step freq="425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.1"/>
         <step length="3.1"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.25"/>
@@ -4578,12 +4595,12 @@
       <step freq="425 || 450" level="-12" length="0.5"/>
       <step length="0.05"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425 || 450" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425 || 450" level="-12" length="0.5"/>
@@ -4622,17 +4639,18 @@
       <step freq="425 || 450" level="-12" length="0.0625"/>
       <step length="0.0625"/>
     </negative-indication-tone>
+    <!-- Billing signal: 50Hz/~50Vrms, longitudinal/~160ms -->
   </tone-set>
   <tone-set country="New Caledonia" uncode="nc">
     <dial-tone>
       <step freq="440 || 330+440" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440" level="-12" length="1.5"/>
         <step length="3.5"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="440" level="-12" length="0.5"/>
@@ -4656,14 +4674,14 @@
     <dial-tone>
       <step freq="400" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="400+450" level="-12" length="0.4"/>
         <step length="0.2"/>
         <step freq="400+450" level="-12" length="0.4"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.5"/>
@@ -4734,12 +4752,12 @@
     <dial-tone type="second">
       <step freq="330 || 440" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440" level="-12" length="1.7"/>
         <step length="3.3"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="440" level="-12" length="0.5"/>
@@ -4767,12 +4785,12 @@
     <dial-tone type="recall">
       <step freq="400 || 425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="400 || 425 || 450" level="-12" length="2.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.5"/>
@@ -4814,18 +4832,18 @@
     </holding-tone>
   </tone-set>
   <tone-set country="Norway" uncode="no">
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
-    <ringback-tone>
+    </ringing-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="400 || 450" level="-12" length="1.0"/>
         <step length="3.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.5"/>
@@ -4858,6 +4876,7 @@
         <step length="2.0"/>
       </step>
     </payphone-recognition-tone>
+    <!-- Billing signal: 16kHz/~2Vrms, differential/~125ms -->
   </tone-set>
   <tone-set country="Oman" uncode="om">
     <dial-tone>
@@ -4866,14 +4885,14 @@
     <dial-tone type="second">
       <step freq="425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.4"/>
         <step length="0.2"/>
         <step freq="425" level="-12" length="0.4"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.5"/>
@@ -4908,20 +4927,20 @@
     </line-lockout-tone>
   </tone-set>
   <tone-set country="Pakistan" uncode="pk">
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="450" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
-    <ringback-tone>
+    </ringing-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="383.33+416.67" level="-12" length="0.4"/>
         <step length="0.2"/>
         <step freq="383.33+416.67" level="-12" length="0.4"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.75"/>
@@ -4941,12 +4960,12 @@
     <dial-tone>
       <step freq="425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.20"/>
         <step length="4.65"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.32"/>
@@ -4983,14 +5002,14 @@
       <step freq="425" level="-12" length="0.4"/>
       <step length="0.04"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425 || 375+425 || 383.33+416.67 || 400+450 || 390+430" level="-12" length="0.4"/>
         <step length="0.2"/>
         <step freq="425 || 375+425 || 383.33+416.67 || 400+450 || 390+430" level="-12" length="0.4"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425 || 400" level="-12" length="0.375"/>
@@ -5055,12 +5074,12 @@
     </payphone-recognition-tone>
   </tone-set>
   <tone-set country="Paraguay" uncode="py">
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
@@ -5104,18 +5123,18 @@
     <dial-tone type="special">
       <step freq="400+425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="450" level="-12" length="1.0"/>
         <step length="10.0"/>
       </step>
-    </ringback-tone>
-    <ringback-tone>
+    </ringing-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425+480" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="480+720 || 425" level="-12" length="0.5"/>
@@ -5148,12 +5167,12 @@
     <dial-tone type="second">
       <step freq="350+425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.5"/>
@@ -5194,18 +5213,18 @@
       <step freq="425" level="-12" length="1.0"/>
       <step length="0.2"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="5.0"/>
       </step>
-    </ringback-tone>
-    <ringback-tone domain="analogue">
+    </ringing-tone>
+    <ringing-tone domain="analogue">
       <step cycles="endless">
         <step freq="400" level="-12" length="1.0"/>
         <step length="5.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.5"/>
@@ -5248,6 +5267,7 @@
       <step freq="941" level="-12" length="0.2"/>
       <step length="2.0"/>
     </payphone-recognition-tone>
+    <!-- Billing signal: 12kHz/~2Vrms, differential/~125ms -->
   </tone-set>
   <tone-set country="Puerto Rico" uncode="pr">
     <payphone-recognition-tone>
@@ -5261,22 +5281,22 @@
     <dial-tone>
       <step freq="350+440" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="400+450" level="-12" length="0.4"/>
         <step length="0.2"/>
         <step freq="400+450" level="-12" length="0.4"/>
         <step length="2.2"/>
       </step>
-    </ringback-tone>
-    <ringback-tone>
+    </ringing-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="400+450" level="-12" length="0.4"/>
         <step length="0.2"/>
         <step freq="400+450" level="-12" length="0.4"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400 || 450" level="-12" length="0.8"/>
@@ -5307,12 +5327,12 @@
     <dial-tone>
       <step freq="440 || 330+440" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440" level="-12" length="1.5"/>
         <step length="3.5"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="440" level="-12" length="0.5"/>
@@ -5336,12 +5356,12 @@
     <dial-tone>
       <step freq="400 || 450" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="384+416 || 425+475" level="-12" length="2.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="133 || 450" level="-12" length="0.15"/>
@@ -5360,12 +5380,12 @@
     </number-unobtainable-tone>
   </tone-set>
   <tone-set country="Russia" uncode="ru">
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.8"/>
         <step length="3.2"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.4"/>
@@ -5388,12 +5408,12 @@
     <dial-tone type="second">
       <step freq="340" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440" level="-12" length="1.7"/>
         <step length="3.3"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="440" level="-12" length="0.5"/>
@@ -5412,17 +5432,18 @@
       <step freq="440" level="-12" length="0.05"/>
       <step length="0.05"/>
     </route-tone>
+    <!-- Billing signal: 12kHz/~2Vrms, differential/~125ms -->
   </tone-set>
   <tone-set country="St. Helena" uncode="sh">
     <dial-tone>
       <step freq="350+400" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="400+450" level="-12" length="0.4"/>
         <step length="0.2"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.375"/>
@@ -5456,12 +5477,12 @@
       </step>
       <step freq="350+440" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440+480" level="-12" length="2.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="480+620" level="-12" length="0.5"/>
@@ -5510,14 +5531,14 @@
     <dial-tone type="second">
       <step freq="425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.375"/>
         <step length="0.25"/>
         <step freq="425" level="-12" length="0.375"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.5"/>
@@ -5555,12 +5576,12 @@
     <dial-tone>
       <step freq="440 || 330+440" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440" level="-12" length="1.5"/>
         <step length="3.5"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="440" level="-12" length="0.5"/>
@@ -5584,12 +5605,12 @@
     <dial-tone>
       <step freq="350+450" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="400+450" level="-12" length="0.2"/>
         <step length="0.4"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.375"/>
@@ -5612,12 +5633,12 @@
       <step freq="425" level="-12" length="0.2"/>
       <step length="0.2"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.2"/>
@@ -5629,12 +5650,12 @@
     <dial-tone>
       <step freq="425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="5.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.5"/>
@@ -5658,12 +5679,12 @@
     <dial-tone type="recall">
       <step freq="425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.2"/>
         <step length="4.6"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.5"/>
@@ -5703,12 +5724,12 @@
     <dial-tone type="second">
       <step freq="330+440" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="1.7"/>
         <step length="3.3"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="440" level="-12" length="0.5"/>
@@ -5724,14 +5745,14 @@
     <dial-tone>
       <step freq="350+440" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.4"/>
         <step length="0.2"/>
         <step freq="425" level="-12" length="0.4"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.375"/>
@@ -5756,12 +5777,12 @@
     <dial-tone>
       <step freq="425 || 450" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425 || 450" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425 || 450" level="-12" length="0.5"/>
@@ -5788,14 +5809,14 @@
     <dial-tone>
       <step freq="425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="401+449" level="-12" length="0.4"/>
         <step length="0.2"/>
         <step freq="401+449" level="-12" length="0.4"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.75"/>
@@ -5853,12 +5874,12 @@
       <step freq="425" level="-12" length="0.660"/>
       <step length="0.660"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.333"/>
@@ -5902,6 +5923,7 @@
     <warning-tone type="conference">
       <step freq="425" level="-12" length="0.66"/>
     </warning-tone>
+    <!-- Billing signal: 16kHz/~2Vrms, differential/~125ms -->
   </tone-set>
   <tone-set country="Slovenia" uncode="si">
     <dial-tone>
@@ -5910,12 +5932,12 @@
       <step freq="425" level="-12" length="0.2"/>
       <step length="0.3"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.5"/>
@@ -5939,12 +5961,12 @@
     <dial-tone>
       <step freq="400" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="400+450" level="-12" length="0.4"/>
         <step length="0.2"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.5"/>
@@ -5983,14 +6005,14 @@
       </step>
       <step freq="367+433" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="367+433" level="-12" length="0.4"/>
         <step length="0.2"/>
         <step freq="367+433" level="-12" length="0.4"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.5"/>
@@ -6068,12 +6090,12 @@
       <step freq="425" level="-12" length="1.0"/>
       <step length="0.1"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.5"/>
         <step length="3.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.2"/>
@@ -6144,6 +6166,7 @@
       <step freq="1600" level="-12" length="0.05"/>
       <step length="1.5"/>
     </payphone-recognition-tone>
+    <!-- Billing signal: 12kHz/~2Vrms, differential/~125ms -->
   </tone-set>
   <tone-set country="Sri Lanka" uncode="lk">
     <dial-tone>
@@ -6153,12 +6176,12 @@
       <step freq="425" level="-12" length="0.65"/>
       <step length="0.03"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.4"/>
         <step length="0.2"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.75"/>
@@ -6191,12 +6214,12 @@
     <dial-tone>
       <step freq="425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="15.0"/>
         <step length="0.5"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.5"/>
@@ -6219,14 +6242,14 @@
     <dial-tone>
       <step freq="50" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.4"/>
         <step length="0.2"/>
         <step freq="400" level="-12" length="0.4"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.5"/>
@@ -6274,18 +6297,18 @@
         <step length="0.01"/>
       </step>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="5.0"/>
       </step>
-    </ringback-tone>
-    <ringback-tone domain="analogue">
+    </ringing-tone>
+    <ringing-tone domain="analogue">
       <step cycles="endless">
         <step freq="400" level="-12" length="1.0"/>
         <step length="9.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.25"/>
@@ -6357,6 +6380,7 @@
         <step length="3.6"/>
       </step>
     </pay-tone>
+    <!-- Billing signal: 12kHz/~2Vrms, differential/~125ms -->
   </tone-set>
   <tone-set country="Switzerland" uncode="ch">
     <dial-tone>
@@ -6365,12 +6389,12 @@
     <dial-tone domain="PABX">
       <step freq="500" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425 || 500" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.5"/>
@@ -6417,6 +6441,7 @@
       <step freq="750+1450" level="-12" length="0.2"/>
       <step length="2.0"/>
     </payphone-recognition-tone>
+    <!-- Billing signal: 12kHz/~2Vrms, differential/~125ms -->
   </tone-set>
   <tone-set country="Syria" uncode="sy">
     <dial-tone>
@@ -6425,18 +6450,18 @@
     <dial-tone type="recall">
       <step freq="450" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425 || 475" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
-    <ringback-tone>
+    </ringing-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="450 || 50" level="-12" length="1.0"/>
         <step length="3.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="450" level="-12" length="0.5"/>
@@ -6479,12 +6504,12 @@
     </number-unobtainable-tone>
   </tone-set>
   <tone-set country="Tajikistan" uncode="tj">
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.8"/>
         <step length="3.2"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.4"/>
@@ -6502,15 +6527,15 @@
     <dial-tone>
       <step freq="50" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step freq="400" level="-12"/>
-    </ringback-tone>
-    <ringback-tone>
+    </ringing-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="1.0"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.75"/>
@@ -6534,12 +6559,12 @@
     <dial-tone>
       <step freq="350+450 || 400" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.5"/>
@@ -6578,12 +6603,12 @@
     <dial-tone>
       <step freq="350+440" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440+480" level="-12" length="2.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="480+620" level="-12" length="0.5"/>
@@ -6594,14 +6619,14 @@
       <step freq="440" level="-12" length="0.3"/>
       <step length="10.0"/>
     </waiting-tone>
-    <re-order-tone>
+    <reorder-tone>
       <step freq="480+620" level="-12" length="0.3"/>
       <step length="0.2"/>
-    </re-order-tone>
-    <re-order-tone>
+    </reorder-tone>
+    <reorder-tone>
       <step freq="480+620" level="-12" length="0.2"/>
       <step length="0.3"/>
-    </re-order-tone>
+    </reorder-tone>
   </tone-set>
   <tone-set country="Tunisia" uncode="tn">
     <dial-tone>
@@ -6611,12 +6636,12 @@
       <step freq="425" level="-12" length="0.4"/>
       <step length="0.04"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.2"/>
         <step length="4.6"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.25"/>
@@ -6634,6 +6659,7 @@
         <step length="0.167"/>
       </step>
     </congestion-tone>
+    <!-- Billing signal: 12kHz/~2Vrms, differential/~125ms -->
   </tone-set>
   <tone-set country="Turkey" uncode="tr">
     <dial-tone>
@@ -6646,12 +6672,12 @@
       <step freq="450" level="-12" length="1.0"/>
       <step length="0.25"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="450" level="-12" length="2.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="450" level="-12" length="0.5"/>
@@ -6701,6 +6727,7 @@
       <step freq="450" level="-12" length="0.04"/>
       <step length="0.04"/>
     </confirmation-tone>
+    <!-- Billing signal: 12kHz/~2Vrms, differential/~125ms -->
   </tone-set>
   <tone-set country="Turkmenistan" uncode="tm">
     <dial-tone>
@@ -6709,12 +6736,12 @@
     <dial-tone type="second">
       <step freq="425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="25" level="-12" length="0.4"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.4"/>
@@ -6749,12 +6776,12 @@
       </step>
       <step freq="350+440" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440+480" level="-12" length="2.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="480+620" level="-12" length="0.5"/>
@@ -6802,14 +6829,14 @@
     <dial-tone>
       <step freq="33 || 50" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="133+17 || 400+17 || 400+450" level="-12" length="0.25"/>
         <step length="0.5"/>
         <step freq="133+17 || 400+17 || 400+450" level="-12" length="0.25"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.75"/>
@@ -6838,14 +6865,14 @@
     <dial-tone>
       <step freq="350+440" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="400+450 || 425" level="-12" length="0.4"/>
         <step length="0.2"/>
         <step freq="400+450 || 425" level="-12" length="0.4"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400 || 425" level="-12" length="0.375"/>
@@ -6870,14 +6897,14 @@
     <dial-tone>
       <step freq="350+440 || 50" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="400+450 || 375+425 || 383.33+416.67" level="-12" length="0.4"/>
         <step length="0.2"/>
         <step freq="400+450 || 375+425 || 383.33+416.67" level="-12" length="0.4"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.375"/>
@@ -6907,6 +6934,7 @@
         <step length="0.125"/>
       </step>
     </pay-tone>
+    <!-- Billing signal: 50Hz/~50Vrms, longitudinal/~160ms -->
   </tone-set>
   <tone-set country="United States" uncode="us">
     <dial-tone>
@@ -6929,18 +6957,18 @@
       </step>
       <step freq="350+440" level="-16 [0.75dB]"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440+480 || 380+460" level="-19 [1.5dB]" length="2.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
-    <ringback-tone domain="PABX">
+    </ringing-tone>
+    <ringing-tone domain="PABX">
       <step cycles="endless">
         <step freq="440+480" level="-16 [1.5dB]" length="1.0"/>
         <step length="3.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="480+620 || 480+720" level="-24 [1.5dB]" length="0.5"/>
@@ -7041,12 +7069,12 @@
       <step freq="450" level="-12" length="0.2"/>
       <step length="0.3"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.5"/>
@@ -7098,20 +7126,20 @@
       <step freq="425" level="-12" length="0.4"/>
       <step length="0.04"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
-    <ringback-tone>
+    </ringing-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="400+450 || 116.33+149.67" level="-12" length="0.4"/>
         <step length="0.2"/>
         <step freq="400+450 || 116.33+149.67" level="-12" length="0.4"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.75"/>
@@ -7159,12 +7187,12 @@
     <dial-tone>
       <step freq="440 || 330+440" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="440" level="-12" length="1.5"/>
         <step length="3.5"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="440" level="-12" length="0.5"/>
@@ -7188,14 +7216,14 @@
     <dial-tone>
       <step freq="425" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="400+450" level="-12" length="0.375"/>
         <step length="0.25"/>
         <step freq="400+450" level="-12" length="0.375"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <congestion-tone>
       <step cycles="endless">
         <step recorded-announcement="true"/>
@@ -7216,18 +7244,18 @@
         <step length="0.3"/>
       </step>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425+475" level="-12" length="1.0"/>
         <step length="9.0"/>
       </step>
-    </ringback-tone>
-    <ringback-tone>
+    </ringing-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.5"/>
@@ -7246,17 +7274,18 @@
       <step freq="1800" level="-12" length="0.333"/>
       <step length="1.0"/>
     </special-information-tone>
+    <!-- Billing signal: 16kHz/~2Vrms, differential/~125ms -->
   </tone-set>
   <tone-set country="Zambia" uncode="zm">
     <dial-tone>
       <step freq="425 || 50" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="1.0"/>
         <step length="4.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="425" level="-12" length="0.5"/>
@@ -7300,14 +7329,14 @@
     <dial-tone type="second">
       <step freq="400+450 || 367+433" level="-12"/>
     </dial-tone>
-    <ringback-tone>
+    <ringing-tone>
       <step cycles="endless">
         <step freq="400+450 || 367+433" level="-12" length="0.4"/>
         <step length="0.2"/>
         <step freq="400+450 || 367+433" level="-12" length="0.4"/>
         <step length="2.0"/>
       </step>
-    </ringback-tone>
+    </ringing-tone>
     <busy-tone>
       <step cycles="endless">
         <step freq="400" level="-12" length="0.375"/>

@@ -21,8 +21,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: schedule_tests.c,v 1.19 2008/05/13 13:17:26 steveu Exp $
  */
 
 /*! \page schedule_tests_page Event scheduler tests
@@ -41,6 +39,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#define SPANDSP_EXPOSE_INTERNAL_STRUCTURES
 #include "spandsp.h"
 
 uint64_t when1;
@@ -85,23 +84,19 @@ static void callback2(span_sched_state_t *s, void *user_data)
 int main(int argc, char *argv[])
 {
     int i;
-    int id1;
-    int id2;
     span_sched_state_t sched;
     uint64_t when;
-    
+
     span_schedule_init(&sched);
 
-    id1 = span_schedule_event(&sched, 500000, callback1, NULL);
-    id2 = span_schedule_event(&sched, 550000, callback2, NULL);
+    span_schedule_event(&sched, 500000, callback1, NULL);
+    span_schedule_event(&sched, 550000, callback2, NULL);
     when1 = span_schedule_time(&sched) + 500000;
     when2 = span_schedule_time(&sched) + 550000;
     //span_schedule_del(&sched, id);
     
     for (i = 0;  i < 100000000;  i += 20000)
-    {
         span_schedule_update(&sched, 20000);
-    }
     when = span_schedule_time(&sched);
     if ((when1 - when) < 0  ||  (when1 - when) > 500000  ||  (when2 - when) < 0  ||  (when2 - when) > 550000)
     {

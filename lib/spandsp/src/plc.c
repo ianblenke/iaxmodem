@@ -21,37 +21,34 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: plc.c,v 1.22 2008/07/02 14:48:25 steveu Exp $
  */
 
 /*! \file */
 
 #if defined(HAVE_CONFIG_H)
-#include <config.h>
+#include "config.h"
 #endif
 
 #include <stdio.h>
 #include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
-#include "floating_fudge.h"
 #if defined(HAVE_TGMATH_H)
 #include <tgmath.h>
 #endif
 #if defined(HAVE_MATH_H)
 #include <math.h>
 #endif
+#include "floating_fudge.h"
 #include <limits.h>
 
 #include "spandsp/telephony.h"
-#include "spandsp/dc_restore.h"
+#include "spandsp/fast_convert.h"
+#include "spandsp/saturated.h"
 #include "spandsp/plc.h"
 
 /* We do a straight line fade to zero volume in 50ms when we are filling in for missing data. */
 #define ATTENUATION_INCREMENT       0.0025f     /* Attenuation per sample */
-
-#define ms_to_samples(t)            (((t)*SAMPLE_RATE)/1000)
 
 static void save_history(plc_state_t *s, int16_t *buf, int len)
 {
@@ -115,7 +112,7 @@ static __inline__ int amdf_pitch(int min_pitch, int max_pitch, int16_t amp[], in
 }
 /*- End of function --------------------------------------------------------*/
 
-int plc_rx(plc_state_t *s, int16_t amp[], int len)
+SPAN_DECLARE(int) plc_rx(plc_state_t *s, int16_t amp[], int len)
 {
     int i;
     int pitch_overlap;
@@ -159,7 +156,7 @@ int plc_rx(plc_state_t *s, int16_t amp[], int len)
 }
 /*- End of function --------------------------------------------------------*/
 
-int plc_fillin(plc_state_t *s, int16_t amp[], int len)
+SPAN_DECLARE(int) plc_fillin(plc_state_t *s, int16_t amp[], int len)
 {
     int i;
     int pitch_overlap;
@@ -168,10 +165,8 @@ int plc_fillin(plc_state_t *s, int16_t amp[], int len)
     float old_weight;
     float new_weight;
     float gain;
-    int16_t *orig_amp;
     int orig_len;
 
-    orig_amp = amp;
     orig_len = len;
     if (s->missing_samples == 0)
     {
@@ -235,7 +230,7 @@ int plc_fillin(plc_state_t *s, int16_t amp[], int len)
 }
 /*- End of function --------------------------------------------------------*/
 
-plc_state_t *plc_init(plc_state_t *s)
+SPAN_DECLARE(plc_state_t *) plc_init(plc_state_t *s)
 {
     if (s == NULL)
     {
@@ -247,7 +242,13 @@ plc_state_t *plc_init(plc_state_t *s)
 }
 /*- End of function --------------------------------------------------------*/
 
-int plc_free(plc_state_t *s)
+SPAN_DECLARE(int) plc_release(plc_state_t *s)
+{
+    return 0;
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE(int) plc_free(plc_state_t *s)
 {
     if (s)
         free(s);

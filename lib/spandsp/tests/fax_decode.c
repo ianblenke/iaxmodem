@@ -21,8 +21,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: fax_decode.c,v 1.44 2008/07/22 13:48:16 steveu Exp $
  */
 
 /*! \page fax_decode_page FAX decoder
@@ -41,7 +39,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
-#include <audiofile.h>
+#include <sndfile.h>
+
+//#if defined(WITH_SPANDSP_INTERNALS)
+#define SPANDSP_EXPOSE_INTERNAL_STRUCTURES
+//#endif
 
 #include "spandsp.h"
 
@@ -72,14 +74,14 @@ static const struct
     uint8_t dcs_code;
 } fallback_sequence[] =
 {
-    {14400, T30_MODEM_V17_14400,    T30_SUPPORT_V17,    DISBIT6},
-    {12000, T30_MODEM_V17_12000,    T30_SUPPORT_V17,    (DISBIT6 | DISBIT4)},
-    { 9600, T30_MODEM_V17_9600,     T30_SUPPORT_V17,    (DISBIT6 | DISBIT3)},
-    { 9600, T30_MODEM_V29_9600,     T30_SUPPORT_V29,    DISBIT3},
-    { 7200, T30_MODEM_V17_7200,     T30_SUPPORT_V17,    (DISBIT6 | DISBIT4 | DISBIT3)},
-    { 7200, T30_MODEM_V29_7200,     T30_SUPPORT_V29,    (DISBIT4 | DISBIT3)},
-    { 4800, T30_MODEM_V27TER_4800,  T30_SUPPORT_V27TER, DISBIT4},
-    { 2400, T30_MODEM_V27TER_2400,  T30_SUPPORT_V27TER, 0},
+    {14400, T30_MODEM_V17,    T30_SUPPORT_V17,    DISBIT6},
+    {12000, T30_MODEM_V17,    T30_SUPPORT_V17,    (DISBIT6 | DISBIT4)},
+    { 9600, T30_MODEM_V17,    T30_SUPPORT_V17,    (DISBIT6 | DISBIT3)},
+    { 9600, T30_MODEM_V29,    T30_SUPPORT_V29,    DISBIT3},
+    { 7200, T30_MODEM_V17,    T30_SUPPORT_V17,    (DISBIT6 | DISBIT4 | DISBIT3)},
+    { 7200, T30_MODEM_V29,    T30_SUPPORT_V29,    (DISBIT4 | DISBIT3)},
+    { 4800, T30_MODEM_V27TER, T30_SUPPORT_V27TER, DISBIT4},
+    { 2400, T30_MODEM_V27TER, T30_SUPPORT_V27TER, 0},
     {    0, 0, 0, 0}
 };
 
@@ -87,7 +89,7 @@ int decode_test = FALSE;
 int rx_bits = 0;
 
 t30_state_t t30_dummy;
-t4_state_t t4_state;
+t4_rx_state_t t4_rx_state;
 int t4_up = FALSE;
 
 hdlc_rx_state_t hdlcrx;
@@ -105,6 +107,32 @@ int octets_per_ecm_frame = 256;
 int error_correcting_mode = FALSE;
 int current_fallback = 0;
 
+static void decode_20digit_msg(const uint8_t *pkt, int len)
+{
+    int p;
+    int k;
+    char msg[T30_MAX_IDENT_LEN + 1];
+
+    if (len > T30_MAX_IDENT_LEN + 3)
+    {
+        fprintf(stderr, "XXX %d %d\n", len, T30_MAX_IDENT_LEN + 1);
+        msg[0] = '\0';
+        return;
+    }
+    pkt += 2;
+    p = len - 2;
+    /* Strip trailing spaces */
+    while (p > 1  &&  pkt[p - 1] == ' ')
+        p--;
+    /* The string is actually backwards in the message */
+    k = 0;
+    while (p > 1)
+        msg[k++] = pkt[--p];
+    msg[k] = '\0';
+    fprintf(stderr, "%s is: \"%s\"\n", t30_frametype(pkt[0]), msg);
+}
+/*- End of function --------------------------------------------------------*/
+
 static void print_frame(const char *io, const uint8_t *fr, int frlen)
 {
     int i;
@@ -120,7 +148,9 @@ static void print_frame(const char *io, const uint8_t *fr, int frlen)
     type = fr[2] & 0xFE;
     if (type == T30_DIS  ||  type == T30_DTC  ||  type == T30_DCS)
         t30_decode_dis_dtc_dcs(&t30_dummy, fr, frlen);
-    if (type == T30_NSF)
+    if (type == T30_CSI  ||  type == T30_TSI  ||  type == T30_PWD  ||  type == T30_SEP  ||  type == T30_SUB  ||  type == T30_SID)
+        decode_20digit_msg(fr, frlen);
+    if (type == T30_NSF  ||  type == T30_NSS  ||  type == T30_NSC)
     {
         if (t35_decode(&fr[3], frlen - 3, &country, &vendor, &model))
         {
@@ -217,32 +247,15 @@ static void hdlc_accept(void *user_data, const uint8_t *msg, int len, int ok)
     if (len < 0)
     {
         /* Special conditions */
-        switch (len)
-        {
-        case PUTBIT_CARRIER_UP:
-            fprintf(stderr, "HDLC carrier up\n");
-            break;
-        case PUTBIT_CARRIER_DOWN:
-            fprintf(stderr, "HDLC carrier down\n");
-            break;
-        case PUTBIT_FRAMING_OK:
-            fprintf(stderr, "HDLC framing OK\n");
-            break;
-        case PUTBIT_ABORT:
-            /* Just ignore these */
-            break;
-        default:
-            fprintf(stderr, "Unexpected HDLC special length - %d!\n", len);
-            break;
-        }
+        fprintf(stderr, "HDLC status is %s (%d)\n", signal_status_to_str(len), len);
         return;
     }
-    
+
     if (ok)
     {
         if (msg[0] != 0xFF  ||  !(msg[1] == 0x03  ||  msg[1] == 0x13))
         {
-            fprintf(stderr, "Bad frame header - %02x %02x", msg[0], msg[1]);
+            fprintf(stderr, "Bad frame header - %02x %02x\n", msg[0], msg[1]);
             return;
         }
         print_frame("HDLC: ", msg, len);
@@ -278,12 +291,12 @@ static void t4_begin(void)
     int i;
 
     //printf("Begin T.4 - %d %d %d %d\n", line_encoding, x_resolution, y_resolution, image_width);
-    t4_rx_set_rx_encoding(&t4_state, line_encoding);
-    t4_rx_set_x_resolution(&t4_state, x_resolution);
-    t4_rx_set_y_resolution(&t4_state, y_resolution);
-    t4_rx_set_image_width(&t4_state, image_width);
+    t4_rx_set_rx_encoding(&t4_rx_state, line_encoding);
+    t4_rx_set_x_resolution(&t4_rx_state, x_resolution);
+    t4_rx_set_y_resolution(&t4_rx_state, y_resolution);
+    t4_rx_set_image_width(&t4_rx_state, image_width);
 
-    t4_rx_start_page(&t4_state);
+    t4_rx_start_page(&t4_rx_state);
     t4_up = TRUE;
 
     for (i = 0;  i < 256;  i++)
@@ -295,8 +308,6 @@ static void t4_end(void)
 {
     t4_stats_t stats;
     int i;
-    int j;
-    int k;
 
     if (!t4_up)
         return;
@@ -304,17 +315,14 @@ static void t4_end(void)
     {
         for (i = 0;  i < 256;  i++)
         {
-            for (j = 0;  j < ecm_len[i];  j++)
-            {
-                for (k = 0;  k < 8;  k++)
-                    t4_rx_put_bit(&t4_state, (ecm_data[i][j] >> k) & 1);
-            }
-            fprintf(stderr, "%d", (ecm_len[i] < 0)  ?  0  :  1);
+            if (ecm_len[i] > 0)
+                t4_rx_put_chunk(&t4_rx_state, ecm_data[i], ecm_len[i]);
+            fprintf(stderr, "%d", (ecm_len[i] <= 0)  ?  0  :  1);
         }
         fprintf(stderr, "\n");
     }
-    t4_rx_end_page(&t4_state);
-    t4_get_transfer_statistics(&t4_state, &stats);
+    t4_rx_end_page(&t4_rx_state);
+    t4_rx_get_transfer_statistics(&t4_rx_state, &stats);
     fprintf(stderr, "Pages = %d\n", stats.pages_transferred);
     fprintf(stderr, "Image size = %dx%d\n", stats.width, stats.length);
     fprintf(stderr, "Image resolution = %dx%d\n", stats.x_resolution, stats.y_resolution);
@@ -329,24 +337,11 @@ static void v21_put_bit(void *user_data, int bit)
     if (bit < 0)
     {
         /* Special conditions */
+        fprintf(stderr, "V.21 rx status is %s (%d)\n", signal_status_to_str(bit), bit);
         switch (bit)
         {
-        case PUTBIT_TRAINING_FAILED:
-            fprintf(stderr, "V.21 Training failed\n");
-            break;
-        case PUTBIT_TRAINING_SUCCEEDED:
-            fprintf(stderr, "V.21 Training succeeded\n");
-            t4_begin();
-            break;
-        case PUTBIT_CARRIER_UP:
-            fprintf(stderr, "V.21 Carrier up\n");
-            break;
-        case PUTBIT_CARRIER_DOWN:
-            fprintf(stderr, "V.21 Carrier down\n");
-            t4_end();
-            break;
-        default:
-            fprintf(stderr, "V.21 Eh!\n");
+        case SIG_STATUS_CARRIER_DOWN:
+            //t4_end();
             break;
         }
         return;
@@ -362,27 +357,17 @@ static void v17_put_bit(void *user_data, int bit)
     if (bit < 0)
     {
         /* Special conditions */
+        fprintf(stderr, "V.17 rx status is %s (%d)\n", signal_status_to_str(bit), bit);
         switch (bit)
         {
-        case PUTBIT_TRAINING_FAILED:
-            fprintf(stderr, "V.17 Training failed\n");
-            break;
-        case PUTBIT_TRAINING_SUCCEEDED:
-            fprintf(stderr, "V.17 Training succeeded\n");
+        case SIG_STATUS_TRAINING_SUCCEEDED:
             fast_trained = FAX_V17_RX;
             t4_begin();
             break;
-        case PUTBIT_CARRIER_UP:
-            fprintf(stderr, "V.17 Carrier up\n");
-            break;
-        case PUTBIT_CARRIER_DOWN:
-            fprintf(stderr, "V.17 Carrier down\n");
+        case SIG_STATUS_CARRIER_DOWN:
             t4_end();
             if (fast_trained == FAX_V17_RX)
                 fast_trained = FAX_NONE;
-            break;
-        default:
-            fprintf(stderr, "V.17 Eh!\n");
             break;
         }
         return;
@@ -393,7 +378,7 @@ static void v17_put_bit(void *user_data, int bit)
     }
     else
     {
-        if (t4_rx_put_bit(&t4_state, bit))
+        if (t4_rx_put_bit(&t4_rx_state, bit))
         {
             t4_end();
             fprintf(stderr, "End of page detected\n");
@@ -408,27 +393,17 @@ static void v29_put_bit(void *user_data, int bit)
     if (bit < 0)
     {
         /* Special conditions */
+        fprintf(stderr, "V.29 rx status is %s (%d)\n", signal_status_to_str(bit), bit);
         switch (bit)
         {
-        case PUTBIT_TRAINING_FAILED:
-            //fprintf(stderr, "V.29 Training failed\n");
-            break;
-        case PUTBIT_TRAINING_SUCCEEDED:
-            fprintf(stderr, "V.29 Training succeeded\n");
+        case SIG_STATUS_TRAINING_SUCCEEDED:
             fast_trained = FAX_V29_RX;
             t4_begin();
             break;
-        case PUTBIT_CARRIER_UP:
-            //fprintf(stderr, "V.29 Carrier up\n");
-            break;
-        case PUTBIT_CARRIER_DOWN:
-            //fprintf(stderr, "V.29 Carrier down\n");
+        case SIG_STATUS_CARRIER_DOWN:
             t4_end();
             if (fast_trained == FAX_V29_RX)
                 fast_trained = FAX_NONE;
-            break;
-        default:
-            fprintf(stderr, "V.29 Eh!\n");
             break;
         }
         return;
@@ -439,7 +414,7 @@ static void v29_put_bit(void *user_data, int bit)
     }
     else
     {
-        if (t4_rx_put_bit(&t4_state, bit))
+        if (t4_rx_put_bit(&t4_rx_state, bit))
         {
             t4_end();
             fprintf(stderr, "End of page detected\n");
@@ -454,26 +429,17 @@ static void v27ter_put_bit(void *user_data, int bit)
     if (bit < 0)
     {
         /* Special conditions */
+        fprintf(stderr, "V.27ter rx status is %s (%d)\n", signal_status_to_str(bit), bit);
         switch (bit)
         {
-        case PUTBIT_TRAINING_FAILED:
-            //fprintf(stderr, "V.27ter Training failed\n");
-            break;
-        case PUTBIT_TRAINING_SUCCEEDED:
-            fprintf(stderr, "V.27ter Training succeeded\n");
+        case SIG_STATUS_TRAINING_SUCCEEDED:
             fast_trained = FAX_V27TER_RX;
             t4_begin();
             break;
-        case PUTBIT_CARRIER_UP:
-            //fprintf(stderr, "V.27ter Carrier up\n");
-            break;
-        case PUTBIT_CARRIER_DOWN:
-            //fprintf(stderr, "V.27ter Carrier down\n");
+        case SIG_STATUS_CARRIER_DOWN:
+            t4_end();
             if (fast_trained == FAX_V27TER_RX)
                 fast_trained = FAX_NONE;
-            break;
-        default:
-            fprintf(stderr, "V.27ter Eh!\n");
             break;
         }
         return;
@@ -484,7 +450,7 @@ static void v27ter_put_bit(void *user_data, int bit)
     }
     else
     {
-        if (t4_rx_put_bit(&t4_state, bit))
+        if (t4_rx_put_bit(&t4_rx_state, bit))
         {
             t4_end();
             fprintf(stderr, "End of page detected\n");
@@ -496,69 +462,72 @@ static void v27ter_put_bit(void *user_data, int bit)
 
 int main(int argc, char *argv[])
 {
-    fsk_rx_state_t fsk;
-    v17_rx_state_t v17;
-    v29_rx_state_t v29;
-    v27ter_rx_state_t v27ter;
+    fsk_rx_state_t *fsk;
+    v17_rx_state_t *v17;
+    v29_rx_state_t *v29;
+    v27ter_rx_state_t *v27ter;
     int16_t amp[SAMPLES_PER_CHUNK];
-    AFfilehandle inhandle;
+    SNDFILE *inhandle;
+    SF_INFO info;
     int len;
     const char *filename;
-    float x;
+    logging_state_t *logging;
 
     filename = "fax_samp.wav";
 
     if (argc > 1)
         filename = argv[1];
 
-    if ((inhandle = afOpenFile(filename, "r", NULL)) == AF_NULL_FILEHANDLE)
+    memset(&info, 0, sizeof(info));
+    if ((inhandle = sf_open(filename, SFM_READ, &info)) == NULL)
     {
-        fprintf(stderr, "    Cannot open wave file '%s'\n", filename);
+        fprintf(stderr, "    Cannot open audio file '%s' for reading\n", filename);
         exit(2);
     }
-    if ((x = afGetFrameSize(inhandle, AF_DEFAULT_TRACK, 1)) != 2.0)
+    if (info.samplerate != SAMPLE_RATE)
     {
-        printf("    Unexpected frame size in speech file '%s' (%f)\n", filename, x);
+        fprintf(stderr, "    Unexpected sample rate in audio file '%s'\n", filename);
         exit(2);
     }
-    if ((x = afGetRate(inhandle, AF_DEFAULT_TRACK)) != (float) SAMPLE_RATE)
+    if (info.channels != 1)
     {
-        printf("    Unexpected sample rate in speech file '%s' (%f)\n", filename, x);
+        fprintf(stderr, "    Unexpected number of channels in audio file '%s'\n", filename);
         exit(2);
     }
-    if ((x = afGetChannels(inhandle, AF_DEFAULT_TRACK)) != 1.0)
-    {
-        printf("    Unexpected number of channels in speech file '%s' (%f)\n", filename, x);
-        exit(2);
-    }
+
     memset(&t30_dummy, 0, sizeof(t30_dummy));
     span_log_init(&t30_dummy.logging, SPAN_LOG_FLOW, NULL);
     span_log_set_protocol(&t30_dummy.logging, "T.30");
 
     hdlc_rx_init(&hdlcrx, FALSE, TRUE, 5, hdlc_accept, NULL);
-    fsk_rx_init(&fsk, &preset_fsk_specs[FSK_V21CH2], TRUE, v21_put_bit, NULL);
-    v17_rx_init(&v17, 14400, v17_put_bit, NULL);
-    v29_rx_init(&v29, 9600, v29_put_bit, NULL);
-    //v29_rx_init(&v29, 7200, v29_put_bit, NULL);
-    v27ter_rx_init(&v27ter, 4800, v27ter_put_bit, NULL);
-    fsk_rx_signal_cutoff(&fsk, -45.5);
-    v17_rx_signal_cutoff(&v17, -45.5);
-    v29_rx_signal_cutoff(&v29, -45.5);
-    v27ter_rx_signal_cutoff(&v27ter, -40.0);
+    fsk = fsk_rx_init(NULL, &preset_fsk_specs[FSK_V21CH2], FSK_FRAME_MODE_SYNC, v21_put_bit, NULL);
+    v17 = v17_rx_init(NULL, 14400, v17_put_bit, NULL);
+    v29 = v29_rx_init(NULL, 9600, v29_put_bit, NULL);
+    //v29 = v29_rx_init(NULL, 7200, v29_put_bit, NULL);
+    v27ter = v27ter_rx_init(NULL, 4800, v27ter_put_bit, NULL);
+    fsk_rx_signal_cutoff(fsk, -45.5);
+    v17_rx_signal_cutoff(v17, -45.5);
+    v29_rx_signal_cutoff(v29, -45.5);
+    v27ter_rx_signal_cutoff(v27ter, -40.0);
 
-    span_log_init(&v17.logging, SPAN_LOG_FLOW, NULL);
-    span_log_set_protocol(&v17.logging, "V.17");
-    span_log_set_level(&v17.logging, SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_SHOW_TAG | SPAN_LOG_FLOW);
+#if 1
+    logging = v17_rx_get_logging_state(v17);
+    span_log_init(logging, SPAN_LOG_FLOW, NULL);
+    span_log_set_protocol(logging, "V.17");
+    span_log_set_level(logging, SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_SHOW_TAG | SPAN_LOG_FLOW);
 
-    span_log_init(&v29.logging, SPAN_LOG_FLOW, NULL);
-    span_log_set_protocol(&v29.logging, "V.29");
-    span_log_set_level(&v29.logging, SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_SHOW_TAG | SPAN_LOG_FLOW);
+    logging = v29_rx_get_logging_state(v29);
+    span_log_init(logging, SPAN_LOG_FLOW, NULL);
+    span_log_set_protocol(logging, "V.29");
+    span_log_set_level(logging, SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_SHOW_TAG | SPAN_LOG_FLOW);
 
-    span_log_init(&v27ter.logging, SPAN_LOG_FLOW, NULL);
-    span_log_set_protocol(&v27ter.logging, "V.27ter");
-    span_log_set_level(&v27ter.logging, SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_SHOW_TAG | SPAN_LOG_FLOW);
+    logging = v27ter_rx_get_logging_state(v27ter);
+    span_log_init(logging, SPAN_LOG_FLOW, NULL);
+    span_log_set_protocol(logging, "V.27ter");
+    span_log_set_level(logging, SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_SHOW_TAG | SPAN_LOG_FLOW);
+#endif
 
-    if (t4_rx_init(&t4_state, "fax_decode.tif", T4_COMPRESSION_ITU_T4_2D) == NULL)
+    if (t4_rx_init(&t4_rx_state, "fax_decode.tif", T4_COMPRESSION_ITU_T4_2D) == NULL)
     {
         fprintf(stderr, "Failed to init\n");
         exit(0);
@@ -566,19 +535,19 @@ int main(int argc, char *argv[])
         
     for (;;)
     {
-        len = afReadFrames(inhandle, AF_DEFAULT_TRACK, amp, SAMPLES_PER_CHUNK);
+        len = sf_readf_short(inhandle, amp, SAMPLES_PER_CHUNK);
         if (len < SAMPLES_PER_CHUNK)
             break;
-        fsk_rx(&fsk, amp, len);
-        v17_rx(&v17, amp, len);
-        v29_rx(&v29, amp, len);
-        v27ter_rx(&v27ter, amp, len);
+        fsk_rx(fsk, amp, len);
+        v17_rx(v17, amp, len);
+        v29_rx(v29, amp, len);
+        //v27ter_rx(v27ter, amp, len);
     }
-    t4_rx_end(&t4_state);
+    t4_rx_release(&t4_rx_state);
 
-    if (afCloseFile(inhandle) != 0)
+    if (sf_close(inhandle))
     {
-        fprintf(stderr, "    Cannot close wave file '%s'\n", filename);
+        fprintf(stderr, "    Cannot close audio file '%s'\n", filename);
         exit(2);
     }
     return  0;

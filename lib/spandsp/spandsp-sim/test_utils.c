@@ -21,8 +21,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: test_utils.c,v 1.6 2008/07/02 14:48:25 steveu Exp $
  */
 
 /*! \file */
@@ -35,19 +33,22 @@
 #include <inttypes.h>
 #include <string.h>
 #include <stdio.h>
-#include "floating_fudge.h"
 #if defined(HAVE_TGMATH_H)
 #include <tgmath.h>
 #endif
 #if defined(HAVE_MATH_H)
 #include <math.h>
 #endif
+#include "floating_fudge.h"
 #include <time.h>
 #include <fcntl.h>
-#include <audiofile.h>
+#include <sndfile.h>
 
+#define SPANDSP_EXPOSE_INTERNAL_STRUCTURES
 #include "spandsp.h"
 #include "spandsp-sim.h"
+
+#define MAX_FFT_LEN     8192
 
 struct codec_munge_state_s
 {
@@ -64,7 +65,22 @@ struct complexify_state_s
     int ptr;
 };
 
-complexify_state_t *complexify_init(void)
+static complex_t circle[MAX_FFT_LEN/2];
+static int circle_init = FALSE;
+static complex_t icircle[MAX_FFT_LEN/2];
+static int icircle_init = FALSE;
+
+#define SF_MAX_HANDLE   32
+static int sf_close_at_exit_registered = FALSE;
+static SNDFILE *sf_close_at_exit_list[SF_MAX_HANDLE] =
+{
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
+};
+
+SPAN_DECLARE(complexify_state_t *) complexify_init(void)
 {
     complexify_state_t *s;
     int i;
@@ -79,13 +95,13 @@ complexify_state_t *complexify_init(void)
 }
 /*- End of function --------------------------------------------------------*/
 
-void complexify_release(complexify_state_t *s)
+SPAN_DECLARE(void) complexify_release(complexify_state_t *s)
 {
     free(s);
 }
 /*- End of function --------------------------------------------------------*/
 
-complexf_t complexify(complexify_state_t *s, int16_t amp)
+SPAN_DECLARE(complexf_t) complexify(complexify_state_t *s, int16_t amp)
 {
 #define HILBERT_GAIN    1.569546344
     static const float hilbert_coeffs[] =
@@ -105,7 +121,7 @@ complexf_t complexify(complexify_state_t *s, int16_t amp)
         +0.0584802574f, +0.0697446887f,
         +0.0847739823f, +0.1060495199f,
         +0.1388940865f, +0.1971551103f,
-        +0.3316207267f, +0.9994281838f,
+        +0.3316207267f, +0.9994281838f
     };
     float famp;
     int i;
@@ -141,7 +157,119 @@ complexf_t complexify(complexify_state_t *s, int16_t amp)
 }
 /*- End of function --------------------------------------------------------*/
 
-codec_munge_state_t *codec_munge_init(int codec, int info)
+static __inline__ complex_t expj(double theta)
+{
+    return complex_set(cos(theta), sin(theta));
+}
+/*- End of function --------------------------------------------------------*/
+
+static void fftx(complex_t data[], complex_t temp[], int n)
+{
+    int i;
+    int h;
+    int p;
+    int t;
+    int i2;
+    complex_t wkt;
+
+    if (n > 1)
+    {
+        h = n/2;
+        for (i = 0;  i < h;  i++)
+        {
+            i2 = i*2;
+            temp[i] = data[i2];         /* Even */
+            temp[h + i] = data[i2 + 1]; /* Odd */
+        }
+        fftx(&temp[0], &data[0], h);
+        fftx(&temp[h], &data[h], h);
+        p = 0;
+        t = MAX_FFT_LEN/n;
+        for (i = 0;  i < h;  i++)
+        {
+            wkt = complex_mul(&circle[p], &temp[h + i]);
+            data[i] = complex_add(&temp[i], &wkt);
+            data[h + i] = complex_sub(&temp[i], &wkt);
+            p += t;
+        }
+    }
+}
+/*- End of function --------------------------------------------------------*/
+
+static void ifftx(complex_t data[], complex_t temp[], int n)
+{
+    int i;
+    int h;
+    int p;
+    int t;
+    int i2;
+    complex_t wkt;
+
+    if (n > 1)
+    {
+        h = n/2;
+        for (i = 0;  i < h;  i++)
+        {
+            i2 = i*2;
+            temp[i] = data[i2];         /* Even */
+            temp[h + i] = data[i2 + 1]; /* Odd */
+        }
+        fftx(&temp[0], &data[0], h);
+        fftx(&temp[h], &data[h], h);
+        p = 0;
+        t = MAX_FFT_LEN/n;
+        for (i = 0;  i < h;  i++)
+        {
+            wkt = complex_mul(&icircle[p], &temp[h + i]);
+            data[i] = complex_add(&temp[i], &wkt);
+            data[h + i] = complex_sub(&temp[i], &wkt);
+            p += t;
+        }
+    }
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE(void) fft(complex_t data[], int len)
+{
+    int i;
+    double x;
+    complex_t temp[MAX_FFT_LEN];
+
+    /* A very slow and clunky FFT, that's just fine for tests. */
+    if (!circle_init)
+    {
+        for (i = 0;  i < MAX_FFT_LEN/2;  i++)
+        {
+            x = -(2.0*3.1415926535*i)/(double) MAX_FFT_LEN;
+            circle[i] = expj(x);
+        }
+        circle_init = TRUE;
+    }
+    fftx(data, temp, len);
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE(void) ifft(complex_t data[], int len)
+{
+    int i;
+    double x;
+    complex_t temp[MAX_FFT_LEN];
+
+    /* A very slow and clunky FFT, that's just fine for tests. */
+    if (!icircle_init)
+    {
+        for (i = 0;  i < MAX_FFT_LEN/2;  i++)
+        {
+            x = (2.0*3.1415926535*i)/(double) MAX_FFT_LEN;
+            icircle[i] = expj(x);
+        }
+        icircle_init = TRUE;
+    }
+    ifftx(data, temp, len);
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE(codec_munge_state_t *) codec_munge_init(int codec, int info)
 {
     codec_munge_state_t *s;
     
@@ -180,13 +308,13 @@ codec_munge_state_t *codec_munge_init(int codec, int info)
 }
 /*- End of function --------------------------------------------------------*/
 
-void codec_munge_release(codec_munge_state_t *s)
+SPAN_DECLARE(void) codec_munge_release(codec_munge_state_t *s)
 {
     free(s);
 }
 /*- End of function --------------------------------------------------------*/
 
-void codec_munge(codec_munge_state_t *s, int16_t amp[], int len)
+SPAN_DECLARE(void) codec_munge(codec_munge_state_t *s, int16_t amp[], int len)
 {
     uint8_t law;
     uint8_t adpcmdata[160];
@@ -228,6 +356,112 @@ void codec_munge(codec_munge_state_t *s, int16_t amp[], int len)
         }
         break;
     }
+}
+/*- End of function --------------------------------------------------------*/
+
+static void sf_close_at_exit(void)
+{
+    int i;
+    
+    for (i = 0;  i < SF_MAX_HANDLE;  i++)
+    {
+        if (sf_close_at_exit_list[i])
+        {
+            sf_close(sf_close_at_exit_list[i]);
+            sf_close_at_exit_list[i] = NULL;
+        }
+    }
+}
+/*- End of function --------------------------------------------------------*/
+
+static int sf_record_handle(SNDFILE *handle)
+{
+    int i;
+    
+    for (i = 0;  i < SF_MAX_HANDLE;  i++)
+    {
+        if (sf_close_at_exit_list[i] == NULL)
+            break;
+    }
+    if (i >= SF_MAX_HANDLE)
+        return -1;
+    sf_close_at_exit_list[i] = handle;
+    if (!sf_close_at_exit_registered)
+    {
+        atexit(sf_close_at_exit);
+        sf_close_at_exit_registered = TRUE;
+    }
+    return 0;
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE(SNDFILE *) sf_open_telephony_read(const char *name, int channels)
+{
+    SNDFILE *handle;
+    SF_INFO info;
+
+    memset(&info, 0, sizeof(info));
+    if ((handle = sf_open(name, SFM_READ, &info)) == NULL)
+    {
+        fprintf(stderr, "    Cannot open audio file '%s' for reading\n", name);
+        exit(2);
+    }
+    if (info.samplerate != SAMPLE_RATE)
+    {
+        printf("    Unexpected sample rate in audio file '%s'\n", name);
+        exit(2);
+    }
+    if (info.channels != channels)
+    {
+        printf("    Unexpected number of channels in audio file '%s'\n", name);
+        exit(2);
+    }
+    sf_record_handle(handle);
+    return handle;
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE(SNDFILE *) sf_open_telephony_write(const char *name, int channels)
+{
+    SNDFILE *handle;
+    SF_INFO info;
+
+    memset(&info, 0, sizeof(info));
+    info.frames = 0;
+    info.samplerate = SAMPLE_RATE;
+    info.channels = channels;
+    info.format = SF_FORMAT_WAV | SF_FORMAT_PCM_16;
+    info.sections = 1;
+    info.seekable = 1;
+
+    if ((handle = sf_open(name, SFM_WRITE, &info)) == NULL)
+    {
+        fprintf(stderr, "    Cannot open audio file '%s' for writing\n", name);
+        exit(2);
+    }
+    sf_record_handle(handle);
+    return handle;
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE(int) sf_close_telephony(SNDFILE *handle)
+{
+    int res;
+    int i;
+    
+    if ((res = sf_close(handle)) == 0)
+    {
+        for (i = 0;  i < SF_MAX_HANDLE;  i++)
+        {
+            if (sf_close_at_exit_list[i] == handle)
+            {
+                sf_close(sf_close_at_exit_list[i]);
+                sf_close_at_exit_list[i] = NULL;
+                break;
+            }
+        }
+    }
+    return res;
 }
 /*- End of function --------------------------------------------------------*/
 /*- End of file ------------------------------------------------------------*/

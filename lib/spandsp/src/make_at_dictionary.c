@@ -11,19 +11,17 @@
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License version 2.1,
- * as published by the Free Software Foundation.
+ * it under the terms of the GNU General Public License version 2, as
+ * published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
+ * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this program; if not, write to the Free Software
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: make_at_dictionary.c,v 1.1 2008/07/01 03:27:51 steveu Exp $
  */
 
 #if defined(HAVE_CONFIG_H)
@@ -32,7 +30,6 @@
 
 #include <inttypes.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <string.h>
@@ -228,9 +225,11 @@ const char *wordlist[] =
     "+EFRAM",   /* V.250 6.5.8 - Frame length */ 
     "+ER",      /* V.250 6.5.5 - Error control reporting */ 
     "+ES",      /* V.250 6.5.1 - Error control selection */ 
+    "+ESA",     /* V.80 8.2 - Synchronous access mode configuration */ 
     "+ESR",     /* V.250 6.5.3 - Selective repeat */ 
     "+ETBM",    /* V.250 6.5.6 - Call termination buffer management */ 
     "+EWIND",   /* V.250 6.5.7 - Window size */ 
+    "+F34",     /* T.31 B.6.1 - Initial V.34 rate controls for FAX */
     "+FAA",     /* T.32 8.5.2.5 - Adaptive Answer parameter */
     "+FAP",     /* T.32 8.5.1.12 - Addressing and polling capabilities parameter */
     "+FAR",     /* T.31 8.5.1 - Adaptive reception control */ 
@@ -289,8 +288,8 @@ const char *wordlist[] =
     "+GMR",     /* V.250 6.1.6 - Request revision identification */ 
     "+GOI",     /* V.250 6.1.8 - Request global object identification */ 
     "+GSN",     /* V.250 6.1.7 - Request product serial number identification */ 
-    "+IBC",     /* TIA-617 8.3 - Control of in-band control */
-    "+IBM",     /* TIA-617 8.4 - In-Band MARK idle reporting control */
+    "+IBC",     /* V.80 7.9 - Control of in-band control */
+    "+IBM",     /* V.80 7.10 - In-band MARK idle reporting control */
     "+ICF",     /* V.250 6.2.11 - DTE-DCE character framing */ 
     "+ICLOK",   /* V.250 6.2.14 - Select sync transmit clock source */ 
     "+IDSR",    /* V.250 6.2.16 - Select data set ready option */ 
@@ -299,6 +298,7 @@ const char *wordlist[] =
     "+ILSD",    /* V.250 6.2.15 - Select long space disconnect option */ 
     "+IPR",     /* V.250 6.2.10 - Fixed DTE rate */ 
     "+IRTS",    /* V.250 6.2.17 - Select synchronous mode RTS option */ 
+    "+ITF",     /* V.80 8.4 - Transmit flow control thresholds */
     "+MA",      /* V.250 6.4.2 - Modulation automode control */ 
     "+MR",      /* V.250 6.4.3 - Modulation reporting control */ 
     "+MS",      /* V.250 6.4.1 - Modulation selection */ 
@@ -541,7 +541,7 @@ static void trie_recursive_build_packed_trie(trie_node_t *t)
 
 static void trie_add(trie_t *s, const char *u, size_t len)
 {
-    int i;
+    size_t i;
     int index;
     trie_node_t *t;
 

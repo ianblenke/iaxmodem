@@ -21,8 +21,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: gsm0610_tests.c,v 1.16 2008/05/13 13:17:25 steveu Exp $
  */
 
 /*! \file */
@@ -34,9 +32,6 @@ Two sets of tests are performed:
       the specification.
     - A generally audio quality test, consisting of compressing and decompressing a speeech
       file for audible comparison.
-
-The speech file should be recorded at 16 bits/sample, 8000 samples/second, and named
-"pre_gsm0610.wav".
 
 \section gsm0610_tests_page_sec_2 How is it used?
 To perform the tests in the GSM 06.10 specification you need to obtain the test data files from the
@@ -126,9 +121,14 @@ will be compressed to GSM 06.10 data, decompressed, and the resulting audio stor
 #include <unistd.h>
 #include <string.h>
 #include <ctype.h>
-#include <audiofile.h>
+#include <sndfile.h>
+
+//#if defined(WITH_SPANDSP_INTERNALS)
+#define SPANDSP_EXPOSE_INTERNAL_STRUCTURES
+//#endif
 
 #include "spandsp.h"
+#include "spandsp-sim.h"
 
 #define BLOCK_LEN       160
 
@@ -514,98 +514,77 @@ static int perform_pack_unpack_test(void)
 }
 /*- End of function --------------------------------------------------------*/
 
+static void etsi_compliance_tests(void)
+{
+    perform_linear_test(TRUE, 1, "Seq01");
+    perform_linear_test(TRUE, 1, "Seq02");
+    perform_linear_test(TRUE, 1, "Seq03");
+    perform_linear_test(TRUE, 1, "Seq04");
+    perform_linear_test(FALSE, 1, "Seq05");
+    perform_law_test(TRUE, 'a', "Seq01");
+    perform_law_test(TRUE, 'a', "Seq02");
+    perform_law_test(TRUE, 'a', "Seq03");
+    perform_law_test(TRUE, 'a', "Seq04");
+    perform_law_test(FALSE, 'a', "Seq05");
+    perform_law_test(TRUE, 'u', "Seq01");
+    perform_law_test(TRUE, 'u', "Seq02");
+    perform_law_test(TRUE, 'u', "Seq03");
+    perform_law_test(TRUE, 'u', "Seq04");
+    perform_law_test(FALSE, 'u', "Seq05");
+    /* This is not actually an ETSI test */
+    perform_pack_unpack_test();
+
+    printf("Tests passed.\n");
+}
+/*- End of function --------------------------------------------------------*/
+
 int main(int argc, char *argv[])
 {
-    AFfilehandle inhandle;
-    AFfilehandle outhandle;
-    AFfilesetup filesetup;
+    SNDFILE *inhandle;
+    SNDFILE *outhandle;
     int frames;
-    int outframes;
-    float x;
+    int bytes;
     int16_t pre_amp[HIST_LEN];
     int16_t post_amp[HIST_LEN];
     uint8_t gsm0610_data[HIST_LEN];
     gsm0610_state_t *gsm0610_enc_state;
     gsm0610_state_t *gsm0610_dec_state;
+    int opt;
     int etsitests;
     int packing;
-    int i;
 
     etsitests = TRUE;
     packing = GSM0610_PACKING_NONE;
-    for (i = 1;  i < argc;  i++)
+    while ((opt = getopt(argc, argv, "lp:")) != -1)
     {
-        if (strcmp(argv[i], "-l") == 0)
+        switch (opt)
         {
+        case 'l':
             etsitests = FALSE;
-            continue;
+            break;
+        case 'p':
+            packing = atoi(optarg);
+            break;
+        default:
+            //usage();
+            exit(2);
         }
-        if (strcmp(argv[i], "-p") == 0)
-        {
-            packing = atoi(argv[++i]);
-            continue;
-        }
-        fprintf(stderr, "Unknown parameter %s specified.\n", argv[i]);
-        exit(2);
     }
 
     if (etsitests)
     {
-        perform_linear_test(TRUE, 1, "Seq01");
-        perform_linear_test(TRUE, 1, "Seq02");
-        perform_linear_test(TRUE, 1, "Seq03");
-        perform_linear_test(TRUE, 1, "Seq04");
-        perform_linear_test(FALSE, 1, "Seq05");
-        perform_law_test(TRUE, 'a', "Seq01");
-        perform_law_test(TRUE, 'a', "Seq02");
-        perform_law_test(TRUE, 'a', "Seq03");
-        perform_law_test(TRUE, 'a', "Seq04");
-        perform_law_test(FALSE, 'a', "Seq05");
-        perform_law_test(TRUE, 'u', "Seq01");
-        perform_law_test(TRUE, 'u', "Seq02");
-        perform_law_test(TRUE, 'u', "Seq03");
-        perform_law_test(TRUE, 'u', "Seq04");
-        perform_law_test(FALSE, 'u', "Seq05");
-        /* This is not actually an ETSI test */
-        perform_pack_unpack_test();
-
-        printf("Tests passed.\n");
+        etsi_compliance_tests();
     }
     else
     {
-        if ((inhandle = afOpenFile(IN_FILE_NAME, "r", 0)) == AF_NULL_FILEHANDLE)
+        if ((inhandle = sf_open_telephony_read(IN_FILE_NAME, 1)) == NULL)
         {
-            fprintf(stderr, "    Cannot open wave file '%s'\n", IN_FILE_NAME);
+            fprintf(stderr, "    Cannot open audio file '%s'\n", IN_FILE_NAME);
             exit(2);
         }
-        if ((x = afGetFrameSize(inhandle, AF_DEFAULT_TRACK, 1)) != 2.0)
+        if ((outhandle = sf_open_telephony_write(OUT_FILE_NAME, 1)) == NULL)
         {
-            fprintf(stderr, "    Unexpected frame size in wave file '%s'\n", IN_FILE_NAME);
-            exit(2);
-        }
-        if ((x = afGetRate(inhandle, AF_DEFAULT_TRACK)) != (float) SAMPLE_RATE)
-        {
-            fprintf(stderr, "    Unexpected sample rate in wave file '%s'\n", IN_FILE_NAME);
-            exit(2);
-        }
-        if ((x = afGetChannels(inhandle, AF_DEFAULT_TRACK)) != 1.0)
-        {
-            fprintf(stderr, "    Unexpected number of channels in wave file '%s'\n", IN_FILE_NAME);
-            exit(2);
-        }
-        if ((filesetup = afNewFileSetup()) == AF_NULL_FILESETUP)
-        {
-            fprintf(stderr, "    Failed to create file setup\n");
-            exit(2);
-        }
-        afInitSampleFormat(filesetup, AF_DEFAULT_TRACK, AF_SAMPFMT_TWOSCOMP, 16);
-        afInitRate(filesetup, AF_DEFAULT_TRACK, (float) SAMPLE_RATE);
-        afInitFileFormat(filesetup, AF_FILE_WAVE);
-        afInitChannels(filesetup, AF_DEFAULT_TRACK, 1);
-    
-        if ((outhandle = afOpenFile(OUT_FILE_NAME, "w", filesetup)) == AF_NULL_FILEHANDLE)
-        {
-            fprintf(stderr, "    Cannot create wave file '%s'\n", OUT_FILE_NAME);
+            fprintf(stderr, "    Cannot create audio file '%s'\n", OUT_FILE_NAME);
             exit(2);
         }
     
@@ -621,24 +600,23 @@ int main(int argc, char *argv[])
             exit(2);
         }
 
-        while ((frames = afReadFrames(inhandle, AF_DEFAULT_TRACK, pre_amp, 2*BLOCK_LEN)))
+        while ((frames = sf_readf_short(inhandle, pre_amp, 2*BLOCK_LEN)))
         {
-            gsm0610_encode(gsm0610_enc_state, gsm0610_data, pre_amp, (packing == GSM0610_PACKING_WAV49)  ?  BLOCK_LEN  :  2*BLOCK_LEN);
-            gsm0610_decode(gsm0610_dec_state, post_amp, gsm0610_data, (packing == GSM0610_PACKING_WAV49)  ?  33  :  65);
-            outframes = afWriteFrames(outhandle, AF_DEFAULT_TRACK, post_amp, frames);
+            bytes = gsm0610_encode(gsm0610_enc_state, gsm0610_data, pre_amp, frames);
+            gsm0610_decode(gsm0610_dec_state, post_amp, gsm0610_data, bytes);
+            sf_writef_short(outhandle, post_amp, frames);
         }
     
-        if (afCloseFile(inhandle) != 0)
+        if (sf_close_telephony(inhandle))
         {
-            fprintf(stderr, "    Cannot close wave file '%s'\n", IN_FILE_NAME);
+            fprintf(stderr, "    Cannot close audio file '%s'\n", IN_FILE_NAME);
             exit(2);
         }
-        if (afCloseFile(outhandle) != 0)
+        if (sf_close_telephony(outhandle))
         {
-            fprintf(stderr, "    Cannot close wave file '%s'\n", OUT_FILE_NAME);
+            fprintf(stderr, "    Cannot close audio file '%s'\n", OUT_FILE_NAME);
             exit(2);
         }
-        afFreeFileSetup(filesetup);
         gsm0610_release(gsm0610_enc_state);
         gsm0610_release(gsm0610_dec_state);
     }

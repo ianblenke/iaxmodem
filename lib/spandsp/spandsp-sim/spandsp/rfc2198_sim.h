@@ -21,8 +21,6 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: rfc2198_sim.h,v 1.3 2008/04/17 18:03:23 steveu Exp $
  */
 
 /*! \file */
@@ -43,7 +41,7 @@ typedef struct rfc2198_sim_queue_element_s
     double departure_time;
     double arrival_time;
     int len;
-    uint8_t pkt[0];
+    uint8_t pkt[];
 } rfc2198_sim_queue_element_t;
 
 /*! The model definition for a complete end-to-end path */
@@ -69,25 +67,25 @@ extern "C"
 {
 #endif
 
-rfc2198_sim_state_t *rfc2198_sim_init(int model,
-                                      int speed_pattern,
-                                      int packet_size,
-                                      int packet_rate,
-                                      int redundancy_depth);
+SPAN_DECLARE(rfc2198_sim_state_t *) rfc2198_sim_init(int model,
+                                                     int speed_pattern,
+                                                     int packet_size,
+                                                     int packet_rate,
+                                                     int redundancy_depth);
 
-int rfc2198_sim_put(rfc2198_sim_state_t *s,
-                    const uint8_t buf[],
-                    int len,
-                    int seq_no,
-                    double departure_time);
+SPAN_DECLARE(int) rfc2198_sim_put(rfc2198_sim_state_t *s,
+                                  const uint8_t buf[],
+                                  int len,
+                                  int seq_no,
+                                  double departure_time);
 
-int rfc2198_sim_get(rfc2198_sim_state_t *s,
-                    uint8_t buf[],
-                    int max_len,
-                    double current_time,
-                    int *seq_no,
-                    double *departure_time,
-                    double *arrival_time);
+SPAN_DECLARE(int) rfc2198_sim_get(rfc2198_sim_state_t *s,
+                                  uint8_t buf[],
+                                  int max_len,
+                                  double current_time,
+                                  int *seq_no,
+                                  double *departure_time,
+                                  double *arrival_time);
 
 #ifdef  __cplusplus
 }

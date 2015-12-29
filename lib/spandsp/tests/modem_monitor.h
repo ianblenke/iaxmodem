@@ -21,8 +21,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: modem_monitor.h,v 1.15 2008/04/26 13:39:17 steveu Exp $
  */
 
 /*! \page constel_page Modem performance monitoring
@@ -56,6 +54,7 @@ qam_monitor_t *qam_monitor_init(float constel_width, const char *tag);
 int qam_monitor_clear_constel(qam_monitor_t *s);
 int qam_monitor_update_constel(qam_monitor_t *s, const complexf_t *pt);
 int qam_monitor_update_equalizer(qam_monitor_t *s, const complexf_t *coeffs, int len);
+int qam_monitor_update_int_equalizer(qam_monitor_t *s, const complexi16_t *coeffs, int len);
 int qam_monitor_update_symbol_tracking(qam_monitor_t *s, float total_correction);
 int qam_monitor_update_carrier_tracking(qam_monitor_t *s, float carrier);
 int qam_monitor_update_audio_level(qam_monitor_t *s, const int16_t amp[], int len);

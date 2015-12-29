@@ -21,8 +21,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: g711_tests.c,v 1.12 2008/05/13 13:17:25 steveu Exp $
  */
 
 /*! \page g711_tests_page A-law and u-law conversion tests
@@ -38,12 +36,22 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <fcntl.h>
+#include <unistd.h>
 #include <string.h>
-#include <audiofile.h>
+#include <sndfile.h>
+
+//#if defined(WITH_SPANDSP_INTERNALS)
+#define SPANDSP_EXPOSE_INTERNAL_STRUCTURES
+//#endif
 
 #include "spandsp.h"
+#include "spandsp-sim.h"
 
-#define OUT_FILE_NAME   "g711.wav"
+#define BLOCK_LEN           160
+
+#define IN_FILE_NAME        "../test-data/local/short_nb_voice.wav"
+#define ENCODED_FILE_NAME   "g711.g711"
+#define OUT_FILE_NAME       "post_g711.wav"
 
 int16_t amp[65536];
 uint8_t ulaw_data[65536];
@@ -52,10 +60,9 @@ uint8_t alaw_data[65536];
 const uint8_t alaw_1khz_sine[] = {0x34, 0x21, 0x21, 0x34, 0xB4, 0xA1, 0xA1, 0xB4};
 const uint8_t ulaw_1khz_sine[] = {0x1E, 0x0B, 0x0B, 0x1E, 0x9E, 0x8B, 0x8B, 0x9E};
 
-int main(int argc, char *argv[])
+static void compliance_tests(int log_audio)
 {
-    AFfilehandle outhandle;
-    AFfilesetup filesetup;
+    SNDFILE *outhandle;
     power_meter_t power_meter;
     int outframes;
     int i;
@@ -69,24 +76,18 @@ int main(int argc, char *argv[])
     float worst_ulaw;
     float tmp;
     int len;
-    g711_state_t *encode;
+    g711_state_t *enc_state;
     g711_state_t *transcode;
-    g711_state_t *decode;
-    
-    if ((filesetup = afNewFileSetup()) == AF_NULL_FILESETUP)
-    {
-        fprintf(stderr, "    Failed to create file setup\n");
-        exit(2);
-    }
-    afInitSampleFormat(filesetup, AF_DEFAULT_TRACK, AF_SAMPFMT_TWOSCOMP, 16);
-    afInitRate(filesetup, AF_DEFAULT_TRACK, (float) SAMPLE_RATE);
-    afInitFileFormat(filesetup, AF_FILE_WAVE);
-    afInitChannels(filesetup, AF_DEFAULT_TRACK, 1);
+    g711_state_t *dec_state;
 
-    if ((outhandle = afOpenFile(OUT_FILE_NAME, "w", filesetup)) == AF_NULL_FILEHANDLE)
+    outhandle = NULL;
+    if (log_audio)
     {
-        fprintf(stderr, "    Cannot create wave file '%s'\n", OUT_FILE_NAME);
-        exit(2);
+        if ((outhandle = sf_open_telephony_write(OUT_FILE_NAME, 1)) == NULL)
+        {
+            fprintf(stderr, "    Cannot create audio file '%s'\n", OUT_FILE_NAME);
+            exit(2);
+        }
     }
 
     printf("Conversion accuracy tests.\n");
@@ -122,14 +123,14 @@ int main(int argc, char *argv[])
             }
             amp[i] = post;
         }
-        outframes = afWriteFrames(outhandle,
-                                  AF_DEFAULT_TRACK,
-                                  amp,
-                                  65536);
-        if (outframes != 65536)
+        if (log_audio)
         {
-            fprintf(stderr, "    Error writing wave file\n");
-            exit(2);
+            outframes = sf_writef_short(outhandle, amp, 65536);
+            if (outframes != 65536)
+            {
+                fprintf(stderr, "    Error writing audio file\n");
+                exit(2);
+            }
         }
         for (i = 0;  i < 65536;  i++)
         {
@@ -157,14 +158,14 @@ int main(int argc, char *argv[])
             }
             amp[i] = post;
         }
-        outframes = afWriteFrames(outhandle,
-                                  AF_DEFAULT_TRACK,
-                                  amp,
-                                  65536);
-        if (outframes != 65536)
+        if (log_audio)
         {
-            fprintf(stderr, "    Error writing wave file\n");
-            exit(2);
+            outframes = sf_writef_short(outhandle, amp, 65536);
+            if (outframes != 65536)
+            {
+                fprintf(stderr, "    Error writing audio file\n");
+                exit(2);
+            }
         }
     }
     printf("Worst A-law error (ignoring small values) %f%%\n", worst_alaw*100.0);
@@ -213,14 +214,14 @@ int main(int argc, char *argv[])
         power_meter_update(&power_meter, amp[i]);
     }
     printf("Reference u-law 1kHz tone is %fdBm0\n", power_meter_current_dbm0(&power_meter));
-    outframes = afWriteFrames(outhandle,
-                              AF_DEFAULT_TRACK,
-                              amp,
-                              8000);
-    if (outframes != 8000)
+    if (log_audio)
     {
-        fprintf(stderr, "    Error writing wave file\n");
-        exit(2);
+        outframes = sf_writef_short(outhandle, amp, 8000);
+        if (outframes != 8000)
+        {
+            fprintf(stderr, "    Error writing audio file\n");
+            exit(2);
+        }
     }
     if (0.1f < fabs(power_meter_current_dbm0(&power_meter)))
     {
@@ -234,14 +235,14 @@ int main(int argc, char *argv[])
         power_meter_update(&power_meter, amp[i]);
     }
     printf("Reference A-law 1kHz tone is %fdBm0\n", power_meter_current_dbm0(&power_meter));
-    outframes = afWriteFrames(outhandle,
-                              AF_DEFAULT_TRACK,
-                              amp,
-                              8000);
-    if (outframes != 8000)
+    if (log_audio)
     {
-        fprintf(stderr, "    Error writing wave file\n");
-        exit(2);
+        outframes = sf_writef_short(outhandle, amp, 8000);
+        if (outframes != 8000)
+        {
+            fprintf(stderr, "    Error writing audio file\n");
+            exit(2);
+        }
     }
     if (0.1f < fabs(power_meter_current_dbm0(&power_meter)))
     {
@@ -278,16 +279,16 @@ int main(int argc, char *argv[])
         }
     }
     
-    encode = g711_init(NULL, G711_ALAW);
+    enc_state = g711_init(NULL, G711_ALAW);
     transcode = g711_init(NULL, G711_ALAW);
-    decode = g711_init(NULL, G711_ULAW);
+    dec_state = g711_init(NULL, G711_ULAW);
 
     len = 65536;
     for (i = 0;  i < len;  i++)
         amp[i] = i - 32768;
-    len = g711_encode(encode, alaw_data, amp, len);
+    len = g711_encode(enc_state, alaw_data, amp, len);
     len = g711_transcode(transcode, ulaw_data, alaw_data, len);
-    len = g711_decode(decode, amp, ulaw_data, len);
+    len = g711_decode(dec_state, amp, ulaw_data, len);
     if (len != 65536)
     {
         printf("Block coding gave the wrong length - %d instead of %d\n", len, 65536);
@@ -317,18 +318,198 @@ int main(int argc, char *argv[])
             }
         }
     }
-    g711_release(encode);
+    g711_release(enc_state);
     g711_release(transcode);
-    g711_release(decode);
+    g711_release(dec_state);
 
-    if (afCloseFile(outhandle))
+    if (log_audio)
     {
-        fprintf(stderr, "    Cannot close wave file '%s'\n", OUT_FILE_NAME);
-        exit(2);
+        if (sf_close_telephony(outhandle))
+        {
+            fprintf(stderr, "    Cannot close audio file '%s'\n", OUT_FILE_NAME);
+            exit(2);
+        }
     }
-    afFreeFileSetup(filesetup);
 
     printf("Tests passed.\n");
+}
+/*- End of function --------------------------------------------------------*/
+
+int main(int argc, char *argv[])
+{
+    SNDFILE *inhandle;
+    SNDFILE *outhandle;
+    int outframes;
+    int opt;
+    int samples;
+    int len2;
+    int len3;
+    int basic_tests;
+    int law;
+    int encode;
+    int decode;
+    int file;
+    const char *in_file;
+    const char *out_file;
+    g711_state_t *enc_state;
+    g711_state_t *dec_state;
+    int16_t indata[BLOCK_LEN];
+    int16_t outdata[BLOCK_LEN];
+    uint8_t g711data[BLOCK_LEN];
+
+    basic_tests = TRUE;
+    law = G711_ALAW;
+    encode = FALSE;
+    decode = FALSE;
+    in_file = NULL;
+    out_file = NULL;
+    while ((opt = getopt(argc, argv, "ad:e:l:u")) != -1)
+    {
+        switch (opt)
+        {
+        case 'a':
+            law = G711_ALAW;
+            basic_tests = FALSE;
+            break;
+        case 'd':
+            in_file = optarg;
+            basic_tests = FALSE;
+            decode = TRUE;
+            break;
+        case 'e':
+            in_file = optarg;
+            basic_tests = FALSE;
+            encode = TRUE;
+            break;
+        case 'l':
+            out_file = optarg;
+            break;
+        case 'u':
+            law = G711_ULAW;
+            basic_tests = FALSE;
+            break;
+        default:
+            //usage();
+            exit(2);
+        }
+    }
+
+    if (basic_tests)
+    {
+        compliance_tests(TRUE);
+    }
+    else
+    {
+        if (!decode  &&  !encode)
+        {
+            decode =
+            encode = TRUE;
+        }
+        if (in_file == NULL)
+        {
+            in_file = (encode)  ?  IN_FILE_NAME  :  ENCODED_FILE_NAME;
+        }
+        if (out_file == NULL)
+        {
+            out_file = (decode)  ?  OUT_FILE_NAME  :  ENCODED_FILE_NAME;
+        }
+        inhandle = NULL;
+        outhandle = NULL;
+        file = -1;
+        enc_state = NULL;
+        dec_state = NULL;
+        if (encode)
+        {
+            if ((inhandle = sf_open_telephony_read(in_file, 1)) == NULL)
+            {
+                fprintf(stderr, "    Cannot open audio file '%s'\n", in_file);
+                exit(2);
+            }
+            enc_state = g711_init(NULL, law);
+        }
+        else
+        {
+            if ((file = open(in_file, O_RDONLY)) < 0)
+            {
+                fprintf(stderr, "    Failed to open '%s'\n", in_file);
+                exit(2);
+            }
+        }
+        if (decode)
+        {
+            if ((outhandle = sf_open_telephony_write(out_file, 1)) == NULL)
+            {
+                fprintf(stderr, "    Cannot create audio file '%s'\n", out_file);
+                exit(2);
+            }
+            dec_state = g711_init(NULL, law);
+        }
+        else
+        {
+            if ((file = open(out_file, O_WRONLY | O_CREAT | O_TRUNC, 0666)) < 0)
+            {
+                fprintf(stderr, "    Failed to open '%s'\n", out_file);
+                exit(2);
+            }
+        }
+        for (;;)
+        {
+            if (encode)
+            {
+                samples = sf_readf_short(inhandle, indata, BLOCK_LEN);
+                if (samples <= 0)
+                    break;
+                len2 = g711_encode(enc_state, g711data, indata, samples);
+            }
+            else
+            {
+                len2 = read(file, g711data, BLOCK_LEN);
+                if (len2 <= 0)
+                    break;
+            }
+            if (decode)
+            {
+                len3 = g711_decode(dec_state, outdata, g711data, len2);
+                outframes = sf_writef_short(outhandle, outdata, len3);
+                if (outframes != len3)
+                {
+                    fprintf(stderr, "    Error writing audio file\n");
+                    exit(2);
+                }
+            }
+            else
+            {
+                len3 = write(file, g711data, len2);
+                if (len3 <= 0)
+                    break;
+            }
+        }
+        if (encode)
+        {
+            if (sf_close_telephony(inhandle))
+            {
+                fprintf(stderr, "    Cannot close audio file '%s'\n", IN_FILE_NAME);
+                exit(2);
+            }
+        }
+        else
+        {
+            close(file);
+        }
+        if (decode)
+        {
+            if (sf_close_telephony(outhandle))
+            {
+                fprintf(stderr, "    Cannot close audio file '%s'\n", OUT_FILE_NAME);
+                exit(2);
+            }
+        }
+        else
+        {
+            close(file);
+        }
+        printf("'%s' translated to '%s' using %s.\n", in_file, out_file, (law == G711_ALAW)  ?  "A-law"  :  "u-law");
+    }
     return 0;
 }
 /*- End of function --------------------------------------------------------*/

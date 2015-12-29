@@ -24,14 +24,16 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: at_interpreter.c,v 1.30 2008/07/24 13:55:23 steveu Exp $
  */
 
 /*! \file */
 
 #if defined(HAVE_CONFIG_H)
-#include <config.h>
+#include "config.h"
+#endif
+
+#if defined(__sun)
+#define __EXTENSIONS__
 #endif
 
 #include <inttypes.h>
@@ -52,10 +54,13 @@
 #include "spandsp/async.h"
 #include "spandsp/hdlc.h"
 #include "spandsp/fsk.h"
+#include "spandsp/super_tone_rx.h"
+#include "spandsp/fax_modems.h"
 
 #include "spandsp/at_interpreter.h"
 
-#define ms_to_samples(t)        (((t)*SAMPLE_RATE)/1000)
+#include "spandsp/private/logging.h"
+#include "spandsp/private/at_interpreter.h"
 
 #define MANUFACTURER            "www.soft-switch.org"
 #define SERIAL_NUMBER           "42"
@@ -71,7 +76,7 @@ enum
 static at_profile_t profiles[3] =
 {
     {
-#if defined(_MSC_VER)
+#if defined(_MSC_VER)  ||  defined(__sunos)  ||  defined(__solaris)  ||  defined(__sun)
         /*.echo =*/ TRUE,
         /*.verbose =*/ TRUE,
         /*.result_code_format =*/ ASCII_RESULT_CODES,
@@ -108,18 +113,6 @@ static const char *revision = VERSION;
 #define DLE 0x10
 #define SUB 0x1A
 
-/* BEWARE: right now this must match up with a list in the T.31 code. */
-enum
-{
-    T31_NONE = -1,
-    T31_FLUSH = 0,
-    T31_SILENCE_TX,
-    T31_SILENCE_RX,
-    T31_CED_TONE,
-    T31_CNG_TONE,
-    T31_NOCNG_TONE,
-};
-
 static const char *at_response_codes[] =
 {
     "OK",
@@ -135,7 +128,7 @@ static const char *at_response_codes[] =
     "+FRH:3"
 };
 
-void at_set_at_rx_mode(at_state_t *s, int new_mode)
+SPAN_DECLARE(void) at_set_at_rx_mode(at_state_t *s, int new_mode)
 {
     /* The use of a DTE timeout is mode dependent. Set the timeout appropriately in
        the modem. */
@@ -153,7 +146,7 @@ void at_set_at_rx_mode(at_state_t *s, int new_mode)
 }
 /*- End of function --------------------------------------------------------*/
 
-void at_put_response(at_state_t *s, const char *t)
+SPAN_DECLARE(void) at_put_response(at_state_t *s, const char *t)
 {
     uint8_t buf[3];
     
@@ -167,7 +160,7 @@ void at_put_response(at_state_t *s, const char *t)
 }
 /*- End of function --------------------------------------------------------*/
 
-void at_put_numeric_response(at_state_t *s, int val)
+SPAN_DECLARE(void) at_put_numeric_response(at_state_t *s, int val)
 {
     char buf[20];
 
@@ -176,10 +169,11 @@ void at_put_numeric_response(at_state_t *s, int val)
 }
 /*- End of function --------------------------------------------------------*/
 
-void at_put_response_code(at_state_t *s, int code)
+SPAN_DECLARE(void) at_put_response_code(at_state_t *s, int code)
 {
     uint8_t buf[20];
 
+    span_log(&s->logging, SPAN_LOG_FLOW, "Sending AT response code %s\n", at_response_codes[code]);
     switch (s->p.result_code_format)
     {
     case ASCII_RESULT_CODES:
@@ -207,7 +201,7 @@ static int answer_call(at_state_t *s)
 }
 /*- End of function --------------------------------------------------------*/
 
-void at_call_event(at_state_t *s, int event)
+SPAN_DECLARE(void) at_call_event(at_state_t *s, int event)
 {
     span_log(&s->logging, SPAN_LOG_FLOW, "Call event %d received\n", event);
     switch (event)
@@ -235,11 +229,11 @@ void at_call_event(at_state_t *s, int event)
         {
             /* FAX modem connection */
             at_set_at_rx_mode(s, AT_MODE_DELIVERY);
-            at_modem_control(s, AT_MODEM_CONTROL_RESTART, (void *) T31_CED_TONE);
+            at_modem_control(s, AT_MODEM_CONTROL_RESTART, (void *) FAX_MODEM_CED_TONE);
         }
         break;
     case AT_CALL_EVENT_CONNECTED:
-        span_log(&s->logging, SPAN_LOG_FLOW, "Dial call - connected. fclass=%d\n", s->fclass_mode);
+        span_log(&s->logging, SPAN_LOG_FLOW, "Dial call - connected. FCLASS=%d\n", s->fclass_mode);
         at_modem_control(s, AT_MODEM_CONTROL_RNG, (void *) 0);
         if (s->fclass_mode == 0)
         {
@@ -259,9 +253,9 @@ void at_call_event(at_state_t *s, int event)
                 /* FAX modem connection */
                 at_set_at_rx_mode(s, AT_MODE_DELIVERY);
                 if (s->silent_dial)
-                    at_modem_control(s, AT_MODEM_CONTROL_RESTART, (void *) T31_NOCNG_TONE);
+                    at_modem_control(s, AT_MODEM_CONTROL_RESTART, (void *) FAX_MODEM_NOCNG_TONE);
                 else
-                    at_modem_control(s, AT_MODEM_CONTROL_RESTART, (void *) T31_CNG_TONE);
+                    at_modem_control(s, AT_MODEM_CONTROL_RESTART, (void *) FAX_MODEM_CNG_TONE);
                 s->dte_is_waiting = TRUE;
             }
         }
@@ -315,10 +309,10 @@ void at_call_event(at_state_t *s, int event)
 }
 /*- End of function --------------------------------------------------------*/
 
-void at_reset_call_info(at_state_t *s)
+SPAN_DECLARE(void) at_reset_call_info(at_state_t *s)
 {
-    struct at_call_id *call_id;
-    struct at_call_id *next;
+    at_call_id_t *call_id;
+    at_call_id_t *next;
  
     for (call_id = s->call_id;  call_id;  call_id = next)
     {
@@ -331,13 +325,13 @@ void at_reset_call_info(at_state_t *s)
 }
 /*- End of function --------------------------------------------------------*/
 
-void at_set_call_info(at_state_t *s, char const *id, char const *value)
+SPAN_DECLARE(void) at_set_call_info(at_state_t *s, char const *id, char const *value)
 {
-    struct at_call_id *new_call_id;
-    struct at_call_id *call_id;
+    at_call_id_t *new_call_id;
+    at_call_id_t *call_id;
 
     /* TODO: We should really not merely ignore a failure to malloc */
-    if ((new_call_id = (struct at_call_id *) malloc(sizeof(*new_call_id))) == NULL)
+    if ((new_call_id = (at_call_id_t *) malloc(sizeof(*new_call_id))) == NULL)
         return;
     call_id = s->call_id;
     /* If these strdups fail its pretty harmless. We just appear to not
@@ -359,15 +353,18 @@ void at_set_call_info(at_state_t *s, char const *id, char const *value)
 }
 /*- End of function --------------------------------------------------------*/
 
-void at_display_call_info(at_state_t *s)
+SPAN_DECLARE(void) at_display_call_info(at_state_t *s)
 {
     char buf[132 + 1];
-    struct at_call_id *call_id = s->call_id;
+    at_call_id_t *call_id = s->call_id;
 
     while (call_id)
     {
-        snprintf(buf, sizeof(buf), "%s=%s", 
-                 call_id->id ? call_id->id : "NULL", call_id->value ? call_id->value : "<NONE>");
+        snprintf(buf,
+                 sizeof(buf),
+                 "%s=%s", 
+                 (call_id->id)  ?  call_id->id  :  "NULL",
+                 (call_id->value)  ?  call_id->value  :  "<NONE>");
         at_put_response(s, buf);
         call_id = call_id->next;
     }
@@ -381,7 +378,7 @@ static int parse_num(const char **s, int max_value)
     
     /* The spec. says no digits is valid, and should be treated as zero. */
     i = 0;
-    while (isdigit(**s))
+    while (isdigit((int) **s))
     {
         i = i*10 + ((**s) - '0');
         (*s)++;
@@ -399,7 +396,7 @@ static int parse_hex_num(const char **s, int max_value)
     /* The spec. says a hex value is always 2 digits, and the alpha digits are
        upper case. */
     i = 0;
-    if (isdigit(**s))
+    if (isdigit((int) **s))
         i = **s - '0';
     else if (**s >= 'A'  &&  **s <= 'F')
         i = **s - 'A';
@@ -407,7 +404,7 @@ static int parse_hex_num(const char **s, int max_value)
         return -1;
     (*s)++;
 
-    if (isdigit(**s))
+    if (isdigit((int) **s))
         i = (i << 4)  | (**s - '0');
     else if (**s >= 'A'  &&  **s <= 'F')
         i = (i << 4)  | (**s - 'A');
@@ -524,6 +521,64 @@ static int parse_2_out(at_state_t *s, const char **t, int *target1, int max_valu
         val1 = (target1)  ?  *target1  :  0;
         val2 = (target2)  ?  *target2  :  0;
         snprintf(buf, sizeof(buf), "%s%d,%d", (prefix)  ?  prefix  :  "", val1, val2);
+        at_put_response(s, buf);
+        break;
+    default:
+        return FALSE;
+    }
+    return TRUE;
+}
+/*- End of function --------------------------------------------------------*/
+
+static int parse_n_out(at_state_t *s,
+                       const char **t,
+                       int *targets[],
+                       const int max_values[],
+                       int entries,
+                       const char *prefix,
+                       const char *def)
+{
+    char buf[100];
+    int val;
+    int len;
+    int i;
+
+    switch (*(*t)++)
+    {
+    case '=':
+        switch (**t)
+        {
+        case '?':
+            /* Show possible values */
+            (*t)++;
+            snprintf(buf, sizeof(buf), "%s%s", (prefix)  ?  prefix  :  "", def);
+            at_put_response(s, buf);
+            break;
+        default:
+            /* Set value */
+            for (i = 0;  i < entries;  i++)
+            {
+                if ((val = parse_num(t, max_values[i])) < 0)
+                    return FALSE;
+                if (targets[i])
+                    *targets[i] = val;
+                if (**t != ',')
+                    break;
+                (*t)++;
+            }
+            break;
+        }
+        break;
+    case '?':
+        /* Show current value */
+        len = snprintf(buf, sizeof(buf), "%s", (prefix)  ?  prefix  :  "");
+        for (i = 0;  i < entries;  i++)
+        {
+            if (i > 0)
+                len += snprintf(&buf[len], sizeof(buf) - len, ",");
+            val = (targets[i])  ?  *targets[i]  :  0;
+            len += snprintf(&buf[len], sizeof(buf) - len, "%d", val);
+        }
         at_put_response(s, buf);
         break;
     default:
@@ -793,7 +848,6 @@ static const char *at_cmd_D(at_state_t *s, const char *t)
 {
     int ok;
     char *u;
-    const char *w;
     char num[100 + 1];
     char ch;
 
@@ -806,11 +860,10 @@ static const char *at_cmd_D(at_state_t *s, const char *t)
     ok = FALSE;
     /* There are a numbers of options in a dial command string.
        Many are completely irrelevant in this application. */
-    w = t;
     u = num;
     for (  ;  (ch = *t);  t++)
     {
-        if (isdigit(ch))
+        if (isdigit((int) ch))
         {
             /* V.250 6.3.1.1 Basic digit set */
             *u++ = ch;
@@ -872,11 +925,13 @@ static const char *at_cmd_D(at_state_t *s, const char *t)
             case 'G':
             case 'g':
                 /* GSM07.07 6.2 - Control the CUG supplementary service for this call */
+                /* Uses index and info values set with command +CCUG. See +CCUG */
                 /* TODO: */
                 break;
             case 'I':
             case 'i':
                 /* GSM07.07 6.2 - Override Calling Line Identification Restriction (CLIR) */
+                /* I=invocation (restrict CLI presentation), i=suppression (allow CLI presentation). See +CLIR */
                 /* TODO: */
                 break;
             case ';':
@@ -936,7 +991,7 @@ static const char *at_cmd_H(at_state_t *s, const char *t)
     if (s->at_rx_mode != AT_MODE_ONHOOK_COMMAND  &&  s->at_rx_mode != AT_MODE_OFFHOOK_COMMAND)
     {
         /* Push out the last of the audio (probably by sending a short silence). */
-        at_modem_control(s, AT_MODEM_CONTROL_RESTART, (void *) T31_FLUSH);
+        at_modem_control(s, AT_MODEM_CONTROL_RESTART, (void *) FAX_MODEM_FLUSH);
         s->do_hangup = TRUE;
         at_set_at_rx_mode(s, AT_MODE_CONNECTED);
         return (const char *) -1;
@@ -2274,6 +2329,10 @@ static const char *at_cmd_plus_CLIR(at_state_t *s, const char *t)
 {
     /* 3GPP TS 27.007 7.7 - Calling line identification restriction */
     /* TODO: */
+    /* Parameter sets the adjustment for outgoing calls:
+        0 presentation indicator is used according to the subscription of the CLIR service
+        1 CLIR invocation
+        2 CLIR suppression */
     t += 5;
     if (!parse_out(s, &t, NULL, 1, "+CLIR:", ""))
         return NULL;
@@ -3206,9 +3265,76 @@ static const char *at_cmd_plus_ER(at_state_t *s, const char *t)
 
 static const char *at_cmd_plus_ES(at_state_t *s, const char *t)
 {
+    static const int maxes[3] =
+    {
+        7, 4, 9
+    };
+    int *locations[3];
+
     /* V.250 6.5.1 - Error control selection */ 
+
+    /* orig_rqst
+        0:  Direct mode
+        1:  Initiate call with Buffered mode only
+        2:  Initiate V.42 without Detection Phase. If Rec. V.8 is in use, this is a request to disable V.42 Detection Phase
+        3:  Initiate V.42 with Detection Phase
+        4:  Initiate Altemative Protocol
+        5:  Initiate Synchronous Mode when connection is completed, immediately after the entire CONNECT result code
+            is delivered. V.24 circuits 113 and 115 are activated when Data State is entered
+        6:  Initiate Synchronous Access Mode when connection is completed, and Data State is entered
+        7:  Initiate Frame Tunnelling Mode when connection is completed, and Data State is entered
+
+       orig_fbk
+        0:  Error control optional (either LAPM or Alternative acceptable); if error control not established, maintain
+            DTE-DCE data rate and use V.14 buffered mode with flow control during non-error-control operation
+        1:  Error control optional (either LAPM or Alternative acceptable); if error control not established, change
+            DTE-DCE data rate to match line rate and use Direct mode
+        2:  Error control required (either LAPM or Alternative acceptable); if error control not established, disconnect
+        3:  Error control required (only LAPM acceptable); if error control not established, disconnect
+        4:  Error control required (only Altemative protocol acceptable); if error control not established, disconnect
+
+       ans_fbk
+        0:  Direct mode
+        1:  Error control disabled, use Buffered mode
+        2:  Error control optional (either LAPM or Alternative acceptable); if error control not established, maintain
+            DTE-DCE data rate and use local buffering and flow control during non-error-control operation
+        3:  Error control optional (either LAPM or Alternative acceptable); if error control not established, change
+            DTE-DCE data rate to match line rate and use Direct mode
+        4:  Error control required (either LAPM or Alternative acceptable); if error control not established, disconnect
+        5:  Error control required (only LAPM acceptable); if error control not established, disconnect
+        6:  Error control required (only Alternative protocol acceptable); if error control not established, disconnect
+        7:  Initiate Synchronous Mode when connection is completed, immediately after the entire CONNECT result code
+            is delivered. V.24 cicuits 113 and 115 are activated when Data State is entered
+        8:  Initiate Synchronous Access Mode when connection is completed, and Data State is entered
+        9:  Initiate Frame Tunnelling Mode when connection is completed, and Data State is entered */
+
     /* TODO: */
     t += 3;
+    locations[0] = NULL;
+    locations[1] = NULL;
+    locations[2] = NULL;
+    if (!parse_n_out(s, &t, locations, maxes, 3, "+ES:", "(0-7),(0-4),(0-9)"))
+        return NULL;
+    return t;
+}
+/*- End of function --------------------------------------------------------*/
+
+static const char *at_cmd_plus_ESA(at_state_t *s, const char *t)
+{
+    static const int maxes[8] =
+    {
+        2, 1, 1, 1, 2, 1, 255, 255
+    };
+    int *locations[8];
+    int i;
+
+    /* V.80 8.2 - Synchronous access mode configuration */
+    /* TODO: */
+    t += 4;
+    for (i = 0;  i < 8;  i++)
+        locations[i] = NULL;
+    if (!parse_n_out(s, &t, locations, maxes, 8, "+ESA:", "(0-2),(0-1),(0-1),(0-1),(0-2),(0-1),(0-255),(0-255)"))
+        return NULL;
     return t;
 }
 /*- End of function --------------------------------------------------------*/
@@ -3244,9 +3370,30 @@ static const char *at_cmd_plus_EWIND(at_state_t *s, const char *t)
 }
 /*- End of function --------------------------------------------------------*/
 
+static const char *at_cmd_plus_F34(at_state_t *s, const char *t)
+{
+    static const int maxes[5] =
+    {
+        14, 14, 2, 14, 14
+    };
+    int *locations[5];
+    int i;
+
+    /* T.31 B.6.1 - Initial V.34 rate controls for FAX */
+    /* Syntax: +F34=[<maxp>][,[<minp>][,<prefc>][,<maxp2>][,<minp2]] */
+    /* TODO */
+    t += 4;
+    for (i = 0;  i < 5;  i++)
+        locations[i] = NULL;
+    if (!parse_n_out(s, &t, locations, maxes, 5, "+F34:", "(0-14),(0-14),(0-2),(0-14),(0-14)"))
+        return NULL;
+    return t;
+}
+/*- End of function --------------------------------------------------------*/
+
 static const char *at_cmd_plus_FAA(at_state_t *s, const char *t)
 {
-    /* T.32 8.5.2.5 - Adaptive Answer parameter */
+    /* T.32 8.5.2.5 - Adaptive answer parameter */
     /* TODO */
     t += 4;
     return t;
@@ -3815,18 +3962,66 @@ static const char *at_cmd_plus_GSN(at_state_t *s, const char *t)
 
 static const char *at_cmd_plus_IBC(at_state_t *s, const char *t)
 {
-    /* TIA-617 8.3 - Control of in-band control */
+    static const int maxes[13] =
+    {
+        2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+    };
+    int *locations[13];
+    int i;
+
+    /* V.80 7.9 - Control of in-band control */
     /* TODO: */
     t += 4;
+    /* 0: In-band control service disabled
+       1: In-band control service enabled, 7-bit codes allowed, and top bit insignificant
+       2; In-band control service enabled, 7-bit codes allowed, and 8-bit codes available
+    
+       Circuits 105, 106, 107, 108, 109, 110, 125, 132, 133, 135, 142 in that order. For each one:
+       0: disabled
+       1: enabled
+       
+       DCE line connect status reports:
+       0: disabled
+       1: enabled */
+    for (i = 0;  i < 13;  i++)
+        locations[i] = NULL;
+    if (!parse_n_out(s, &t, locations, maxes, 13, "+IBC:", "(0-2),(0,1),(0,1),(0,1),(0,1),(0,1),(0,1),(0,1),(0,1),(0,1),(0,1),(0.1),(0,1)"))
+        return NULL;
     return t;
 }
 /*- End of function --------------------------------------------------------*/
 
 static const char *at_cmd_plus_IBM(at_state_t *s, const char *t)
 {
-    /* TIA-617 8.4 - In-Band MARK idle reporting control */
+    static const int maxes[3] =
+    {
+        7, 255, 255
+    };
+    int *locations[3];
+
+    /* V.80 7.10 - In-band MARK idle reporting control */
     /* TODO: */
     t += 4;
+    /* Report control
+        0: No reports
+        1: Report only once when <T1 > expires
+        2: Report each time <T2> expires
+        3: Report once when <T1> expires, and then each time <T2> expires
+        4: Report only when the Mark-ldle Period ends; T3 = the entire interval
+        5: Report the first time when <T1> is exceeded, and then once more when the mark idle period ends
+        6: Report each time when <T2> is exceeded, and then once more when the mark idle period ends;
+           T3 = entire interval -- N*T2
+        7: report the first time when <T1> is exceeded, and then each time <T2> is exceeded, and then once
+           more when the mark idle period ends; T3 = entire mark idle period -- N*T2 - T1
+           
+       T1 in units of 10ms
+        
+       T2 in units of 10ms */
+    locations[0] = NULL;
+    locations[1] = NULL;
+    locations[2] = NULL;
+    if (!parse_n_out(s, &t, locations, maxes, 3, "+IBM:", "(0-7),(0-255),(0-255)"))
+        return NULL;
     return t;
 }
 /*- End of function --------------------------------------------------------*/
@@ -3836,19 +4031,19 @@ static const char *at_cmd_plus_ICF(at_state_t *s, const char *t)
     /* V.250 6.2.11 - DTE-DCE character framing */ 
     t += 4;
     /* Character format
-        0    auto detect
-        1    8 data 2 stop
-        2    8 data 1 parity 1 stop
-        3    8 data 1 stop
-        4    7 data 2 stop
-        5    7 data 1 parity 1 stop
-        6    7 data 1 stop
+        0:  auto detect
+        1:  8 data 2 stop
+        2:  8 data 1 parity 1 stop
+        3:  8 data 1 stop
+        4:  7 data 2 stop
+        5:  7 data 1 parity 1 stop
+        6:  7 data 1 stop
     
-       parity
-        0    Odd
-        1    Even
-        2    Mark
-        3    Space */
+       Parity
+        0:  Odd
+        1:  Even
+        2:  Mark
+        3:  Space */
     if (!parse_2_out(s, &t, &s->dte_char_format, 6, &s->dte_parity, 3, "+ICF:", "(0-6),(0-3)"))
         return NULL;
     return t;
@@ -3920,6 +4115,15 @@ static const char *at_cmd_plus_IRTS(at_state_t *s, const char *t)
     t += 5;
     if (!parse_out(s, &t, NULL, 1, "+IRTS:", "(0,1)"))
         return NULL;
+    return t;
+}
+/*- End of function --------------------------------------------------------*/
+
+static const char *at_cmd_plus_ITF(at_state_t *s, const char *t)
+{
+    /* V.80 8.4 - Transmit flow control thresholds */
+    /* TODO: */
+    t += 5;
     return t;
 }
 /*- End of function --------------------------------------------------------*/
@@ -5114,7 +5318,7 @@ static const char *at_cmd_plus_WSTL(at_state_t *s, const char *t)
 
 #include "at_interpreter_dictionary.h"
 
-static int command_search(const char *u, int len, int *matched)
+static int command_search(const char *u, int *matched)
 {
     int i;
     int index;
@@ -5129,7 +5333,7 @@ static int command_search(const char *u, int len, int *matched)
     {
         /* The character in u we are processing... */
         /* V.250 5.4.1 says upper and lower case are equivalent in commands */
-        index = (unsigned char) toupper(u[i]);
+        index = toupper((int) u[i]);
         /* Is there a child node for this character? */
         /* Note: First and last could have been packed into one uint16_t,
            but space is not that critical, so the other packing is good
@@ -5148,7 +5352,7 @@ static int command_search(const char *u, int len, int *matched)
 }
 /*- End of function --------------------------------------------------------*/
 
-int at_modem_control(at_state_t *s, int op, const char *num)
+SPAN_DECLARE(int) at_modem_control(at_state_t *s, int op, const char *num)
 {
     switch (op)
     {
@@ -5182,7 +5386,7 @@ int at_modem_control(at_state_t *s, int op, const char *num)
 }
 /*- End of function --------------------------------------------------------*/
 
-void at_interpreter(at_state_t *s, const char *cmd, int len)
+SPAN_DECLARE(void) at_interpreter(at_state_t *s, const char *cmd, int len)
 {
     int i;
     int c;
@@ -5248,7 +5452,7 @@ void at_interpreter(at_state_t *s, const char *cmd, int len)
                     t = s->line + 2;
                     while (t  &&  *t)
                     {
-                        if ((entry = command_search(t, 15, &matched)) <= 0)
+                        if ((entry = command_search(t, &matched)) <= 0)
                             break;
                         if ((t = at_commands[entry - 1](s, t)) == NULL)
                             break;
@@ -5289,18 +5493,18 @@ void at_interpreter(at_state_t *s, const char *cmd, int len)
 }
 /*- End of function --------------------------------------------------------*/
 
-void at_set_class1_handler(at_state_t *s, at_class1_handler_t handler, void *user_data)
+SPAN_DECLARE(void) at_set_class1_handler(at_state_t *s, at_class1_handler_t handler, void *user_data)
 {
     s->class1_handler = handler;
     s->class1_user_data = user_data;
 }
 /*- End of function --------------------------------------------------------*/
 
-at_state_t *at_init(at_state_t *s,
-                    at_tx_handler_t *at_tx_handler,
-                    void *at_tx_user_data,
-                    at_modem_control_handler_t *modem_control_handler,
-                    void *modem_control_user_data)
+SPAN_DECLARE(at_state_t *) at_init(at_state_t *s,
+                                   at_tx_handler_t *at_tx_handler,
+                                   void *at_tx_user_data,
+                                   at_modem_control_handler_t *modem_control_handler,
+                                   void *modem_control_user_data)
 {
     if (s == NULL)
     {
@@ -5308,6 +5512,8 @@ at_state_t *at_init(at_state_t *s,
             return NULL;
     }
     memset(s, '\0', sizeof(*s));
+    span_log_init(&s->logging, SPAN_LOG_NONE, NULL);
+    span_log_set_protocol(&s->logging, "AT");
     s->modem_control_handler = modem_control_handler;
     s->modem_control_user_data = modem_control_user_data;
     s->at_tx_handler = at_tx_handler;
@@ -5321,13 +5527,22 @@ at_state_t *at_init(at_state_t *s,
 }
 /*- End of function --------------------------------------------------------*/
 
-int at_free(at_state_t *s)
+SPAN_DECLARE(int) at_release(at_state_t *s)
 {
     at_reset_call_info(s);
     if (s->local_id)
         free(s->local_id);
-    free(s);
     return 0;
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE(int) at_free(at_state_t *s)
+{
+    int ret;
+
+    ret = at_release(s);
+    free(s);
+    return ret;
 }
 /*- End of function --------------------------------------------------------*/
 /*- End of file ------------------------------------------------------------*/

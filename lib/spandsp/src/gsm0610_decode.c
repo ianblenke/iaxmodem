@@ -24,31 +24,30 @@
  *
  * This code is based on the widely used GSM 06.10 code available from
  * http://kbs.cs.tu-berlin.de/~jutta/toast.html
- *
- * $Id: gsm0610_decode.c,v 1.21 2008/07/02 14:48:25 steveu Exp $
  */
 
 /*! \file */
 
 #if defined(HAVE_CONFIG_H)
-#include <config.h>
+#include "config.h"
 #endif
 
 #include <assert.h>
 #include <inttypes.h>
-#include "floating_fudge.h"
 #if defined(HAVE_TGMATH_H)
 #include <tgmath.h>
 #endif
 #if defined(HAVE_MATH_H)
 #include <math.h>
 #endif
+#include "floating_fudge.h"
 #include <stdlib.h>
 #include <memory.h>
 
 #include "spandsp/telephony.h"
+#include "spandsp/fast_convert.h"
 #include "spandsp/bitstream.h"
-#include "spandsp/dc_restore.h"
+#include "spandsp/saturated.h"
 #include "spandsp/gsm0610.h"
 
 #include "gsm0610_local.h"
@@ -66,9 +65,9 @@ static void postprocessing(gsm0610_state_t *s, int16_t amp[])
     {
         tmp = gsm_mult_r(msr, 28180);
         /* De-emphasis */
-        msr = gsm_add(amp[k], tmp);
+        msr = saturated_add16(amp[k], tmp);
         /* Truncation & upscaling */
-        amp[k] = (int16_t) (gsm_add(msr, msr) & 0xFFF8);
+        amp[k] = (int16_t) (saturated_add16(msr, msr) & 0xFFF8);
     }
     /*endfor*/
     s->msr = msr;
@@ -101,7 +100,7 @@ static void decode_a_frame(gsm0610_state_t *s,
 }
 /*- End of function --------------------------------------------------------*/
 
-int gsm0610_unpack_none(gsm0610_frame_t *s, const uint8_t c[])
+SPAN_DECLARE(int) gsm0610_unpack_none(gsm0610_frame_t *s, const uint8_t c[])
 {
     int i;
     int j;
@@ -123,7 +122,7 @@ int gsm0610_unpack_none(gsm0610_frame_t *s, const uint8_t c[])
 }
 /*- End of function --------------------------------------------------------*/
 
-int gsm0610_unpack_wav49(gsm0610_frame_t *s, const uint8_t c[])
+SPAN_DECLARE(int) gsm0610_unpack_wav49(gsm0610_frame_t *s, const uint8_t c[])
 {
     uint16_t sr;
     int i;
@@ -265,7 +264,7 @@ int gsm0610_unpack_wav49(gsm0610_frame_t *s, const uint8_t c[])
 }
 /*- End of function --------------------------------------------------------*/
 
-int gsm0610_unpack_voip(gsm0610_frame_t *s, const uint8_t c[33])
+SPAN_DECLARE(int) gsm0610_unpack_voip(gsm0610_frame_t *s, const uint8_t c[33])
 {
     int i;
 
@@ -310,7 +309,7 @@ int gsm0610_unpack_voip(gsm0610_frame_t *s, const uint8_t c[33])
 }
 /*- End of function --------------------------------------------------------*/
 
-int gsm0610_decode(gsm0610_state_t *s, int16_t amp[], const uint8_t code[], int len)
+SPAN_DECLARE(int) gsm0610_decode(gsm0610_state_t *s, int16_t amp[], const uint8_t code[], int len)
 {
     gsm0610_frame_t frame[2];
     int bytes;

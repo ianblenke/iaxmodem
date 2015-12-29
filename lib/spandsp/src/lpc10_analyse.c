@@ -25,29 +25,28 @@
  * This code is based on the U.S. Department of Defense reference
  * implementation of the LPC-10 2400 bps Voice Coder. They do not
  * exert copyright claims on their code, and it may be freely used.
- *
- * $Id: lpc10_analyse.c,v 1.19 2008/07/02 14:48:25 steveu Exp $
  */
 
 #if defined(HAVE_CONFIG_H)
-#include <config.h>
+#include "config.h"
 #endif
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <inttypes.h>
 #include <memory.h>
-#include "floating_fudge.h"
 #if defined(HAVE_TGMATH_H)
 #include <tgmath.h>
 #endif
 #if defined(HAVE_MATH_H)
 #include <math.h>
 #endif
+#include "floating_fudge.h"
 
 #include "spandsp/telephony.h"
 #include "spandsp/dc_restore.h"
 #include "spandsp/lpc10.h"
+#include "spandsp/private/lpc10.h"
 
 #include "lpc10_encdecs.h"
 
@@ -204,7 +203,6 @@ static void dynamic_pitch_tracking(lpc10_encode_state_t *s,
 {
     int32_t pbar;
     float sbar;
-    int32_t path[2];
     int32_t i;
     int32_t j;
     float alpha;
@@ -293,10 +291,7 @@ static void dynamic_pitch_tracking(lpc10_encode_state_t *s,
     /* TRACE: look back two frames to find minimum cost pitch estimate */
     *pitch = *midx;
     for (i = 0, j = s->ipoint;  i < 2;  i++, j++)
-    {
         *pitch = s->p[j & 1][*pitch - 1];
-        path[i] = *pitch;
-    }
 
     /* The following statement subtracts one from IPOINT, mod DEPTH.  I */
     /* think the author chose to add DEPTH-1, instead of subtracting 1, */

@@ -24,8 +24,6 @@
  *
  * This code is based on the widely used GSM 06.10 code available from
  * http://kbs.cs.tu-berlin.de/~jutta/toast.html
- *
- * $Id: gsm0610_local.h,v 1.10 2008/04/17 14:26:56 steveu Exp $
  */
 
 #if !defined(_GSM0610_LOCAL_H_)
@@ -35,16 +33,18 @@
 
 #define	GSM0610_MAGIC                   0xD
 
+#include "spandsp/private/gsm0610.h"
+
 static __inline__ int16_t gsm_add(int16_t a, int16_t b)
 {
-#if defined(__GNUC__)  &&  defined(__i386__)
+#if defined(__GNUC__)  &&  (defined(__i386__)  ||  defined(__x86_64__))
     __asm__ __volatile__(
         " addw %2,%0;\n"
         " jno 0f;\n"
         " movw $0x7fff,%0;\n"
         " adcw $0,%0;\n"
         "0:"
-        : "=r" (a)
+        : "=&r" (a)
         : "0" (a), "ir" (b)
         : "cc"
     );
@@ -60,14 +60,14 @@ static __inline__ int16_t gsm_add(int16_t a, int16_t b)
 
 static __inline__ int32_t gsm_l_add(int32_t a, int32_t b)
 {
-#if defined(__i386__)
+#if defined(__GNUC__)  &&  (defined(__i386__)  ||  defined(__x86_64__))
     __asm__ __volatile__(
         " addl %2,%0;\n"
         " jno 0f;\n"
         " movl $0x7fffffff,%0;\n"
         " adcl $0,%0;\n"
         "0:"
-        : "=r" (a)
+        : "=&r" (a)
         : "0" (a), "ir" (b)
         : "cc"
     );
@@ -211,18 +211,6 @@ extern void gsm0610_short_term_synthesis_filter(gsm0610_state_t *s,
                                                 int16_t amp[160]);
 
 extern int16_t gsm0610_norm(int32_t a);
-
-#if defined(__GNUC__)  &&  defined(__i386__)
-
-void gsm0610_vec_vsraw(const int16_t *p, int n, int bits);
-
-int32_t gsm0610_vec_iprod(const int16_t *p, const int16_t *q, int n);
-
-int32_t gsm0610_vec_maxmin(const int16_t *p, int n, int16_t *out);
-
-int32_t gsm0610_max_cross_corr(const int16_t *wt, const int16_t *dp, int16_t *Nc_out);
-
-#endif
 
 #endif
 

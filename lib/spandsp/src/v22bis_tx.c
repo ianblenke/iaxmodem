@@ -21,35 +21,37 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: v22bis_tx.c,v 1.43 2008/07/02 14:48:26 steveu Exp $
  */
 
 /*! \file */
 
-/* THIS IS A WORK IN PROGRESS - NOT YET FUNCTIONAL! */
+/* THIS IS A WORK IN PROGRESS - It is basically functional, but it is not feature
+   complete, and doesn't reliably sync over the signal and noise level ranges it should! */
 
 #if defined(HAVE_CONFIG_H)
-#include <config.h>
+#include "config.h"
 #endif
 
 #include <stdio.h>
 #include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
-#include "floating_fudge.h"
 #if defined(HAVE_TGMATH_H)
 #include <tgmath.h>
 #endif
 #if defined(HAVE_MATH_H)
 #include <math.h>
 #endif
+#include "floating_fudge.h"
 
 #include "spandsp/telephony.h"
+#include "spandsp/fast_convert.h"
 #include "spandsp/logging.h"
 #include "spandsp/complex.h"
 #include "spandsp/vector_float.h"
 #include "spandsp/complex_vector_float.h"
+#include "spandsp/vector_int.h"
+#include "spandsp/complex_vector_int.h"
 #include "spandsp/async.h"
 #include "spandsp/dds.h"
 #include "spandsp/power_meter.h"
@@ -57,7 +59,10 @@
 #include "spandsp/v29rx.h"
 #include "spandsp/v22bis.h"
 
-#if defined(SPANDSP_USE_FIXED_POINT)
+#include "spandsp/private/logging.h"
+#include "spandsp/private/v22bis.h"
+
+#if defined(SPANDSP_USE_FIXED_POINTx)
 #include "v22bis_tx_fixed_rrc.h"
 #else
 #include "v22bis_tx_floating_rrc.h"
@@ -236,18 +241,6 @@ Both ends should accept unscrambled binary 1 or binary 0 as the preamble.
 
 #define ms_to_symbols(t)    (((t)*600)/1000)
 
-/* Segments of the training sequence */
-enum
-{
-    V22BIS_TRAINING_STAGE_NORMAL_OPERATION = 0,
-    V22BIS_TRAINING_STAGE_INITIAL_SILENCE,
-    V22BIS_TRAINING_STAGE_UNSCRAMBLED_ONES,
-    V22BIS_TRAINING_STAGE_UNSCRAMBLED_0011,
-    V22BIS_TRAINING_STAGE_SCRAMBLED_ONES_AT_1200,
-    V22BIS_TRAINING_STAGE_SCRAMBLED_ONES_AT_2400,
-    V22BIS_TRAINING_STAGE_PARKED
-};
-
 static const int phase_steps[4] =
 {
     1, 0, 2, 3
@@ -256,19 +249,19 @@ static const int phase_steps[4] =
 const complexf_t v22bis_constellation[16] =
 {
     { 1.0f,  1.0f},
-    { 3.0f,  1.0f},
+    { 3.0f,  1.0f},     /* 1200bps 00 */
     { 1.0f,  3.0f},
     { 3.0f,  3.0f},
     {-1.0f,  1.0f},
-    {-1.0f,  3.0f},
+    {-1.0f,  3.0f},     /* 1200bps 01 */
     {-3.0f,  1.0f},
     {-3.0f,  3.0f},
     {-1.0f, -1.0f},
-    {-3.0f, -1.0f},
+    {-3.0f, -1.0f},     /* 1200bps 10 */
     {-1.0f, -3.0f},
     {-3.0f, -3.0f},
     { 1.0f, -1.0f},
-    { 1.0f, -3.0f},
+    { 1.0f, -3.0f},     /* 1200bps 11 */
     { 3.0f, -1.0f},
     { 3.0f, -3.0f}
 };
@@ -283,17 +276,18 @@ static __inline__ int scramble(v22bis_state_t *s, int bit)
 {
     int out_bit;
 
-    out_bit = (bit ^ (s->tx.scramble_reg >> 14) ^ (s->tx.scramble_reg >> 17)) & 1;
     if (s->tx.scrambler_pattern_count >= 64)
     {
-        out_bit ^= 1;
+        bit ^= 1;
         s->tx.scrambler_pattern_count = 0;
     }
+    out_bit = (bit ^ (s->tx.scramble_reg >> 13) ^ (s->tx.scramble_reg >> 16)) & 1;
+    s->tx.scramble_reg = (s->tx.scramble_reg << 1) | out_bit;
+    
     if (out_bit == 1)
         s->tx.scrambler_pattern_count++;
     else
         s->tx.scrambler_pattern_count = 0;
-    s->tx.scramble_reg = (s->tx.scramble_reg << 1) | out_bit;
     return out_bit;
 }
 /*- End of function --------------------------------------------------------*/
@@ -302,7 +296,7 @@ static __inline__ int get_scrambled_bit(v22bis_state_t *s)
 {
     int bit;
 
-    if ((bit = s->tx.current_get_bit(s->user_data)) == PUTBIT_END_OF_DATA)
+    if ((bit = s->tx.current_get_bit(s->get_bit_user_data)) == SIG_STATUS_END_OF_DATA)
     {
         /* Fill out this symbol with ones, and prepare to send
            the rest of the shutdown sequence. */
@@ -322,159 +316,94 @@ static complexf_t training_get(v22bis_state_t *s)
     /* V.22bis training sequence */
     switch (s->tx.training)
     {
-    case V22BIS_TRAINING_STAGE_INITIAL_SILENCE:
-        /* Segment 1: silence */
+    case V22BIS_TX_TRAINING_STAGE_INITIAL_TIMED_SILENCE:
+        /* The answerer waits 75ms, then sends unscrambled ones */
+        if (++s->tx.training_count >= ms_to_symbols(75))
+        {
+            /* Initial 75ms of silence is over */
+            span_log(&s->logging, SPAN_LOG_FLOW, "+++ starting U11 1200\n");
+            s->tx.training_count = 0;
+            s->tx.training = V22BIS_TX_TRAINING_STAGE_U11;
+        }
+        /* Fall through */
+    case V22BIS_TX_TRAINING_STAGE_INITIAL_SILENCE:
+        /* Silence */
         s->tx.constellation_state = 0;
         z = complex_setf(0.0f, 0.0f);
-        if (s->caller)
-        {
-            /* The caller just waits for a signal from the far end, which should be unscrambled ones */
-            if (s->detected_unscrambled_ones_or_zeros)
-            {
-                if (s->bit_rate == 2400)
-                {
-                    /* Try to establish at 2400bps */
-                    span_log(&s->logging, SPAN_LOG_FLOW, "+++ starting unscrambled 0011 at 1200 (S1)\n");
-                    s->tx.training = V22BIS_TRAINING_STAGE_UNSCRAMBLED_0011;
-                }
-                else
-                {
-                    /* Only try at 1200bps */
-                    span_log(&s->logging, SPAN_LOG_FLOW, "+++ starting scrambled ones at 1200 (A)\n");
-                    s->tx.training = V22BIS_TRAINING_STAGE_SCRAMBLED_ONES_AT_1200;
-                }
-                s->tx.training_count = 0;
-            }
-        }
-        else
-        {
-            /* The answerer waits 75ms, then sends unscrambled ones */
-            if (++s->tx.training_count >= ms_to_symbols(75))
-            {
-                /* Inital 75ms of silence is over */
-                span_log(&s->logging, SPAN_LOG_FLOW, "+++ starting unscrambled ones at 1200\n");
-                s->tx.training = V22BIS_TRAINING_STAGE_UNSCRAMBLED_ONES;
-                s->tx.training_count = 0;
-            }
-        }
         break;
-    case V22BIS_TRAINING_STAGE_UNSCRAMBLED_ONES:
-        /* Segment 2: Continuous unscrambled ones at 1200bps (i.e. reversals). */
+    case V22BIS_TX_TRAINING_STAGE_U11:
+        /* Send continuous unscrambled ones at 1200bps (i.e. 270 degree phase steps). */
         /* Only the answering modem sends unscrambled ones. It is the first thing exchanged between the modems. */
         s->tx.constellation_state = (s->tx.constellation_state + phase_steps[3]) & 3;
         z = v22bis_constellation[(s->tx.constellation_state << 2) | 0x01];
-        if (s->bit_rate == 2400  &&  s->detected_unscrambled_0011_ending)
-        {
-            /* We are allowed to use 2400bps, and the far end is requesting 2400bps. Result: we are going to
-               work at 2400bps */
-            span_log(&s->logging, SPAN_LOG_FLOW, "+++ [2400] starting unscrambled 0011 at 1200 (S1)\n");
-            s->tx.training = V22BIS_TRAINING_STAGE_UNSCRAMBLED_0011;
-            s->tx.training_count = 0;
-            break;
-        }
-        if (s->detected_scrambled_ones_or_zeros_at_1200bps)
-        {
-            /* We are going to work at 1200bps. */
-            span_log(&s->logging, SPAN_LOG_FLOW, "+++ [1200] starting scrambled ones at 1200 (B)\n");
-            s->bit_rate = 1200;
-            s->tx.training = V22BIS_TRAINING_STAGE_SCRAMBLED_ONES_AT_1200;
-            s->tx.training_count = 0;
-            break;
-        }
         break;
-    case V22BIS_TRAINING_STAGE_UNSCRAMBLED_0011:
-        /* Segment 3: Continuous unscrambled double dibit 00 11 at 1200bps. This is termed the S1 segment in
+    case V22BIS_TX_TRAINING_STAGE_U0011:
+        /* Continuous unscrambled double dibit 00 11 at 1200bps. This is termed the S1 segment in
            the V.22bis spec. It is only sent to request or accept 2400bps mode, and lasts 100+-3ms. After this
            timed burst, we unconditionally change to sending scrambled ones at 1200bps. */
-        s->tx.constellation_state = (s->tx.constellation_state + phase_steps[(s->tx.training_count & 1)  ?  3  :  0]) & 3;
-span_log(&s->logging, SPAN_LOG_FLOW, "U0011 Tx 0x%02x\n", s->tx.constellation_state);
+        s->tx.constellation_state = (s->tx.constellation_state + phase_steps[3*(s->tx.training_count & 1)]) & 3;
         z = v22bis_constellation[(s->tx.constellation_state << 2) | 0x01];
         if (++s->tx.training_count >= ms_to_symbols(100))
         {
-            span_log(&s->logging, SPAN_LOG_FLOW, "+++ starting scrambled ones at 1200 (C)\n");
-            s->tx.training = V22BIS_TRAINING_STAGE_SCRAMBLED_ONES_AT_1200;
-            s->tx.training_count = 0;
-        }
-        break;
-    case V22BIS_TRAINING_STAGE_SCRAMBLED_ONES_AT_1200:
-        /* Segment 4: Scrambled ones at 1200bps. */
-        bits = scramble(s, 1);
-        bits = (bits << 1) | scramble(s, 1);
-        s->tx.constellation_state = (s->tx.constellation_state + phase_steps[bits]) & 3;
-        z = v22bis_constellation[(s->tx.constellation_state << 2) | 0x01];
-        if (s->caller)
-        {
-            if (s->detected_unscrambled_0011_ending)
+            span_log(&s->logging, SPAN_LOG_FLOW, "+++ starting S11 after U0011\n");
+            if (s->calling_party)
             {
-                /* Continue for a further 600+-10ms */
-                if (++s->tx.training_count >= ms_to_symbols(600))
-                {
-                    span_log(&s->logging, SPAN_LOG_FLOW, "+++ starting scrambled ones at 2400 (A)\n");
-                    s->tx.training = V22BIS_TRAINING_STAGE_SCRAMBLED_ONES_AT_2400;
-                    s->tx.training_count = 0;
-                }
-            }
-            else if (s->detected_scrambled_ones_or_zeros_at_1200bps)
-            {
-                if (s->bit_rate == 2400)
-                {
-                    /* Continue for a further 756+-10ms */
-                    if (++s->tx.training_count >= ms_to_symbols(756))
-                    {
-                        span_log(&s->logging, SPAN_LOG_FLOW, "+++ starting scrambled ones at 2400 (B)\n");
-                        s->tx.training = V22BIS_TRAINING_STAGE_SCRAMBLED_ONES_AT_2400;
-                        s->tx.training_count = 0;
-                    }
-                }
-                else
-                {
-                    span_log(&s->logging, SPAN_LOG_FLOW, "+++ finished\n");
-                    s->tx.training = V22BIS_TRAINING_STAGE_NORMAL_OPERATION;
-                    s->tx.training_count = 0;
-                    s->tx.current_get_bit = s->get_bit;
-                }
-            }
-        }
-        else
-        {
-            if (s->bit_rate == 2400)
-            {
-                if (++s->tx.training_count >= ms_to_symbols(500))
-                {
-                    span_log(&s->logging, SPAN_LOG_FLOW, "+++ starting scrambled ones at 2400 (C)\n");
-                    s->tx.training = V22BIS_TRAINING_STAGE_SCRAMBLED_ONES_AT_2400;
-                    s->tx.training_count = 0;
-                }
+                s->tx.training_count = 0;
+                s->tx.training = V22BIS_TX_TRAINING_STAGE_S11;
             }
             else
             {
-                if (++s->tx.training_count >= ms_to_symbols(756))
-                {
-                    span_log(&s->logging, SPAN_LOG_FLOW, "+++ finished\n");
-                    s->tx.training = 0;
-                    s->tx.training_count = 0;
-                }
+                s->tx.training_count = ms_to_symbols(756 - (600 - 100));
+                s->tx.training = V22BIS_TX_TRAINING_STAGE_TIMED_S11;
             }
         }
         break;
-    case V22BIS_TRAINING_STAGE_SCRAMBLED_ONES_AT_2400:
-        /* Segment 4: Scrambled ones at 2400bps. */
+    case V22BIS_TX_TRAINING_STAGE_TIMED_S11:
+        /* A timed period of scrambled ones at 1200bps. */
+        if (++s->tx.training_count >= ms_to_symbols(756))
+        {
+            if (s->negotiated_bit_rate == 2400)
+            {
+                span_log(&s->logging, SPAN_LOG_FLOW, "+++ starting S1111 (C)\n");
+                s->tx.training_count = 0;
+                s->tx.training = V22BIS_TX_TRAINING_STAGE_S1111;
+            }
+            else
+            {
+                span_log(&s->logging, SPAN_LOG_FLOW, "+++ Tx normal operation (1200)\n");
+                s->tx.training_count = 0;
+                s->tx.training = V22BIS_TX_TRAINING_STAGE_NORMAL_OPERATION;
+                v22bis_report_status_change(s, SIG_STATUS_TRAINING_SUCCEEDED);
+                s->tx.current_get_bit = s->get_bit;
+            }
+        }
+        /* Fall through */
+    case V22BIS_TX_TRAINING_STAGE_S11:
+        /* Scrambled ones at 1200bps. */
+        bits = scramble(s, 1);
+        bits = (bits << 1) | scramble(s, 1);
+        s->tx.constellation_state = (s->tx.constellation_state + phase_steps[bits]) & 3;
+        z = v22bis_constellation[(s->tx.constellation_state << 2) | 0x01];
+        break;
+    case V22BIS_TX_TRAINING_STAGE_S1111:
+        /* Scrambled ones at 2400bps. We send a timed 200ms burst, and switch to normal operation at 2400bps */
         bits = scramble(s, 1);
         bits = (bits << 1) | scramble(s, 1);
         s->tx.constellation_state = (s->tx.constellation_state + phase_steps[bits]) & 3;
         bits = scramble(s, 1);
         bits = (bits << 1) | scramble(s, 1);
-        z = v22bis_constellation[(s->tx.constellation_state << 2) | 0x01];
+        z = v22bis_constellation[(s->tx.constellation_state << 2) | bits];
         if (++s->tx.training_count >= ms_to_symbols(200))
         {
             /* We have completed training. Now handle some real work. */
-            span_log(&s->logging, SPAN_LOG_FLOW, "+++ finished\n");
-            s->tx.training = 0;
+            span_log(&s->logging, SPAN_LOG_FLOW, "+++ Tx normal operation (2400)\n");
             s->tx.training_count = 0;
+            s->tx.training = V22BIS_TX_TRAINING_STAGE_NORMAL_OPERATION;
+            v22bis_report_status_change(s, SIG_STATUS_TRAINING_SUCCEEDED);
             s->tx.current_get_bit = s->get_bit;
         }
         break;
-    case V22BIS_TRAINING_STAGE_PARKED:
+    case V22BIS_TX_TRAINING_STAGE_PARKED:
     default:
         z = complex_setf(0.0f, 0.0f);
         break;
@@ -505,7 +434,7 @@ static complexf_t getbaud(v22bis_state_t *s)
     bits = get_scrambled_bit(s);
     bits = (bits << 1) | get_scrambled_bit(s);
     s->tx.constellation_state = (s->tx.constellation_state + phase_steps[bits]) & 3;
-    if (s->bit_rate == 1200)
+    if (s->negotiated_bit_rate == 1200)
     {
         bits = 0x01;
     }
@@ -519,7 +448,7 @@ static complexf_t getbaud(v22bis_state_t *s)
 }
 /*- End of function --------------------------------------------------------*/
 
-int v22bis_tx(v22bis_state_t *s, int16_t amp[], int len)
+SPAN_DECLARE_NONSTD(int) v22bis_tx(v22bis_state_t *s, int16_t amp[], int len)
 {
     complexf_t x;
     complexf_t z;
@@ -547,37 +476,57 @@ int v22bis_tx(v22bis_state_t *s, int16_t amp[], int len)
             x.im += tx_pulseshaper[39 - s->tx.baud_phase][i]*s->tx.rrc_filter[i + s->tx.rrc_filter_step].im;
         }
         /* Now create and modulate the carrier */
-        z = dds_complexf(&(s->tx.carrier_phase), s->tx.carrier_phase_rate);
+        z = dds_complexf(&s->tx.carrier_phase, s->tx.carrier_phase_rate);
         famp = (x.re*z.re - x.im*z.im)*s->tx.gain;
-        if (s->tx.guard_phase_rate  &&  (s->tx.rrc_filter[s->tx.rrc_filter_step].re != 0.0f  ||  s->tx.rrc_filter[i + s->tx.rrc_filter_step].im != 0.0f))
+        if (s->tx.guard_phase_rate  &&  (s->tx.rrc_filter[s->tx.rrc_filter_step].re != 0.0f  ||  s->tx.rrc_filter[s->tx.rrc_filter_step].im != 0.0f))
         {
             /* Add the guard tone */
-            famp += dds_modf(&(s->tx.guard_phase), s->tx.guard_phase_rate, s->tx.guard_level, 0);
+            famp += dds_modf(&s->tx.guard_phase, s->tx.guard_phase_rate, s->tx.guard_level, 0);
         }
         /* Don't bother saturating. We should never clip. */
-        amp[sample] = (int16_t) lrintf(famp);
+        amp[sample] = (int16_t) lfastrintf(famp);
     }
     return sample;
 }
 /*- End of function --------------------------------------------------------*/
 
-void v22bis_tx_power(v22bis_state_t *s, float power)
+SPAN_DECLARE(void) v22bis_tx_power(v22bis_state_t *s, float power)
 {
     float l;
 
-    l = 1.6f*powf(10.0f, (power - DBM0_MAX_POWER)/20.0f);
-    s->tx.gain = l*32768.0f/(TX_PULSESHAPER_GAIN*3.0f);
+    if (s->tx.guard_phase_rate == dds_phase_ratef(550.0f))
+    {
+        l = 1.6f*powf(10.0f, (power - 1.0f - DBM0_MAX_POWER)/20.0f);
+        s->tx.gain = l*32768.0f/(TX_PULSESHAPER_GAIN*3.0f);
+        l = powf(10.0f, (power - 1.0f - 3.0f - DBM0_MAX_POWER)/20.0f);
+        s->tx.guard_level = l*32768.0f;
+    }
+    else if(s->tx.guard_phase_rate == dds_phase_ratef(1800.0f))
+    {
+        l = 1.6f*powf(10.0f, (power - 1.0f - 1.0f - DBM0_MAX_POWER)/20.0f);
+        s->tx.gain = l*32768.0f/(TX_PULSESHAPER_GAIN*3.0f);
+        l = powf(10.0f, (power - 1.0f - 6.0f - DBM0_MAX_POWER)/20.0f);
+        s->tx.guard_level = l*32768.0f;
+    }
+    else
+    {
+        l = 1.6f*powf(10.0f, (power - DBM0_MAX_POWER)/20.0f);
+        s->tx.gain = l*32768.0f/(TX_PULSESHAPER_GAIN*3.0f);
+        s->tx.guard_level = 0;
+    }
 }
 /*- End of function --------------------------------------------------------*/
 
-static int v22bis_tx_restart(v22bis_state_t *s, int bit_rate)
+static int v22bis_tx_restart(v22bis_state_t *s)
 {
-    s->bit_rate = bit_rate;
     cvec_zerof(s->tx.rrc_filter, sizeof(s->tx.rrc_filter)/sizeof(s->tx.rrc_filter[0]));
     s->tx.rrc_filter_step = 0;
     s->tx.scramble_reg = 0;
     s->tx.scrambler_pattern_count = 0;
-    s->tx.training = V22BIS_TRAINING_STAGE_INITIAL_SILENCE;
+    if (s->calling_party)
+        s->tx.training = V22BIS_TX_TRAINING_STAGE_INITIAL_SILENCE;
+    else
+        s->tx.training = V22BIS_TX_TRAINING_STAGE_INITIAL_TIMED_SILENCE;
     s->tx.training_count = 0;
     s->tx.carrier_phase = 0;
     s->tx.guard_phase = 0;
@@ -589,38 +538,116 @@ static int v22bis_tx_restart(v22bis_state_t *s, int bit_rate)
 }
 /*- End of function --------------------------------------------------------*/
 
-void v22bis_set_get_bit(v22bis_state_t *s, get_bit_func_t get_bit, void *user_data)
+SPAN_DECLARE(void) v22bis_set_get_bit(v22bis_state_t *s, get_bit_func_t get_bit, void *user_data)
 {
     s->get_bit = get_bit;
-    s->user_data = user_data;
+    s->get_bit_user_data = user_data;
 }
 /*- End of function --------------------------------------------------------*/
 
-void v22bis_set_put_bit(v22bis_state_t *s, put_bit_func_t put_bit, void *user_data)
+SPAN_DECLARE(void) v22bis_set_put_bit(v22bis_state_t *s, put_bit_func_t put_bit, void *user_data)
 {
     s->put_bit = put_bit;
-    s->user_data = user_data;
+    s->put_bit_user_data = user_data;
 }
 /*- End of function --------------------------------------------------------*/
 
-int v22bis_restart(v22bis_state_t *s, int bit_rate)
+SPAN_DECLARE(void) v22bis_set_modem_status_handler(v22bis_state_t *s, modem_status_func_t handler, void *user_data)
 {
-    if (bit_rate != 2400  &&  bit_rate != 1200)
-        return -1;
-    if (v22bis_tx_restart(s, bit_rate))
-        return -1;
-    return v22bis_rx_restart(s, bit_rate);
+    s->status_handler = handler;
+    s->status_user_data = user_data;
 }
 /*- End of function --------------------------------------------------------*/
 
-v22bis_state_t *v22bis_init(v22bis_state_t *s,
-                            int bit_rate,
-                            int guard,
-                            int caller,
-                            get_bit_func_t get_bit,
-                            put_bit_func_t put_bit,
-                            void *user_data)
+SPAN_DECLARE(logging_state_t *) v22bis_get_logging_state(v22bis_state_t *s)
 {
+    return &s->logging;
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE(int) v22bis_restart(v22bis_state_t *s, int bit_rate)
+{
+    switch (bit_rate)
+    {
+    case 2400:
+    case 1200:
+        break;
+    default:
+        return -1;
+    }
+    s->bit_rate = bit_rate;
+    s->negotiated_bit_rate = 1200;
+    if (v22bis_tx_restart(s))
+        return -1;
+    return v22bis_rx_restart(s);
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE(int) v22bis_request_retrain(v22bis_state_t *s, int bit_rate)
+{
+    /* TODO: support bit rate switching */
+    switch (bit_rate)
+    {
+    case 2400:
+    case 1200:
+        break;
+    default:
+        return -1;
+    }
+    /* TODO: support bit rate changes */
+    /* Retrain is only valid when we are normal operation at 2400bps */
+    if (s->rx.training != V22BIS_RX_TRAINING_STAGE_NORMAL_OPERATION
+        ||
+        s->tx.training != V22BIS_TX_TRAINING_STAGE_NORMAL_OPERATION
+        ||
+        s->negotiated_bit_rate != 2400)
+    {
+        return -1;
+    }
+    /* Send things back into the training process at the appropriate point.
+       The far end should detect the S1 signal, and reciprocate. */
+    span_log(&s->logging, SPAN_LOG_FLOW, "+++ Initiating a retrain\n");
+    s->rx.pattern_repeats = 0;
+    s->rx.training_count = 0;
+    s->rx.training = V22BIS_RX_TRAINING_STAGE_SCRAMBLED_ONES_AT_1200;
+    s->tx.training_count = 0;
+    s->tx.training = V22BIS_TX_TRAINING_STAGE_U0011;
+    v22bis_equalizer_coefficient_reset(s);
+    v22bis_report_status_change(s, SIG_STATUS_MODEM_RETRAIN_OCCURRED);
+    return 0;
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE(int) v22bis_remote_loopback(v22bis_state_t *s, int enable)
+{
+    /* TODO: */
+    return -1;
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE(int) v22bis_get_current_bit_rate(v22bis_state_t *s)
+{
+    return s->negotiated_bit_rate;
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE(v22bis_state_t *) v22bis_init(v22bis_state_t *s,
+                                           int bit_rate,
+                                           int guard,
+                                           int calling_party,
+                                           get_bit_func_t get_bit,
+                                           void *get_bit_user_data,
+                                           put_bit_func_t put_bit,
+                                           void *put_bit_user_data)
+{
+    switch (bit_rate)
+    {
+    case 2400:
+    case 1200:
+        break;
+    default:
+        return NULL;
+    }
     if (s == NULL)
     {
         if ((s = (v22bis_state_t *) malloc(sizeof(*s))) == NULL)
@@ -630,40 +657,46 @@ v22bis_state_t *v22bis_init(v22bis_state_t *s,
     span_log_init(&s->logging, SPAN_LOG_NONE, NULL);
     span_log_set_protocol(&s->logging, "V.22bis");
     s->bit_rate = bit_rate;
-    s->caller = caller;
+    s->calling_party = calling_party;
 
     s->get_bit = get_bit;
+    s->get_bit_user_data = get_bit_user_data;
     s->put_bit = put_bit;
-    s->user_data = user_data;
+    s->put_bit_user_data = put_bit_user_data;
 
-    if (s->caller)
+    if (s->calling_party)
     {
         s->tx.carrier_phase_rate = dds_phase_ratef(1200.0f);
     }
     else
     {
         s->tx.carrier_phase_rate = dds_phase_ratef(2400.0f);
-        if (guard)
+        switch (guard)
         {
-            if (guard == 1)
-            {
-                s->tx.guard_phase_rate = dds_phase_ratef(550.0f);
-                s->tx.guard_level = 1500.0f;
-            }
-            else
-            {
-                s->tx.guard_phase_rate = dds_phase_ratef(1800.0f);
-                s->tx.guard_level = 1000.0f;
-            }
+        case V22BIS_GUARD_TONE_550HZ:
+            s->tx.guard_phase_rate = dds_phase_ratef(550.0f);
+            break;
+        case V22BIS_GUARD_TONE_1800HZ:
+            s->tx.guard_phase_rate = dds_phase_ratef(1800.0f);
+            break;
+        default:
+            s->tx.guard_phase_rate = 0;
+            break;
         }
     }
-    v22bis_tx_power(s, -10.0f);
+    v22bis_tx_power(s, -14.0f);
     v22bis_restart(s, s->bit_rate);
     return s;
 }
 /*- End of function --------------------------------------------------------*/
 
-int v22bis_free(v22bis_state_t *s)
+SPAN_DECLARE(int) v22bis_release(v22bis_state_t *s)
+{
+    return 0;
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE(int) v22bis_free(v22bis_state_t *s)
 {
     free(s);
     return 0;

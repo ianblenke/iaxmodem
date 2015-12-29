@@ -21,31 +21,23 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: g711.c,v 1.11 2008/07/02 14:48:25 steveu Exp $
  */
 
 /*! \file */
 
 #if defined(HAVE_CONFIG_H)
-#include <config.h>
+#include "config.h"
 #endif
 
 #include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
-#include "floating_fudge.h"
-#if defined(HAVE_TGMATH_H)
-#include <tgmath.h>
-#endif
-#if defined(HAVE_MATH_H)
-#include <math.h>
-#endif
 #include <assert.h>
 
 #include "spandsp/telephony.h"
 #include "spandsp/bit_operations.h"
 #include "spandsp/g711.h"
+#include "spandsp/private/g711.h"
 
 /* Copied from the CCITT G.711 specification */
 static const uint8_t ulaw_to_alaw_table[256] =
@@ -91,22 +83,22 @@ static const uint8_t alaw_to_ulaw_table[256] =
     214, 215, 212, 213, 218, 219, 216, 217, 207, 207, 206, 206, 210, 211, 208, 209
 };
 
-uint8_t alaw_to_ulaw(uint8_t alaw)
+SPAN_DECLARE(uint8_t) alaw_to_ulaw(uint8_t alaw)
 {
     return alaw_to_ulaw_table[alaw];
 }
 /*- End of function --------------------------------------------------------*/
 
-uint8_t ulaw_to_alaw(uint8_t ulaw)
+SPAN_DECLARE(uint8_t) ulaw_to_alaw(uint8_t ulaw)
 {
     return ulaw_to_alaw_table[ulaw];
 }
 /*- End of function --------------------------------------------------------*/
 
-int g711_decode(g711_state_t *s,
-                int16_t amp[],
-                const uint8_t g711_data[],
-                int g711_bytes)
+SPAN_DECLARE(int) g711_decode(g711_state_t *s,
+                              int16_t amp[],
+                              const uint8_t g711_data[],
+                              int g711_bytes)
 {
     int i;
 
@@ -127,10 +119,10 @@ int g711_decode(g711_state_t *s,
 }
 /*- End of function --------------------------------------------------------*/
 
-int g711_encode(g711_state_t *s,
-                uint8_t g711_data[],
-                const int16_t amp[],
-                int len)
+SPAN_DECLARE(int) g711_encode(g711_state_t *s,
+                              uint8_t g711_data[],
+                              const int16_t amp[],
+                              int len)
 {
     int i;
 
@@ -151,10 +143,10 @@ int g711_encode(g711_state_t *s,
 }
 /*- End of function --------------------------------------------------------*/
 
-int g711_transcode(g711_state_t *s,
-                   uint8_t g711_out[],
-                   const uint8_t g711_in[],
-                   int g711_bytes)
+SPAN_DECLARE(int) g711_transcode(g711_state_t *s,
+                                 uint8_t g711_out[],
+                                 const uint8_t g711_in[],
+                                 int g711_bytes)
 {
     int i;
 
@@ -175,7 +167,7 @@ int g711_transcode(g711_state_t *s,
 }
 /*- End of function --------------------------------------------------------*/
 
-g711_state_t *g711_init(g711_state_t *s, int mode)
+SPAN_DECLARE(g711_state_t *) g711_init(g711_state_t *s, int mode)
 {
     if (s == NULL)
     {
@@ -187,7 +179,13 @@ g711_state_t *g711_init(g711_state_t *s, int mode)
 }
 /*- End of function --------------------------------------------------------*/
 
-int g711_release(g711_state_t *s)
+SPAN_DECLARE(int) g711_release(g711_state_t *s)
+{
+    return 0;
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE(int) g711_free(g711_state_t *s)
 {
     free(s);
     return 0;

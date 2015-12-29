@@ -21,42 +21,42 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: v29tx.c,v 1.76 2008/07/16 14:23:47 steveu Exp $
  */
 
 /*! \file */
 
 #if defined(HAVE_CONFIG_H)
-#include <config.h>
+#include "config.h"
 #endif
 
 #include <stdio.h>
 #include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
-#include "floating_fudge.h"
 #if defined(HAVE_TGMATH_H)
 #include <tgmath.h>
 #endif
 #if defined(HAVE_MATH_H)
 #include <math.h>
 #endif
+#include "floating_fudge.h"
 
 #include "spandsp/telephony.h"
+#include "spandsp/fast_convert.h"
 #include "spandsp/logging.h"
 #include "spandsp/complex.h"
 #include "spandsp/vector_float.h"
 #include "spandsp/complex_vector_float.h"
+#include "spandsp/vector_int.h"
+#include "spandsp/complex_vector_int.h"
 #include "spandsp/async.h"
 #include "spandsp/dds.h"
 #include "spandsp/power_meter.h"
 
 #include "spandsp/v29tx.h"
 
-#if defined(SPANDSP_USE_FIXED_POINT)
-#define SPANDSP_USE_FIXED_POINTx
-#endif
+#include "spandsp/private/logging.h"
+#include "spandsp/private/v29tx.h"
 
 #include "v29tx_constellation_maps.h"
 #if defined(SPANDSP_USE_FIXED_POINT)
@@ -65,15 +65,23 @@
 #include "v29tx_floating_rrc.h"
 #endif
 
+/*! The nominal frequency of the carrier, in Hertz */
 #define CARRIER_NOMINAL_FREQ        1700.0f
 
 /* Segments of the training sequence */
+/*! The start of the optional TEP, that may preceed the actual training, in symbols */
 #define V29_TRAINING_SEG_TEP        0
+/*! The start of training segment 1, in symbols */
 #define V29_TRAINING_SEG_1          (V29_TRAINING_SEG_TEP + 480)
+/*! The start of training segment 2, in symbols */
 #define V29_TRAINING_SEG_2          (V29_TRAINING_SEG_1 + 48)
+/*! The start of training segment 3, in symbols */
 #define V29_TRAINING_SEG_3          (V29_TRAINING_SEG_2 + 128)
+/*! The start of training segment 4, in symbols */
 #define V29_TRAINING_SEG_4          (V29_TRAINING_SEG_3 + 384)
+/*! The end of the training, in symbols */
 #define V29_TRAINING_END            (V29_TRAINING_SEG_4 + 48)
+/*! The end of the shutdown sequence, in symbols */
 #define V29_TRAINING_SHUTDOWN_END   (V29_TRAINING_END + 32)
 
 static int fake_get_bit(void *user_data)
@@ -87,17 +95,17 @@ static __inline__ int get_scrambled_bit(v29_tx_state_t *s)
     int bit;
     int out_bit;
 
-    if ((bit = s->current_get_bit(s->get_bit_user_data)) == PUTBIT_END_OF_DATA)
+    if ((bit = s->current_get_bit(s->get_bit_user_data)) == SIG_STATUS_END_OF_DATA)
     {
         /* End of real data. Switch to the fake get_bit routine, until we
            have shut down completely. */
         if (s->status_handler)
-            s->status_handler(s->status_user_data, MODEM_TX_STATUS_DATA_EXHAUSTED);
+            s->status_handler(s->status_user_data, SIG_STATUS_END_OF_DATA);
         s->current_get_bit = fake_get_bit;
         s->in_training = TRUE;
         bit = 1;
     }
-    out_bit = (bit ^ (s->scramble_reg >> 17) ^ (s->scramble_reg >> 22)) & 1;
+    out_bit = (bit ^ (s->scramble_reg >> (18 - 1)) ^ (s->scramble_reg >> (23 - 1))) & 1;
     s->scramble_reg = (s->scramble_reg << 1) | out_bit;
     return out_bit;
 }
@@ -117,6 +125,11 @@ static __inline__ complexf_t getbaud(v29_tx_state_t *s)
     {
         0, 2, 6, 4
     };
+#if defined(SPANDSP_USE_FIXED_POINT)
+    static const complexi16_t zero = {0, 0};
+#else
+    static const complexf_t zero = {0.0f, 0.0f};
+#endif
     int bits;
     int amp;
     int bit;
@@ -136,11 +149,7 @@ static __inline__ complexf_t getbaud(v29_tx_state_t *s)
                 if (s->training_step <= V29_TRAINING_SEG_2)
                 {
                     /* Segment 1: silence */
-#if defined(SPANDSP_USE_FIXED_POINT)
-                    return complex_seti16(0, 0);
-#else
-                    return complex_setf(0.0f, 0.0f);
-#endif
+                    return zero;
                 }
                 /* Segment 2: ABAB... */
                 return v29_abab_constellation[(s->training_step & 1) + s->training_offset];
@@ -166,7 +175,7 @@ static __inline__ complexf_t getbaud(v29_tx_state_t *s)
         if (s->training_step == V29_TRAINING_SHUTDOWN_END)
         {
             if (s->status_handler)
-                s->status_handler(s->status_user_data, MODEM_TX_STATUS_SHUTDOWN_COMPLETE);
+                s->status_handler(s->status_user_data, SIG_STATUS_SHUTDOWN_COMPLETE);
         }
     }
     /* 9600bps uses the full constellation.
@@ -193,7 +202,7 @@ static __inline__ complexf_t getbaud(v29_tx_state_t *s)
 }
 /*- End of function --------------------------------------------------------*/
 
-int v29_tx(v29_tx_state_t *s, int16_t amp[], int len)
+SPAN_DECLARE_NONSTD(int) v29_tx(v29_tx_state_t *s, int16_t amp[], int len)
 {
 #if defined(SPANDSP_USE_FIXED_POINT)
     complexi_t x;
@@ -231,7 +240,7 @@ int v29_tx(v29_tx_state_t *s, int16_t amp[], int len)
         /* Now create and modulate the carrier */
         x.re >>= 4;
         x.im >>= 4;
-        z = dds_complexi(&(s->carrier_phase), s->carrier_phase_rate);
+        z = dds_complexi(&s->carrier_phase, s->carrier_phase_rate);
         /* Don't bother saturating. We should never clip. */
         i = (x.re*z.re - x.im*z.im) >> 15;
         amp[sample] = (int16_t) ((i*s->gain) >> 15);
@@ -243,9 +252,9 @@ int v29_tx(v29_tx_state_t *s, int16_t amp[], int len)
             x.im += tx_pulseshaper[TX_PULSESHAPER_COEFF_SETS - 1 - s->baud_phase][i]*s->rrc_filter[i + s->rrc_filter_step].im;
         }
         /* Now create and modulate the carrier */
-        z = dds_complexf(&(s->carrier_phase), s->carrier_phase_rate);
+        z = dds_complexf(&s->carrier_phase, s->carrier_phase_rate);
         /* Don't bother saturating. We should never clip. */
-        amp[sample] = (int16_t) lrintf((x.re*z.re - x.im*z.im)*s->gain);
+        amp[sample] = (int16_t) lfastrintf((x.re*z.re - x.im*z.im)*s->gain);
 #endif
     }
     return sample;
@@ -288,7 +297,7 @@ static void set_working_gain(v29_tx_state_t *s)
 }
 /*- End of function --------------------------------------------------------*/
 
-void v29_tx_power(v29_tx_state_t *s, float power)
+SPAN_DECLARE(void) v29_tx_power(v29_tx_state_t *s, float power)
 {
     /* The constellation does not maintain constant average power as we change bit rates.
        We need to scale the gain we get here by a bit rate specific scaling factor each
@@ -298,7 +307,7 @@ void v29_tx_power(v29_tx_state_t *s, float power)
 }
 /*- End of function --------------------------------------------------------*/
 
-void v29_tx_set_get_bit(v29_tx_state_t *s, get_bit_func_t get_bit, void *user_data)
+SPAN_DECLARE(void) v29_tx_set_get_bit(v29_tx_state_t *s, get_bit_func_t get_bit, void *user_data)
 {
     if (s->get_bit == s->current_get_bit)
         s->current_get_bit = get_bit;
@@ -307,14 +316,20 @@ void v29_tx_set_get_bit(v29_tx_state_t *s, get_bit_func_t get_bit, void *user_da
 }
 /*- End of function --------------------------------------------------------*/
 
-void v29_tx_set_modem_status_handler(v29_tx_state_t *s, modem_tx_status_func_t handler, void *user_data)
+SPAN_DECLARE(void) v29_tx_set_modem_status_handler(v29_tx_state_t *s, modem_status_func_t handler, void *user_data)
 {
     s->status_handler = handler;
     s->status_user_data = user_data;
 }
 /*- End of function --------------------------------------------------------*/
 
-int v29_tx_restart(v29_tx_state_t *s, int bit_rate, int tep)
+SPAN_DECLARE(logging_state_t *) v29_tx_get_logging_state(v29_tx_state_t *s)
+{
+    return &s->logging;
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE(int) v29_tx_restart(v29_tx_state_t *s, int bit_rate, int tep)
 {
     span_log(&s->logging, SPAN_LOG_FLOW, "Restarting V.29\n");
     s->bit_rate = bit_rate;
@@ -334,7 +349,7 @@ int v29_tx_restart(v29_tx_state_t *s, int bit_rate, int tep)
         return -1;
     }
 #if defined(SPANDSP_USE_FIXED_POINT)
-    memset(s->rrc_filter, 0, sizeof(s->rrc_filter));
+    cvec_zeroi16(s->rrc_filter, sizeof(s->rrc_filter)/sizeof(s->rrc_filter[0]));
 #else
     cvec_zerof(s->rrc_filter, sizeof(s->rrc_filter)/sizeof(s->rrc_filter[0]));
 #endif
@@ -351,8 +366,17 @@ int v29_tx_restart(v29_tx_state_t *s, int bit_rate, int tep)
 }
 /*- End of function --------------------------------------------------------*/
 
-v29_tx_state_t *v29_tx_init(v29_tx_state_t *s, int bit_rate, int tep, get_bit_func_t get_bit, void *user_data)
+SPAN_DECLARE(v29_tx_state_t *) v29_tx_init(v29_tx_state_t *s, int bit_rate, int tep, get_bit_func_t get_bit, void *user_data)
 {
+    switch (bit_rate)
+    {
+    case 9600:
+    case 7200:
+    case 4800:
+        break;
+    default:
+        return NULL;
+    }
     if (s == NULL)
     {
         if ((s = (v29_tx_state_t *) malloc(sizeof(*s))) == NULL)
@@ -363,14 +387,20 @@ v29_tx_state_t *v29_tx_init(v29_tx_state_t *s, int bit_rate, int tep, get_bit_fu
     span_log_set_protocol(&s->logging, "V.29 TX");
     s->get_bit = get_bit;
     s->get_bit_user_data = user_data;
-    s->carrier_phase_rate = dds_phase_ratef(CARRIER_NOMINAL_FREQ);
+    s->carrier_phase_rate = DDS_PHASE_RATE(CARRIER_NOMINAL_FREQ);
     v29_tx_power(s, -14.0f);
     v29_tx_restart(s, bit_rate, tep);
     return s;
 }
 /*- End of function --------------------------------------------------------*/
 
-int v29_tx_free(v29_tx_state_t *s)
+SPAN_DECLARE(int) v29_tx_release(v29_tx_state_t *s)
+{
+    return 0;
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE(int) v29_tx_free(v29_tx_state_t *s)
 {
     free(s);
     return 0;

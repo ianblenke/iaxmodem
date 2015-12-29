@@ -1,7 +1,7 @@
 Summary: Software modem for interfacing Asterisk and Hylafax via IAX2
 Name: iaxmodem
-Version: 1.2.0
-Release: 2
+Version: 1.3.0
+Release: 1
 License: GPL
 Group: Applications/Communications
 Url: https://sourceforge.net/projects/iaxmodem

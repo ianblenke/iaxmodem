@@ -21,8 +21,6 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: queue.h,v 1.16 2008/05/30 13:51:28 steveu Exp $
  */
 
 /*! \file */
@@ -53,19 +51,7 @@ to avoid conflicts between the multiple threads acting on one end of the queue.
     Queue descriptor. This defines the working state for a single instance of
     a byte stream or message oriented queue.
 */
-typedef struct
-{
-    /*! \brief Flags indicating the mode of the queue. */
-    int flags;
-    /*! \brief The length of the data buffer. */
-    int len;
-    /*! \brief The buffer input pointer. */
-    volatile int iptr;
-    /*! \brief The buffer output pointer. */
-    volatile int optr;
-    /*! \brief The data buffer, sized at the time the structure is created. */
-    uint8_t data[];
-} queue_state_t;
+typedef struct queue_state_s queue_state_t;
 
 #define QUEUE_STATE_T_SIZE(len) (sizeof(queue_state_t) + len + 1)
 
@@ -78,24 +64,24 @@ extern "C"
     \brief Check if a queue is empty.
     \param s The queue context.
     \return TRUE if empty, else FALSE. */
-int queue_empty(queue_state_t *s);
+SPAN_DECLARE(int) queue_empty(queue_state_t *s);
 
 /*! Check the available free space in a queue's buffer.
     \brief Check available free space.
     \param s The queue context.
     \return The number of bytes of free space. */
-int queue_free_space(queue_state_t *s);
+SPAN_DECLARE(int) queue_free_space(queue_state_t *s);
 
 /*! Check the contents of a queue.
     \brief Check the contents of a queue.
     \param s The queue context.
     \return The number of bytes in the queue. */
-int queue_contents(queue_state_t *s);
+SPAN_DECLARE(int) queue_contents(queue_state_t *s);
 
 /*! Flush the contents of a queue.
     \brief Flush the contents of a queue.
     \param s The queue context. */
-void queue_flush(queue_state_t *s);
+SPAN_DECLARE(void) queue_flush(queue_state_t *s);
 
 /*! Copy bytes from a queue. This is similar to queue_read, but
     the data remains in the queue.
@@ -104,7 +90,7 @@ void queue_flush(queue_state_t *s);
     \param buf The buffer into which the bytes will be read.
     \param len The length of the buffer.
     \return the number of bytes returned. */
-int queue_view(queue_state_t *s, uint8_t *buf, int len);
+SPAN_DECLARE(int) queue_view(queue_state_t *s, uint8_t *buf, int len);
 
 /*! Read bytes from a queue.
     \brief Read bytes from a queue.
@@ -112,13 +98,13 @@ int queue_view(queue_state_t *s, uint8_t *buf, int len);
     \param buf The buffer into which the bytes will be read.
     \param len The length of the buffer.
     \return the number of bytes returned. */
-int queue_read(queue_state_t *s, uint8_t *buf, int len);
+SPAN_DECLARE(int) queue_read(queue_state_t *s, uint8_t *buf, int len);
 
 /*! Read a byte from a queue.
     \brief Read a byte from a queue.
     \param s The queue context.
     \return the byte, or -1 if the queue is empty. */
-int queue_read_byte(queue_state_t *s);
+SPAN_DECLARE(int) queue_read_byte(queue_state_t *s);
 
 /*! Write bytes to a queue.
     \brief Write bytes to a queue.
@@ -126,21 +112,21 @@ int queue_read_byte(queue_state_t *s);
     \param buf The buffer containing the bytes to be written.
     \param len The length of the buffer.
     \return the number of bytes actually written. */
-int queue_write(queue_state_t *s, const uint8_t *buf, int len);
+SPAN_DECLARE(int) queue_write(queue_state_t *s, const uint8_t *buf, int len);
 
 /*! Write a byte to a queue.
     \brief Write a byte to a queue.
     \param s The queue context.
     \param byte The byte to be written.
     \return the number of bytes actually written. */
-int queue_write_byte(queue_state_t *s, uint8_t byte);
+SPAN_DECLARE(int) queue_write_byte(queue_state_t *s, uint8_t byte);
 
 /*! Test the length of the message at the head of a queue.
     \brief Test message length.
     \param s The queue context.
     \return The length of the next message, in byte. If there are
             no messages in the queue, -1 is returned. */
-int queue_state_test_msg(queue_state_t *s);
+SPAN_DECLARE(int) queue_state_test_msg(queue_state_t *s);
 
 /*! Read a message from a queue. If the message is longer than the buffer
     provided, only the first len bytes of the message will be returned. The
@@ -151,7 +137,7 @@ int queue_state_test_msg(queue_state_t *s);
     \param len The length of the buffer.
     \return The number of bytes returned. If there are
             no messages in the queue, -1 is returned. */
-int queue_read_msg(queue_state_t *s, uint8_t *buf, int len);
+SPAN_DECLARE(int) queue_read_msg(queue_state_t *s, uint8_t *buf, int len);
 
 /*! Write a message to a queue.
     \brief Write a message to a queue.
@@ -159,7 +145,7 @@ int queue_read_msg(queue_state_t *s, uint8_t *buf, int len);
     \param buf The buffer from which the message will be written.
     \param len The length of the message.
     \return The number of bytes actually written. */
-int queue_write_msg(queue_state_t *s, const uint8_t *buf, int len);
+SPAN_DECLARE(int) queue_write_msg(queue_state_t *s, const uint8_t *buf, int len);
 
 /*! Initialise a queue.
     \brief Initialise a queue.
@@ -170,13 +156,19 @@ int queue_write_msg(queue_state_t *s, const uint8_t *buf, int len);
     \param flags Flags controlling the operation of the queue.
            Valid flags are QUEUE_READ_ATOMIC and QUEUE_WRITE_ATOMIC.
     \return A pointer to the context if OK, else NULL. */
-queue_state_t *queue_init(queue_state_t *s, int len, int flags);
+SPAN_DECLARE(queue_state_t *) queue_init(queue_state_t *s, int len, int flags);
 
-/*! Delete a queue.
+/*! Release a queue.
+    \brief Release a queue.
+    \param s The queue context.
+    \return 0 if OK, else -1. */
+SPAN_DECLARE(int) queue_release(queue_state_t *s);
+
+/*! Free a queue.
     \brief Delete a queue.
     \param s The queue context.
-    \return 0 if deleted OK, else -1. */
-int queue_free(queue_state_t *s);
+    \return 0 if OK, else -1. */
+SPAN_DECLARE(int) queue_free(queue_state_t *s);
 
 #if defined(__cplusplus)
 }

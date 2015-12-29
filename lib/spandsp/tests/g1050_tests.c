@@ -21,8 +21,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: g1050_tests.c,v 1.16 2008/05/13 13:17:25 steveu Exp $
  */
 
 #if defined(HAVE_CONFIG_H)
@@ -39,10 +37,14 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include <audiofile.h>
+#include <sndfile.h>
 #if defined(HAVE_MATH_H)
 #define GEN_CONST
 #endif
+
+//#if defined(WITH_SPANDSP_INTERNALS)
+#define SPANDSP_EXPOSE_INTERNAL_STRUCTURES
+//#endif
 
 #include "spandsp.h"
 #include "spandsp-sim.h"
@@ -66,7 +68,6 @@ int main(int argc, char *argv[])
     int num_packets;
     int model_no;
     int speed_pattern_no;
-    int use_gui;
     int simulation_time;
     int i;
     int len;
@@ -85,11 +86,16 @@ int main(int argc, char *argv[])
     int highest_seq_no_got;
     int opt;
     FILE *out_file;
+#if defined(ENABLE_GUI)
+    int use_gui;
+#endif
 
+#if defined(ENABLE_GUI)
+    use_gui = FALSE;
+#endif
     model_no = MODEL_NO;
     speed_pattern_no = SPEED_PATTERN_NO;
     simulation_time = SIMULATION_TIME;
-    use_gui = FALSE;
     while ((opt = getopt(argc, argv, "gm:s:t:")) != -1)
     {
         switch (opt)

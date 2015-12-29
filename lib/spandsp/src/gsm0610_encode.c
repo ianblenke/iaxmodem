@@ -24,31 +24,30 @@
  *
  * This code is based on the widely used GSM 06.10 code available from
  * http://kbs.cs.tu-berlin.de/~jutta/toast.html
- *
- * $Id: gsm0610_encode.c,v 1.25 2008/07/02 14:48:25 steveu Exp $
  */
 
 /*! \file */
 
 #if defined(HAVE_CONFIG_H)
-#include <config.h>
+#include "config.h"
 #endif
 
 #include <assert.h>
 #include <inttypes.h>
-#include "floating_fudge.h"
 #if defined(HAVE_TGMATH_H)
 #include <tgmath.h>
 #endif
 #if defined(HAVE_MATH_H)
 #include <math.h>
 #endif
+#include "floating_fudge.h"
 #include <stdlib.h>
 #include <memory.h>
 
 #include "spandsp/telephony.h"
+#include "spandsp/fast_convert.h"
 #include "spandsp/bitstream.h"
-#include "spandsp/dc_restore.h"
+#include "spandsp/saturated.h"
 #include "spandsp/gsm0610.h"
 
 #include "gsm0610_local.h"
@@ -93,7 +92,7 @@ static void encode_a_frame(gsm0610_state_t *s, gsm0610_frame_t *f, const int16_t
         gsm0610_rpe_encoding(s, s->e + 5, &f->xmaxc[k], &f->Mc[k], f->xMc[k]);
 
         for (i = 0;  i < 40;  i++)
-            dp[i] = gsm_add(s->e[5 + i], dpp[i]);
+            dp[i] = saturated_add16(s->e[5 + i], dpp[i]);
         /*endfor*/
         dp += 40;
         dpp += 40;
@@ -105,7 +104,14 @@ static void encode_a_frame(gsm0610_state_t *s, gsm0610_frame_t *f, const int16_t
 }
 /*- End of function --------------------------------------------------------*/
 
-gsm0610_state_t *gsm0610_init(gsm0610_state_t *s, int packing)
+SPAN_DECLARE(int) gsm0610_set_packing(gsm0610_state_t *s, int packing)
+{
+    s->packing = packing;
+    return 0;    
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE(gsm0610_state_t *) gsm0610_init(gsm0610_state_t *s, int packing)
 {
     if (s == NULL)
     {
@@ -121,14 +127,13 @@ gsm0610_state_t *gsm0610_init(gsm0610_state_t *s, int packing)
 }
 /*- End of function --------------------------------------------------------*/
 
-int gsm0610_set_packing(gsm0610_state_t *s, int packing)
+SPAN_DECLARE(int) gsm0610_release(gsm0610_state_t *s)
 {
-    s->packing = packing;
-    return 0;    
+    return 0;
 }
 /*- End of function --------------------------------------------------------*/
 
-int gsm0610_release(gsm0610_state_t *s)
+SPAN_DECLARE(int) gsm0610_free(gsm0610_state_t *s)
 {
     if (s)
         free(s);
@@ -137,7 +142,7 @@ int gsm0610_release(gsm0610_state_t *s)
 }
 /*- End of function --------------------------------------------------------*/
 
-int gsm0610_pack_none(uint8_t c[], const gsm0610_frame_t *s)
+SPAN_DECLARE(int) gsm0610_pack_none(uint8_t c[], const gsm0610_frame_t *s)
 {
     int i;
     int j;
@@ -160,7 +165,7 @@ int gsm0610_pack_none(uint8_t c[], const gsm0610_frame_t *s)
 }
 /*- End of function --------------------------------------------------------*/
 
-int gsm0610_pack_wav49(uint8_t c[], const gsm0610_frame_t *s)
+SPAN_DECLARE(int) gsm0610_pack_wav49(uint8_t c[], const gsm0610_frame_t *s)
 {
     uint16_t sr;
     int i;
@@ -255,7 +260,7 @@ int gsm0610_pack_wav49(uint8_t c[], const gsm0610_frame_t *s)
 }
 /*- End of function --------------------------------------------------------*/
 
-int gsm0610_pack_voip(uint8_t c[33], const gsm0610_frame_t *s)
+SPAN_DECLARE(int) gsm0610_pack_voip(uint8_t c[33], const gsm0610_frame_t *s)
 {
     int i;
 
@@ -302,7 +307,7 @@ int gsm0610_pack_voip(uint8_t c[33], const gsm0610_frame_t *s)
 }
 /*- End of function --------------------------------------------------------*/
 
-int gsm0610_encode(gsm0610_state_t *s, uint8_t code[], const int16_t amp[], int len)
+SPAN_DECLARE(int) gsm0610_encode(gsm0610_state_t *s, uint8_t code[], const int16_t amp[], int len)
 {
     gsm0610_frame_t frame[2];
     int bytes;

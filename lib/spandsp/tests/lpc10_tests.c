@@ -21,8 +21,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: lpc10_tests.c,v 1.18 2008/05/13 13:17:26 steveu Exp $
  */
 
 /*! \file */
@@ -31,7 +29,7 @@
 \section lpc10_tests_page_sec_1 What does it do?
 
 \section lpc10_tests_page_sec_2 How is it used?
-To perform a general audio quality test, lpc10 should be run. The file ../test-data/local/short_nb_voice.wav
+To perform a general audio quality test, lpc10 should be run. The file ../test-data/local/dam9.wav
 will be compressed to LPC10 data, decompressed, and the resulting audio stored in post_lpc10.wav.
 */
 
@@ -46,9 +44,14 @@ will be compressed to LPC10 data, decompressed, and the resulting audio stored i
 #include <string.h>
 #include <assert.h>
 #include <ctype.h>
-#include <audiofile.h>
+#include <sndfile.h>
+
+//#if defined(WITH_SPANDSP_INTERNALS)
+#define SPANDSP_EXPOSE_INTERNAL_STRUCTURES
+//#endif
 
 #include "spandsp.h"
+#include "spandsp-sim.h"
 
 #define BLOCK_LEN       180
 
@@ -62,13 +65,10 @@ will be compressed to LPC10 data, decompressed, and the resulting audio stored i
 
 int main(int argc, char *argv[])
 {
-    AFfilehandle inhandle;
-    AFfilehandle refhandle;
-    AFfilehandle outhandle;
-    AFfilesetup filesetup;
+    SNDFILE *inhandle;
+    SNDFILE *refhandle;
+    SNDFILE *outhandle;
     int frames;
-    int outframes;
-    float x;
     double pre_energy;
     double post_energy;
     double ref_energy;
@@ -90,6 +90,7 @@ int main(int argc, char *argv[])
     int compress_file;
     int decompress_file;
     int len;
+    int opt;
     int enc_len;
     int dec_len;
 
@@ -97,81 +98,44 @@ int main(int argc, char *argv[])
     decompress = FALSE;
     log_error = TRUE;
     in_file_name = IN_FILE_NAME;
-    for (i = 1;  i < argc;  i++)
+    while ((opt = getopt(argc, argv, "cdi:l")) != -1)
     {
-        if (strcmp(argv[i], "-c") == 0)
+        switch (opt)
         {
+        case 'c':
             compress = TRUE;
-            continue;
-        }
-        if (strcmp(argv[i], "-d") == 0)
-        {
+            break;
+        case 'd':
             decompress = TRUE;
-            continue;
-        }
-        if (strcmp(argv[i], "-i") == 0)
-        {
-            in_file_name = argv[++i];
-            continue;
-        }
-        if (strcmp(argv[i], "-l") == 0)
-        {
+            break;
+        case 'i':
+            in_file_name = optarg;
+            break;
+        case 'l':
             log_error = FALSE;
-            continue;
+            break;
+        default:
+            //usage();
+            exit(2);
         }
     }
 
     compress_file = -1;
     decompress_file = -1;
-    inhandle = AF_NULL_FILEHANDLE;
-    refhandle = AF_NULL_FILEHANDLE;
-    outhandle = AF_NULL_FILEHANDLE;
+    inhandle = NULL;
+    refhandle = NULL;
+    outhandle = NULL;
     if (!decompress)
     {
-        if ((inhandle = afOpenFile(in_file_name, "r", 0)) == AF_NULL_FILEHANDLE)
+        if ((inhandle = sf_open_telephony_read(in_file_name, 1)) == NULL)
         {
-            fprintf(stderr, "    Cannot open wave file '%s'\n", in_file_name);
-            exit(2);
-        }
-        if ((x = afGetFrameSize(inhandle, AF_DEFAULT_TRACK, 1)) != 2.0)
-        {
-            fprintf(stderr, "    Unexpected frame size in wave file '%s'\n", in_file_name);
-            exit(2);
-        }
-        if ((x = afGetRate(inhandle, AF_DEFAULT_TRACK)) != (float) SAMPLE_RATE)
-        {
-            fprintf(stderr, "    Unexpected sample rate in wave file '%s'\n", in_file_name);
-            exit(2);
-        }
-        if ((x = afGetChannels(inhandle, AF_DEFAULT_TRACK)) != 1.0)
-        {
-            fprintf(stderr, "    Unexpected number of channels in wave file '%s'\n", in_file_name);
-            exit(2);
-        }
-        if ((filesetup = afNewFileSetup()) == AF_NULL_FILESETUP)
-        {
-            fprintf(stderr, "    Failed to create file setup\n");
+            fprintf(stderr, "    Cannot open audio file '%s'\n", in_file_name);
             exit(2);
         }
 
-        if ((refhandle = afOpenFile(REF_FILE_NAME, "r", 0)) == AF_NULL_FILEHANDLE)
+        if ((refhandle = sf_open_telephony_read(REF_FILE_NAME, 1)) == NULL)
         {
-            fprintf(stderr, "    Cannot open wave file '%s'\n", REF_FILE_NAME);
-            exit(2);
-        }
-        if ((x = afGetFrameSize(refhandle, AF_DEFAULT_TRACK, 1)) != 2.0)
-        {
-            fprintf(stderr, "    Unexpected frame size in wave file '%s'\n", REF_FILE_NAME);
-            exit(2);
-        }
-        if ((x = afGetRate(refhandle, AF_DEFAULT_TRACK)) != (float) SAMPLE_RATE)
-        {
-            fprintf(stderr, "    Unexpected sample rate in wave file '%s'\n", REF_FILE_NAME);
-            exit(2);
-        }
-        if ((x = afGetChannels(refhandle, AF_DEFAULT_TRACK)) != 1.0)
-        {
-            fprintf(stderr, "    Unexpected number of channels in wave file '%s'\n", REF_FILE_NAME);
+            fprintf(stderr, "    Cannot open audio file '%s'\n", REF_FILE_NAME);
             exit(2);
         }
     }
@@ -184,19 +148,9 @@ int main(int argc, char *argv[])
         }
     }
 
-    if ((filesetup = afNewFileSetup()) == AF_NULL_FILESETUP)
+    if ((outhandle = sf_open_telephony_write(OUT_FILE_NAME, 1)) == NULL)
     {
-        fprintf(stderr, "    Failed to create file setup\n");
-        exit(2);
-    }
-    afInitSampleFormat(filesetup, AF_DEFAULT_TRACK, AF_SAMPFMT_TWOSCOMP, 16);
-    afInitRate(filesetup, AF_DEFAULT_TRACK, (float) SAMPLE_RATE);
-    afInitFileFormat(filesetup, AF_FILE_WAVE);
-    afInitChannels(filesetup, AF_DEFAULT_TRACK, 1);
-
-    if ((outhandle = afOpenFile(OUT_FILE_NAME, "w", filesetup)) == AF_NULL_FILEHANDLE)
-    {
-        fprintf(stderr, "    Cannot create wave file '%s'\n", OUT_FILE_NAME);
+        fprintf(stderr, "    Cannot create audio file '%s'\n", OUT_FILE_NAME);
         exit(2);
     }
     
@@ -231,15 +185,15 @@ int main(int argc, char *argv[])
         while ((len = read(decompress_file, lpc10_data, BLOCKS_PER_READ*7)) > 0)
         {
             lpc10_decode(lpc10_dec_state, post_amp, lpc10_data, len/7);
-            outframes = afWriteFrames(outhandle, AF_DEFAULT_TRACK, post_amp, BLOCK_LEN*len/7);
+            sf_writef_short(outhandle, post_amp, BLOCK_LEN*len/7);
         }
     }
     else
     {
         block_no = 0;
-        while ((frames = afReadFrames(inhandle, AF_DEFAULT_TRACK, pre_amp, BLOCKS_PER_READ*BLOCK_LEN)) == BLOCKS_PER_READ*BLOCK_LEN
+        while ((frames = sf_readf_short(inhandle, pre_amp, BLOCKS_PER_READ*BLOCK_LEN)) == BLOCKS_PER_READ*BLOCK_LEN
                 &&
-                (frames = afReadFrames(refhandle, AF_DEFAULT_TRACK, ref_amp, BLOCKS_PER_READ*BLOCK_LEN)) == BLOCKS_PER_READ*BLOCK_LEN)
+                (frames = sf_readf_short(refhandle, ref_amp, BLOCKS_PER_READ*BLOCK_LEN)) == BLOCKS_PER_READ*BLOCK_LEN)
         {
             enc_len = lpc10_encode(lpc10_enc_state, lpc10_data, pre_amp, BLOCKS_PER_READ*BLOCK_LEN);
             if (compress)
@@ -261,28 +215,27 @@ int main(int argc, char *argv[])
             }
             block_no++;
             if (log_error)
-                outframes = afWriteFrames(outhandle, AF_DEFAULT_TRACK, log_amp, dec_len);
+                sf_writef_short(outhandle, log_amp, dec_len);
             else
-                outframes = afWriteFrames(outhandle, AF_DEFAULT_TRACK, post_amp, dec_len);
+                sf_writef_short(outhandle, post_amp, dec_len);
         }
-        if (afCloseFile(inhandle) != 0)
+        if (sf_close_telephony(inhandle))
         {
-            fprintf(stderr, "    Cannot close wave file '%s'\n", in_file_name);
+            fprintf(stderr, "    Cannot close audio file '%s'\n", in_file_name);
             exit(2);
         }
-        if (afCloseFile(refhandle) != 0)
+        if (sf_close_telephony(refhandle))
         {
-            fprintf(stderr, "    Cannot close wave file '%s'\n", REF_FILE_NAME);
+            fprintf(stderr, "    Cannot close audio file '%s'\n", REF_FILE_NAME);
             exit(2);
         }
     }
     
-    if (afCloseFile(outhandle) != 0)
+    if (sf_close_telephony(outhandle))
     {
-        fprintf(stderr, "    Cannot close wave file '%s'\n", OUT_FILE_NAME);
+        fprintf(stderr, "    Cannot close audio file '%s'\n", OUT_FILE_NAME);
         exit(2);
     }
-    afFreeFileSetup(filesetup);
     if (compress)
         close(compress_file);
     if (decompress)

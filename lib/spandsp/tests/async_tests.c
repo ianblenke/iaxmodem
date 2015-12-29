@@ -21,8 +21,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: async_tests.c,v 1.17 2008/05/13 13:17:25 steveu Exp $
  */
 
 /*! \file */
@@ -38,7 +36,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <audiofile.h>
+#include <sndfile.h>
+
+//#if defined(WITH_SPANDSP_INTERNALS)
+#define SPANDSP_EXPOSE_INTERNAL_STRUCTURES
+//#endif
 
 #include "spandsp.h"
 

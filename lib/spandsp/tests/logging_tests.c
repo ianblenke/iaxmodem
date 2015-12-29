@@ -21,8 +21,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: logging_tests.c,v 1.14 2008/05/13 13:17:26 steveu Exp $
  */
 
 /*! \page logging_tests_page Logging tests
@@ -41,6 +39,10 @@
 #include <unistd.h>
 #include <memory.h>
 #include <time.h>
+
+//#if defined(WITH_SPANDSP_INTERNALS)
+#define SPANDSP_EXPOSE_INTERNAL_STRUCTURES
+//#endif
 
 #include "spandsp.h"
 
@@ -128,7 +130,7 @@ int main(int argc, char *argv[])
     struct timespec delay;
 
     /* Set up a logger */
-    if (span_log_init(&log, 123, "TAG"))
+    if (span_log_init(&log, 123, "TAG") == NULL)
     {
         fprintf(stderr, "Failed to initialise log.\n");
         exit(2);
@@ -174,7 +176,7 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Logged.\n");
     else
         fprintf(stderr, "Not logged.\n");
-    
+
     /* Test logging of buffer contents */
     for (i = 0;  i < 1000;  i++)
         buf[i] = i;
@@ -197,7 +199,7 @@ int main(int argc, char *argv[])
             break;
         }
     }
-    
+
     /* Check timestamping by samples */
     span_log_set_level(&log, SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_SHOW_TAG | SPAN_LOG_FLOW | SPAN_LOG_SHOW_SAMPLE_TIME);
     for (i = 0;  i < 10;  i++)
@@ -221,7 +223,7 @@ int main(int argc, char *argv[])
         printf("Tests failed - %d %d %d.\n", tests_failed, msg_done, error_done);
         return 2;
     }
-    
+
     span_log_set_message_handler(&log, &message_handler);
 
     printf("Tests passed.\n");

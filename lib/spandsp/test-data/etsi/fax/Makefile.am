@@ -15,27 +15,36 @@
 ## You should have received a copy of the GNU General Public License
 ## along with this program; if not, write to the Free Software
 ## Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-##
-## $Id: Makefile.am,v 1.1 2008/07/10 12:44:54 steveu Exp $
 
 AM_CFLAGS = $(COMP_VENDOR_CFLAGS)
 
 PBM2G3 = pbmtog3
 FAX2TIFF = fax2tiff
+TIFFCP = tiffcp
+
+ETSI_TEST_PAGES = etsi_300_242_a4_diago1.tif \
+                  etsi_300_242_a4_diago2.tif \
+                  etsi_300_242_a4_duration1.tif \
+                  etsi_300_242_a4_duration2.tif \
+                  etsi_300_242_a4_error.tif \
+                  etsi_300_242_a4_impress.tif \
+                  etsi_300_242_a4_impress_white.tif \
+                  etsi_300_242_a4_stairstep.tif \
+                  etsi_300_242_a4_white.tif \
+                  etsi_300_242_a4_white_2p.tif
 
 EXTRA_DIST = 
 
-nobase_data_DATA = etsi_300_242_white.tif \
-                   etsi_300_242_stairstep.tif \
-                   etsi_300_242_diago1.tif \
-                   etsi_300_242_diago2.tif \
-                   etsi_300_242_impress.tif \
-                   etsi_300_242_error.tif
+MAINTAINERCLEANFILES = Makefile.in
 
-noinst_PROGRAMS =   generate_etsi_300_242_pages
+LIBDIR = -L$(top_builddir)/src
+
+nobase_data_DATA = ${ETSI_TEST_PAGES}
+                   
+noinst_PROGRAMS = generate_etsi_300_242_pages
 
 generate_etsi_300_242_pages_SOURCES = generate_etsi_300_242_pages.c
-generate_etsi_300_242_pages_LDADD = -ltiff
+generate_etsi_300_242_pages_LDADD = $(LIBDIR) -lspandsp -ltiff
 
 clean:
 	rm -f *.tif *.g3
@@ -46,10 +55,5 @@ clean:
 .pbm.g3:
 	${PBM2G3} $*.pbm >$*.g3
 
-etsi_300_242_white.tif \
-etsi_300_242_stairstep.tif \
-etsi_300_242_diago1.tif \
-etsi_300_242_diago2.tif \
-etsi_300_242_impress.tif \
-etsi_300_242_error.tif: generate_etsi_300_242_pages$(EXEEXT)
+${ETSI_TEST_PAGES}: generate_etsi_300_242_pages$(EXEEXT)
 	./generate_etsi_300_242_pages$(EXEEXT)

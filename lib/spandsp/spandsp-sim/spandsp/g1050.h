@@ -21,8 +21,6 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: g1050.h,v 1.7 2008/04/17 18:03:23 steveu Exp $
  */
 
 /*! \file */
@@ -39,7 +37,7 @@ model is based on a path having 5 segments:
  - a distant LAN (wired or wireless)
 The impairments typical of these segments at various service levels are modelled.
 8 standard service level behaviours are defined, covering lightly loaded to heavily
-congested levels. 133 standard sets of link speeds are defined, covering typical
+congested levels. 168 standard sets of link speeds are defined, covering typical
 wired and wireless LAN, broadband access link, and backbone characteristics.
 
 The G.1050 model is suitable for testing the behaviour of RTP, UDPTL and other streaming
@@ -243,7 +241,7 @@ typedef struct g1050_queue_element_s
     double departure_time;
     double arrival_time;
     int len;
-    uint8_t pkt[0];
+    uint8_t pkt[];
 } g1050_queue_element_t;
 
 /*! The model definition for a complete end-to-end path */
@@ -261,7 +259,7 @@ typedef struct
 } g1050_state_t;
 
 extern g1050_constants_t g1050_constants[1];
-extern g1050_channel_speeds_t g1050_speed_patterns[133];
+extern g1050_channel_speeds_t g1050_speed_patterns[168];
 extern g1050_model_t g1050_standard_models[9];
 
 #ifdef  __cplusplus
@@ -269,28 +267,28 @@ extern "C"
 {
 #endif
 
-g1050_state_t *g1050_init(int model,
-                          int speed_pattern,
-                          int packet_size,
-                          int packet_rate);
+SPAN_DECLARE(g1050_state_t *) g1050_init(int model,
+                                         int speed_pattern,
+                                         int packet_size,
+                                         int packet_rate);
 
-void g1050_dump_parms(int model, int speed_pattern);
+SPAN_DECLARE(void) g1050_dump_parms(int model, int speed_pattern);
 
-int g1050_put(g1050_state_t *s,
-              const uint8_t buf[],
-              int len,
-              int seq_no,
-              double departure_time);
+SPAN_DECLARE(int) g1050_put(g1050_state_t *s,
+                            const uint8_t buf[],
+                            int len,
+                            int seq_no,
+                            double departure_time);
 
-int g1050_get(g1050_state_t *s,
-              uint8_t buf[],
-              int max_len,
-              double current_time,
-              int *seq_no,
-              double *departure_time,
-              double *arrival_time);
+SPAN_DECLARE(int) g1050_get(g1050_state_t *s,
+                            uint8_t buf[],
+                            int max_len,
+                            double current_time,
+                            int *seq_no,
+                            double *departure_time,
+                            double *arrival_time);
 
-void g1050_queue_dump(g1050_state_t *s);
+SPAN_DECLARE(void) g1050_queue_dump(g1050_state_t *s);
 
 #ifdef  __cplusplus
 }

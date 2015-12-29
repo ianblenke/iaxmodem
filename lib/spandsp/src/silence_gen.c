@@ -21,8 +21,6 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: silence_gen.c,v 1.13 2008/07/16 18:09:59 steveu Exp $
  */
 
 /*! \file */
@@ -36,13 +34,13 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <string.h>
-#include "floating_fudge.h"
 #if defined(HAVE_TGMATH_H)
 #include <tgmath.h>
 #endif
 #if defined(HAVE_MATH_H)
 #include <math.h>
 #endif
+#include "floating_fudge.h"
 #include <assert.h>
 #include <limits.h>
 
@@ -51,7 +49,9 @@
 #include "spandsp/async.h"
 #include "spandsp/silence_gen.h"
 
-int silence_gen(silence_gen_state_t *s, int16_t *amp, int max_len)
+#include "spandsp/private/silence_gen.h"
+
+SPAN_DECLARE_NONSTD(int) silence_gen(silence_gen_state_t *s, int16_t *amp, int max_len)
 {
     if (s->remaining_samples != INT_MAX)
     {
@@ -59,7 +59,7 @@ int silence_gen(silence_gen_state_t *s, int16_t *amp, int max_len)
         {
             max_len = s->remaining_samples;
             if (max_len  &&  s->status_handler)
-                s->status_handler(s->status_user_data, MODEM_TX_STATUS_SHUTDOWN_COMPLETE);
+                s->status_handler(s->status_user_data, SIG_STATUS_SHUTDOWN_COMPLETE);
         }
         s->remaining_samples -= max_len;
     }
@@ -70,20 +70,20 @@ int silence_gen(silence_gen_state_t *s, int16_t *amp, int max_len)
 }
 /*- End of function --------------------------------------------------------*/
 
-void silence_gen_always(silence_gen_state_t *s)
+SPAN_DECLARE(void) silence_gen_always(silence_gen_state_t *s)
 {
     s->remaining_samples = INT_MAX;
 }
 /*- End of function --------------------------------------------------------*/
 
-void silence_gen_set(silence_gen_state_t *s, int silent_samples)
+SPAN_DECLARE(void) silence_gen_set(silence_gen_state_t *s, int silent_samples)
 {
     s->remaining_samples = silent_samples;
     s->total_samples = 0;
 }
 /*- End of function --------------------------------------------------------*/
 
-void silence_gen_alter(silence_gen_state_t *s, int silent_samples)
+SPAN_DECLARE(void) silence_gen_alter(silence_gen_state_t *s, int silent_samples)
 {
     /* Block negative silences */
     if (silent_samples < 0)
@@ -96,26 +96,26 @@ void silence_gen_alter(silence_gen_state_t *s, int silent_samples)
 }
 /*- End of function --------------------------------------------------------*/
 
-int silence_gen_remainder(silence_gen_state_t *s)
+SPAN_DECLARE(int) silence_gen_remainder(silence_gen_state_t *s)
 {
     return s->remaining_samples;
 }
 /*- End of function --------------------------------------------------------*/
 
-int silence_gen_generated(silence_gen_state_t *s)
+SPAN_DECLARE(int) silence_gen_generated(silence_gen_state_t *s)
 {
     return s->total_samples;
 }
 /*- End of function --------------------------------------------------------*/
 
-void silence_gen_status_handler(silence_gen_state_t *s, modem_tx_status_func_t handler, void *user_data)
+SPAN_DECLARE(void) silence_gen_status_handler(silence_gen_state_t *s, modem_status_func_t handler, void *user_data)
 {
     s->status_handler = handler;
     s->status_user_data = user_data;
 }
 /*- End of function --------------------------------------------------------*/
 
-silence_gen_state_t *silence_gen_init(silence_gen_state_t *s, int silent_samples)
+SPAN_DECLARE(silence_gen_state_t *) silence_gen_init(silence_gen_state_t *s, int silent_samples)
 {
     if (s == NULL)
     {
@@ -125,6 +125,41 @@ silence_gen_state_t *silence_gen_init(silence_gen_state_t *s, int silent_samples
     memset(s, 0, sizeof(*s));
     s->remaining_samples = silent_samples;
     return s;
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE(int) silence_gen_release(silence_gen_state_t *s)
+{
+    return 0;
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE(int) silence_gen_free(silence_gen_state_t *s)
+{
+    if (s)
+        free(s);
+    return 0;
+}
+/*- End of function --------------------------------------------------------*/
+
+/* The following dummy routines, to absorb data, don't really have a proper home,
+   so they have been put here. */
+
+SPAN_DECLARE_NONSTD(int) span_dummy_rx(void *user_data, const int16_t amp[], int len)
+{
+    return 0;
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE(int) span_dummy_mod(void *user_data, int16_t amp[], int len)
+{
+    return len;
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE_NONSTD(int) span_dummy_rx_fillin(void *user_data, int len)
+{
+    return 0;
 }
 /*- End of function --------------------------------------------------------*/
 /*- End of file ------------------------------------------------------------*/

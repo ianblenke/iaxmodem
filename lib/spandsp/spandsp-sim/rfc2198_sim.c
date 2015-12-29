@@ -21,8 +21,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: rfc2198_sim.c,v 1.6 2008/07/02 14:48:25 steveu Exp $
  */
 
 #if defined(HAVE_CONFIG_H)
@@ -36,8 +34,6 @@
 #include <time.h>
 #include <stdio.h>
 #include <fcntl.h>
-#include <audiofile.h>
-#include "floating_fudge.h"
 #if defined(HAVE_TGMATH_H)
 #include <tgmath.h>
 #endif
@@ -45,6 +41,7 @@
 #define GEN_CONST
 #include <math.h>
 #endif
+#include "floating_fudge.h"
 
 #include "spandsp.h"
 #include "spandsp/g1050.h"
@@ -55,11 +52,11 @@
 #define FALSE 0
 #define TRUE (!FALSE)
 
-rfc2198_sim_state_t *rfc2198_sim_init(int model,
-                                      int speed_pattern,
-                                      int packet_size,
-                                      int packet_rate,
-                                      int redundancy_depth)
+SPAN_DECLARE(rfc2198_sim_state_t *) rfc2198_sim_init(int model,
+                                                     int speed_pattern,
+                                                     int packet_size,
+                                                     int packet_rate,
+                                                     int redundancy_depth)
 {
     rfc2198_sim_state_t *s;
 
@@ -73,11 +70,11 @@ rfc2198_sim_state_t *rfc2198_sim_init(int model,
 }
 /*- End of function --------------------------------------------------------*/
 
-int rfc2198_sim_put(rfc2198_sim_state_t *s,
-                    const uint8_t buf[],
-                    int len,
-                    int seq_no,
-                    double departure_time)
+SPAN_DECLARE(int) rfc2198_sim_put(rfc2198_sim_state_t *s,
+                                  const uint8_t buf[],
+                                  int len,
+                                  int seq_no,
+                                  double departure_time)
 {
     uint8_t buf2[8192];
     uint8_t *p;
@@ -110,19 +107,23 @@ int rfc2198_sim_put(rfc2198_sim_state_t *s,
 }
 /*- End of function --------------------------------------------------------*/
 
-int rfc2198_sim_get(rfc2198_sim_state_t *s,
-                    uint8_t buf[],
-                    int max_len,
-                    double current_time,
-                    int *seq_no,
-                    double *departure_time,
-                    double *arrival_time)
+SPAN_DECLARE(int) rfc2198_sim_get(rfc2198_sim_state_t *s,
+                                  uint8_t buf[],
+                                  int max_len,
+                                  double current_time,
+                                  int *seq_no,
+                                  double *departure_time,
+                                  double *arrival_time)
 {
     int len;
     int lenx;
     int seq_nox;
     int i;
+#if defined(_MSC_VER)
+    uint8_t *bufx = (uint8_t *) _alloca(s->redundancy_depth*1024);
+#else
     uint8_t bufx[s->redundancy_depth*1024];
+#endif
     uint8_t *p;
     uint16_t *q;
     int redundancy_depth;

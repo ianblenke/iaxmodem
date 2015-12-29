@@ -21,14 +21,12 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: t30_logging.c,v 1.5 2008/07/02 14:48:26 steveu Exp $
  */
 
 /*! \file */
 
 #if defined(HAVE_CONFIG_H)
-#include <config.h>
+#include "config.h"
 #endif
 
 #include <stdlib.h>
@@ -37,13 +35,13 @@
 #include <string.h>
 #include <fcntl.h>
 #include <time.h>
-#include "floating_fudge.h"
 #if defined(HAVE_TGMATH_H)
 #include <tgmath.h>
 #endif
 #if defined(HAVE_MATH_H)
 #include <math.h>
 #endif
+#include "floating_fudge.h"
 #include <tiffio.h>
 
 #include "spandsp/telephony.h"
@@ -60,14 +58,35 @@
 #include "spandsp/v29tx.h"
 #include "spandsp/v27ter_rx.h"
 #include "spandsp/v27ter_tx.h"
-#include "spandsp/t4.h"
+#include "spandsp/timezone.h"
+#include "spandsp/t4_rx.h"
+#include "spandsp/t4_tx.h"
+#if defined(SPANDSP_SUPPORT_T85)
+#include "spandsp/t81_t82_arith_coding.h"
+#include "spandsp/t85.h"
+#endif
+#include "spandsp/t4_t6_decode.h"
+#include "spandsp/t4_t6_encode.h"
 #include "spandsp/t30_fcf.h"
 #include "spandsp/t35.h"
 #include "spandsp/t30.h"
 #include "spandsp/t30_logging.h"
 
+#include "spandsp/private/logging.h"
+#include "spandsp/private/timezone.h"
+#if defined(SPANDSP_SUPPORT_T85)
+#include "spandsp/private/t81_t82_arith_coding.h"
+#include "spandsp/private/t85.h"
+#endif
+#include "spandsp/private/t4_t6_decode.h"
+#include "spandsp/private/t4_t6_encode.h"
+#include "spandsp/private/t4_rx.h"
+#include "spandsp/private/t4_tx.h"
+#include "spandsp/private/t30.h"
+
 #include "t30_local.h"
 
+/*! Value string pair structure */
 typedef struct
 {
     int val;
@@ -86,7 +105,7 @@ enum
     DISBIT8 = 0x80
 };
 
-const char *t30_completion_code_to_str(int result)
+SPAN_DECLARE(const char *) t30_completion_code_to_str(int result)
 {
     switch (result)
     {
@@ -219,9 +238,9 @@ const char *t30_completion_code_to_str(int result)
 }
 /*- End of function --------------------------------------------------------*/
 
-const char *t30_frametype(uint8_t x)
+SPAN_DECLARE(const char *) t30_frametype(uint8_t x)
 {
-    switch (x & 0xFE)
+    switch (x)
     {
     case T30_DIS:
         return "DIS";
@@ -484,7 +503,7 @@ static void octet_field(logging_state_t *log,
 }
 /*- End of function --------------------------------------------------------*/
 
-void t30_decode_dis_dtc_dcs(t30_state_t *s, const uint8_t *pkt, int len)
+SPAN_DECLARE(void) t30_decode_dis_dtc_dcs(t30_state_t *s, const uint8_t *pkt, int len)
 {
     logging_state_t *log;
     uint8_t frame_type;
@@ -926,7 +945,7 @@ void t30_decode_dis_dtc_dcs(t30_state_t *s, const uint8_t *pkt, int len)
     octet_bit_field(log, pkt, 121, "Flow control capability for T.38 communication", NULL, NULL);
     octet_bit_field(log, pkt, 122, "K>4", NULL, NULL);
     octet_bit_field(log, pkt, 123, "Internet aware T.38 mode fax (not affected by data signal rate bits)", NULL, NULL);
-    octet_field(log, pkt, 124, 126, "T.89 (Application profiles for ITU-T Rec T.8)", t89_profile_tags);
+    octet_field(log, pkt, 124, 126, "T.89 (Application profiles for ITU-T Rec T.88)", t89_profile_tags);
     octet_bit_field(log, pkt, 127, "sYCC-JPEG coding", NULL, NULL);
     octet_bit_field(log, pkt, 128, "Extension indicator", NULL, NULL);
     if (!(pkt[18] & DISBIT8))

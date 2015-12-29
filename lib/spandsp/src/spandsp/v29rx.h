@@ -21,14 +21,12 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: v29rx.h,v 1.55 2008/07/16 14:23:48 steveu Exp $
  */
 
 /*! \file */
 
-#if !defined(_V29RX_H_)
-#define _V29RX_H_
+#if !defined(_SPANDSP_V29RX_H_)
+#define _SPANDSP_V29RX_H_
 
 /*! \page v29rx_page The V.29 receiver
 \section v29rx_page_sec_1 What does it do?
@@ -120,154 +118,13 @@ scrambler register) cannot be trusted for the test. The receive modem,
 therefore, only tests that bits starting at bit 24 are really ones. 
 */
 
-/* Target length for the equalizer is about 63 taps, to deal with the worst stuff
-   in V.56bis. */
-#define V29_EQUALIZER_PRE_LEN   15  /* this much before the real event */
-#define V29_EQUALIZER_POST_LEN  15  /* this much after the real event */
-#define V29_EQUALIZER_MASK      63  /* one less than a power of 2 >= (2*V29_EQUALIZER_LEN + 1) */
-
-#define V29_RX_FILTER_STEPS     27
-
 typedef void (*qam_report_handler_t)(void *user_data, const complexf_t *constel, const complexf_t *target, int symbol);
 
 /*!
     V.29 modem receive side descriptor. This defines the working state for a
     single instance of a V.29 modem receiver.
 */
-typedef struct
-{
-    /*! \brief The bit rate of the modem. Valid values are 4800, 7200 and 9600. */
-    int bit_rate;
-    /*! \brief The callback function used to put each bit received. */
-    put_bit_func_t put_bit;
-    /*! \brief A user specified opaque pointer passed to the put_bit routine. */
-    void *put_bit_user_data;
-
-    /*! \brief The callback function used to report modem status changes. */
-    modem_rx_status_func_t status_handler;
-    /*! \brief A user specified opaque pointer passed to the status function. */
-    void *status_user_data;
-
-    /*! \brief A callback function which may be enabled to report every symbol's
-               constellation position. */
-    qam_report_handler_t qam_report;
-    /*! \brief A user specified opaque pointer passed to the qam_report callback
-               routine. */
-    void *qam_user_data;
-
-    /*! \brief The route raised cosine (RRC) pulse shaping filter buffer. */
-#if defined(SPANDSP_USE_FIXED_POINT)
-    int16_t rrc_filter[2*V29_RX_FILTER_STEPS];
-#else
-    float rrc_filter[2*V29_RX_FILTER_STEPS];
-#endif
-    /*! \brief Current offset into the RRC pulse shaping filter buffer. */
-    int rrc_filter_step;
-
-    /*! \brief The register for the data scrambler. */
-    unsigned int scramble_reg;
-    /*! \brief The register for the training scrambler. */
-    uint8_t training_scramble_reg;
-    /*! \brief The section of the training data we are currently in. */
-    int training_stage;
-    /*! \brief The current step in the table of CD constellation positions. */
-    int training_cd;
-    /*! \brief A count of how far through the current training step we are. */
-    int training_count;
-    /*! \brief A measure of how much mismatch there is between the real constellation,
-        and the decoded symbol positions. */
-    float training_error;
-    /*! \brief The value of the last signal sample, using the a simple HPF for signal power estimation. */
-    int16_t last_sample;
-    /*! \brief >0 if a signal above the minimum is present. It may or may not be a V.29 signal. */
-    int signal_present;
-    /*! \brief Whether or not a carrier drop was detected and the signal delivery is pending. */
-    int carrier_drop_pending;
-    /*! \brief A count of the current consecutive samples below the carrier off threshold. */
-    int low_samples;
-    /*! \brief A highest magnitude sample seen. */
-    int16_t high_sample;
-    /*! \brief TRUE if the previous trained values are to be reused. */
-    int old_train;
-
-    /*! \brief The current phase of the carrier (i.e. the DDS parameter). */
-    uint32_t carrier_phase;
-    /*! \brief The update rate for the phase of the carrier (i.e. the DDS increment). */
-    int32_t carrier_phase_rate;
-    /*! \brief The carrier update rate saved for reuse when using short training. */
-    int32_t carrier_phase_rate_save;
-    /*! \brief The proportional part of the carrier tracking filter. */
-    float carrier_track_p;
-    /*! \brief The integral part of the carrier tracking filter. */
-    float carrier_track_i;
-
-    /*! \brief A power meter, to measure the HPF'ed signal power in the channel. */    
-    power_meter_t power;
-    /*! \brief The power meter level at which carrier on is declared. */
-    int32_t carrier_on_power;
-    /*! \brief The power meter level at which carrier off is declared. */
-    int32_t carrier_off_power;
-    /*! \brief The scaling factor accessed by the AGC algorithm. */
-    float agc_scaling;
-    /*! \brief The previous value of agc_scaling, needed to reuse old training. */
-    float agc_scaling_save;
-
-    int constellation_state;
-
-    /*! \brief The current delta factor for updating the equalizer coefficients. */
-    float eq_delta;
-#if defined(SPANDSP_USE_FIXED_POINTx)
-    /*! \brief The adaptive equalizer coefficients. */
-    complexi_t eq_coeff[V29_EQUALIZER_PRE_LEN + 1 + V29_EQUALIZER_POST_LEN];
-    /*! \brief A saved set of adaptive equalizer coefficients for use after restarts. */
-    complexi_t eq_coeff_save[V29_EQUALIZER_PRE_LEN + 1 + V29_EQUALIZER_POST_LEN];
-    /*! \brief The equalizer signal buffer. */
-    complexi_t eq_buf[V29_EQUALIZER_MASK + 1];
-#else
-    complexf_t eq_coeff[V29_EQUALIZER_PRE_LEN + 1 + V29_EQUALIZER_POST_LEN];
-    complexf_t eq_coeff_save[V29_EQUALIZER_PRE_LEN + 1 + V29_EQUALIZER_POST_LEN];
-    complexf_t eq_buf[V29_EQUALIZER_MASK + 1];
-#endif
-    /*! \brief Current offset into the equalizer buffer. */
-    int eq_step;
-    /*! \brief Current write offset into the equalizer buffer. */
-    int eq_put_step;
-    /*! \brief Symbol counter to the next equalizer update. */
-    int eq_skip;
-
-    /*! \brief The current half of the baud. */
-    int baud_half;
-#if defined(SPANDSP_USE_FIXED_POINTx)
-    /*! Low band edge filter for symbol sync. */
-    int32_t symbol_sync_low[2];
-    /*! High band edge filter for symbol sync. */
-    int32_t symbol_sync_high[2];
-    /*! DC filter for symbol sync. */
-    int32_t symbol_sync_dc_filter[2];
-    /*! Baud phase for symbol sync. */
-    int32_t baud_phase;
-#else
-    /*! Low band edge filter for symbol sync. */
-    float symbol_sync_low[2];
-    /*! High band edge filter for symbol sync. */
-    float symbol_sync_high[2];
-    /*! DC filter for symbol sync. */
-    float symbol_sync_dc_filter[2];
-    /*! Baud phase for symbol sync. */
-    float baud_phase;
-#endif
-
-    /*! \brief The total symbol timing correction since the carrier came up.
-               This is only for performance analysis purposes. */
-    int total_baud_timing_correction;
-
-    /*! \brief Starting phase angles for the coarse carrier aquisition step. */
-    int32_t start_angles[2];
-    /*! \brief History list of phase angles for the coarse carrier aquisition step. */
-    int32_t angles[16];
-    /*! \brief Error and flow logging control */
-    logging_state_t logging;
-} v29_rx_state_t;
+typedef struct v29_rx_state_s v29_rx_state_t;
 
 #if defined(__cplusplus)
 extern "C"
@@ -281,7 +138,7 @@ extern "C"
     \param put_bit The callback routine used to put the received data.
     \param user_data An opaque pointer passed to the put_bit routine.
     \return A pointer to the modem context, or NULL if there was a problem. */
-v29_rx_state_t *v29_rx_init(v29_rx_state_t *s, int bit_rate, put_bit_func_t put_bit, void *user_data);
+SPAN_DECLARE(v29_rx_state_t *) v29_rx_init(v29_rx_state_t *s, int bit_rate, put_bit_func_t put_bit, void *user_data);
 
 /*! Reinitialise an existing V.29 modem receive context.
     \brief Reinitialise an existing V.29 modem receive context.
@@ -289,27 +146,39 @@ v29_rx_state_t *v29_rx_init(v29_rx_state_t *s, int bit_rate, put_bit_func_t put_
     \param bit_rate The bit rate of the modem. Valid values are 4800, 7200 and 9600.
     \param old_train TRUE if a previous trained values are to be reused.
     \return 0 for OK, -1 for bad parameter */
-int v29_rx_restart(v29_rx_state_t *s, int bit_rate, int old_train);
+SPAN_DECLARE(int) v29_rx_restart(v29_rx_state_t *s, int bit_rate, int old_train);
+
+/*! Release a V.29 modem receive context.
+    \brief Release a V.29 modem receive context.
+    \param s The modem context.
+    \return 0 for OK */
+SPAN_DECLARE(int) v29_rx_release(v29_rx_state_t *s);
 
 /*! Free a V.29 modem receive context.
     \brief Free a V.29 modem receive context.
     \param s The modem context.
     \return 0 for OK */
-int v29_rx_free(v29_rx_state_t *s);
+SPAN_DECLARE(int) v29_rx_free(v29_rx_state_t *s);
+
+/*! Get the logging context associated with a V.29 modem receive context.
+    \brief Get the logging context associated with a V.29 modem receive context.
+    \param s The modem context.
+    \return A pointer to the logging context */
+SPAN_DECLARE(logging_state_t *) v29_rx_get_logging_state(v29_rx_state_t *s);
 
 /*! Change the put_bit function associated with a V.29 modem receive context.
     \brief Change the put_bit function associated with a V.29 modem receive context.
     \param s The modem context.
     \param put_bit The callback routine used to handle received bits.
     \param user_data An opaque pointer. */
-void v29_rx_set_put_bit(v29_rx_state_t *s, put_bit_func_t put_bit, void *user_data);
+SPAN_DECLARE(void) v29_rx_set_put_bit(v29_rx_state_t *s, put_bit_func_t put_bit, void *user_data);
 
 /*! Change the modem status report function associated with a V.29 modem receive context.
     \brief Change the modem status report function associated with a V.29 modem receive context.
     \param s The modem context.
     \param handler The callback routine used to report modem status changes.
     \param user_data An opaque pointer. */
-void v29_rx_set_modem_status_handler(v29_rx_state_t *s, modem_rx_status_func_t handler, void *user_data);
+SPAN_DECLARE(void) v29_rx_set_modem_status_handler(v29_rx_state_t *s, modem_status_func_t handler, void *user_data);
 
 /*! Process a block of received V.29 modem audio samples.
     \brief Process a block of received V.29 modem audio samples.
@@ -317,40 +186,52 @@ void v29_rx_set_modem_status_handler(v29_rx_state_t *s, modem_rx_status_func_t h
     \param amp The audio sample buffer.
     \param len The number of samples in the buffer.
     \return The number of samples unprocessed. */
-int v29_rx(v29_rx_state_t *s, const int16_t amp[], int len);
+SPAN_DECLARE_NONSTD(int) v29_rx(v29_rx_state_t *s, const int16_t amp[], int len);
+
+/*! Fake processing of a missing block of received V.29 modem audio samples.
+    (e.g due to packet loss).
+    \brief Fake processing of a missing block of received V.29 modem audio samples.
+    \param s The modem context.
+    \param len The number of samples to fake.
+    \return The number of samples unprocessed. */
+SPAN_DECLARE_NONSTD(int) v29_rx_fillin(v29_rx_state_t *s, int len);
 
 /*! Get a snapshot of the current equalizer coefficients.
     \brief Get a snapshot of the current equalizer coefficients.
     \param s The modem context.
     \param coeffs The vector of complex coefficients.
     \return The number of coefficients in the vector. */
-int v29_rx_equalizer_state(v29_rx_state_t *s, complexf_t **coeffs);
+#if defined(SPANDSP_USE_FIXED_POINT)
+SPAN_DECLARE(int) v29_rx_equalizer_state(v29_rx_state_t *s, complexi16_t **coeffs);
+#else
+SPAN_DECLARE(int) v29_rx_equalizer_state(v29_rx_state_t *s, complexf_t **coeffs);
+#endif
 
 /*! Get the current received carrier frequency.
     \param s The modem context.
     \return The frequency, in Hertz. */
-float v29_rx_carrier_frequency(v29_rx_state_t *s);
+SPAN_DECLARE(float) v29_rx_carrier_frequency(v29_rx_state_t *s);
 
 /*! Get the current symbol timing correction since startup.
     \param s The modem context.
     \return The correction. */
-float v29_rx_symbol_timing_correction(v29_rx_state_t *s);
+SPAN_DECLARE(float) v29_rx_symbol_timing_correction(v29_rx_state_t *s);
 
 /*! Get the current received signal power.
     \param s The modem context.
     \return The signal power, in dBm0. */
-float v29_rx_signal_power(v29_rx_state_t *s);
+SPAN_DECLARE(float) v29_rx_signal_power(v29_rx_state_t *s);
 
 /*! Set the power level at which the carrier detection will cut in
     \param s The modem context.
     \param cutoff The signal cutoff power, in dBm0. */
-void v29_rx_signal_cutoff(v29_rx_state_t *s, float cutoff);
+SPAN_DECLARE(void) v29_rx_signal_cutoff(v29_rx_state_t *s, float cutoff);
 
 /*! Set a handler routine to process QAM status reports
     \param s The modem context.
     \param handler The handler routine.
     \param user_data An opaque pointer passed to the handler routine. */
-void v29_rx_set_qam_report_handler(v29_rx_state_t *s, qam_report_handler_t handler, void *user_data);
+SPAN_DECLARE(void) v29_rx_set_qam_report_handler(v29_rx_state_t *s, qam_report_handler_t handler, void *user_data);
 
 #if defined(__cplusplus)
 }

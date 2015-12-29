@@ -22,8 +22,6 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: dc_restore.h,v 1.22 2008/06/30 16:48:30 steveu Exp $
  */
 
 /*! \file */
@@ -82,40 +80,6 @@ static __inline__ int16_t dc_restore(dc_restore_state_t *dc, int16_t sample)
 static __inline__ int16_t dc_restore_estimate(dc_restore_state_t *dc)
 {
     return (int16_t) (dc->state >> 15);
-}
-/*- End of function --------------------------------------------------------*/
-
-static __inline__ int16_t saturate(int32_t amp)
-{
-    int16_t amp16;
-
-    /* Hopefully this is optimised for the common case - not clipping */
-    amp16 = (int16_t) amp;
-    if (amp == amp16)
-        return amp16;
-    if (amp > INT16_MAX)
-        return  INT16_MAX;
-    return  INT16_MIN;
-}
-/*- End of function --------------------------------------------------------*/
-
-static __inline__ int16_t fsaturatef(float famp)
-{
-    if (famp > 32767.0)
-        return  INT16_MAX;
-    if (famp < -32768.0)
-        return  INT16_MIN;
-    return (int16_t) rintf(famp);
-}
-/*- End of function --------------------------------------------------------*/
-
-static __inline__ int16_t fsaturate(double damp)
-{
-    if (damp > 32767.0)
-        return  INT16_MAX;
-    if (damp < -32768.0)
-        return  INT16_MIN;
-    return (int16_t) rint(damp);
 }
 /*- End of function --------------------------------------------------------*/
 

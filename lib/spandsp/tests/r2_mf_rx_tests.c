@@ -22,8 +22,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: r2_mf_rx_tests.c,v 1.10 2008/05/13 13:17:26 steveu Exp $
  */
 
 /*! \file */
@@ -39,6 +37,9 @@ distortion this produces is comparable to u-law, so it should be
 a fair test of performance in a real PSTN channel.
 */
 
+/* Enable the following definition to enable direct probing into the FAX structures */
+//#define WITH_SPANDSP_INTERNALS
+
 #if defined(HAVE_CONFIG_H)
 #include "config.h"
 #endif
@@ -48,7 +49,11 @@ a fair test of performance in a real PSTN channel.
 #include <fcntl.h>
 #include <string.h>
 #include <time.h>
-#include <audiofile.h>
+#include <sndfile.h>
+
+//#if defined(WITH_SPANDSP_INTERNALS)
+#define SPANDSP_EXPOSE_INTERNAL_STRUCTURES
+//#endif
 
 #include "spandsp.h"
 
@@ -80,6 +85,9 @@ a fair test of performance in a real PSTN channel.
 #define MF_PAUSE                    (68*8)
 #define MF_CYCLE                    (MF_DURATION + MF_PAUSE)
 
+/*!
+    MF tone generator descriptor for tests.
+*/
 typedef struct
 {
     float       f1;         /* First freq */
@@ -153,7 +161,7 @@ static void my_mf_gen_init(float low_fudge,
             tone = &r2_mf_fwd_tones[i];
         else
             tone = &r2_mf_back_tones[i];
-        make_tone_gen_descriptor(&my_mf_digit_tones[i],
+        tone_gen_descriptor_init(&my_mf_digit_tones[i],
                                  tone->f1*(1.0 + low_fudge),
                                  low_level,
                                  tone->f2*(1.0 + high_fudge),
@@ -236,12 +244,7 @@ static int test_a_tone_set(int fwd)
     int16_t amp[100000];
     r2_mf_rx_state_t mf_state;
     awgn_state_t noise_source;
-    const mf_digit_tones_t *tone;
 
-    if (fwd)
-        tone = &r2_mf_fwd_tones[0];
-    else
-        tone = &r2_mf_back_tones[0];
     r2_mf_rx_init(&mf_state, fwd, NULL, NULL);
 
     /* Test 1: Mitel's test 1 isn't really a test. Its a calibration step,

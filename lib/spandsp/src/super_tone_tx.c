@@ -21,8 +21,6 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: super_tone_tx.c,v 1.25 2008/07/02 14:48:26 steveu Exp $
  */
 
 /*! \file */
@@ -38,19 +36,23 @@
 #include <ctype.h>
 #include <time.h>
 #include <inttypes.h>
-#include "floating_fudge.h"
 #if defined(HAVE_TGMATH_H)
 #include <tgmath.h>
 #endif
 #if defined(HAVE_MATH_H)
 #include <math.h>
 #endif
+#include "floating_fudge.h"
 
 #include "spandsp/telephony.h"
+#include "spandsp/fast_convert.h"
 #include "spandsp/complex.h"
 #include "spandsp/dds.h"
 #include "spandsp/tone_generate.h"
 #include "spandsp/super_tone_tx.h"
+
+#include "spandsp/private/tone_generate.h"
+#include "spandsp/private/super_tone_tx.h"
 
 /*
     The tone played to wake folk up when they have left the phone off hook is an
@@ -66,13 +68,13 @@
     two iterations of 50 seconds each.
 */
 
-super_tone_tx_step_t *super_tone_tx_make_step(super_tone_tx_step_t *s,
-                                              float f1,
-                                              float l1,
-                                              float f2,
-                                              float l2,
-                                              int length,
-                                              int cycles)
+SPAN_DECLARE(super_tone_tx_step_t *) super_tone_tx_make_step(super_tone_tx_step_t *s,
+                                                             float f1,
+                                                             float l1,
+                                                             float f2,
+                                                             float l2,
+                                                             int length,
+                                                             int cycles)
 {
     if (s == NULL)
     {
@@ -108,7 +110,7 @@ super_tone_tx_step_t *super_tone_tx_make_step(super_tone_tx_step_t *s,
 }
 /*- End of function --------------------------------------------------------*/
 
-void super_tone_tx_free(super_tone_tx_step_t *s)
+SPAN_DECLARE(int) super_tone_tx_free_tone(super_tone_tx_step_t *s)
 {
     super_tone_tx_step_t *t;
 
@@ -116,15 +118,16 @@ void super_tone_tx_free(super_tone_tx_step_t *s)
     {
         /* Follow nesting... */
         if (s->nest)
-            super_tone_tx_free(s->nest);
+            super_tone_tx_free_tone(s->nest);
         t = s;
         s = s->next;
         free(t);
     }
+    return 0;
 }
 /*- End of function --------------------------------------------------------*/
 
-super_tone_tx_state_t *super_tone_tx_init(super_tone_tx_state_t *s, super_tone_tx_step_t *tree)
+SPAN_DECLARE(super_tone_tx_state_t *) super_tone_tx_init(super_tone_tx_state_t *s, super_tone_tx_step_t *tree)
 {
     if (tree == NULL)
         return NULL;
@@ -143,7 +146,21 @@ super_tone_tx_state_t *super_tone_tx_init(super_tone_tx_state_t *s, super_tone_t
 }
 /*- End of function --------------------------------------------------------*/
 
-int super_tone_tx(super_tone_tx_state_t *s, int16_t amp[], int max_samples)
+SPAN_DECLARE(int) super_tone_tx_release(super_tone_tx_state_t *s)
+{
+    return 0;
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE(int) super_tone_tx_free(super_tone_tx_state_t *s)
+{
+    if (s)
+        free(s);
+    return 0;
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE(int) super_tone_tx(super_tone_tx_state_t *s, int16_t amp[], int max_samples)
 {
     int samples;
     int limit;
@@ -190,7 +207,7 @@ int super_tone_tx(super_tone_tx_state_t *s, int16_t amp[], int max_samples)
                     /* There must be two, and only two tones */
                     xamp = dds_modf(&s->phase[0], -s->tone[0].phase_rate, s->tone[0].gain, 0)
                          *(1.0f + dds_modf(&s->phase[1], s->tone[1].phase_rate, s->tone[1].gain, 0));
-                    amp[samples] = (int16_t) lrintf(xamp);
+                    amp[samples] = (int16_t) lfastrintf(xamp);
                 }
             }
             else
@@ -204,7 +221,7 @@ int super_tone_tx(super_tone_tx_state_t *s, int16_t amp[], int max_samples)
                             break;
                         xamp += dds_modf(&s->phase[i], s->tone[i].phase_rate, s->tone[i].gain, 0);
                     }
-                    amp[samples] = (int16_t) lrintf(xamp);
+                    amp[samples] = (int16_t) lfastrintf(xamp);
                 }
             }
             if (s->current_position)

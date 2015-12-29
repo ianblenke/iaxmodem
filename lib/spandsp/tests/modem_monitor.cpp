@@ -21,8 +21,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: modem_monitor.cpp,v 1.15 2008/05/27 15:08:21 steveu Exp $
  */
 
 #ifdef HAVE_CONFIG_H
@@ -53,6 +51,8 @@
 
 #define SYMBOL_TRACKER_POINTS   12000
 #define CARRIER_TRACKER_POINTS  12000
+
+#define FP_FACTOR               4096
 
 struct qam_monitor_s
 {
@@ -165,9 +165,9 @@ int qam_monitor_update_equalizer(qam_monitor_t *s, const complexf_t *coeffs, int
             break;
         if (isnan(coeffs[i].im)  ||  isinf(coeffs[i].im))
             break;
-        if (coeffs[i].re < -20.0  ||  coeffs[i].re > 20.0)
+        if (coeffs[i].re < -20.0f  ||  coeffs[i].re > 20.0f)
             break;
-        if (coeffs[i].im < -20.0  ||  coeffs[i].im > 20.0)
+        if (coeffs[i].im < -20.0f  ||  coeffs[i].im > 20.0f)
             break;
     }
     if (i != len)
@@ -203,6 +203,55 @@ int qam_monitor_update_equalizer(qam_monitor_t *s, const complexf_t *coeffs, int
             max = coeffs[i].im;
     }
     
+    s->eq_x->minimum(-len/4.0);
+    s->eq_x->maximum(len/4.0);
+    s->eq_y->maximum((max == min)  ?  max + 0.2  :  max);
+    s->eq_y->minimum(min);
+    s->eq_re = new Ca_Line(len, s->eq_re_plot, 0, 0, FL_BLUE, CA_NO_POINT);
+    s->eq_im = new Ca_Line(len, s->eq_im_plot, 0, 0, FL_RED, CA_NO_POINT);
+    Fl::check();
+    return 0;
+}
+/*- End of function --------------------------------------------------------*/
+
+int qam_monitor_update_int_equalizer(qam_monitor_t *s, const complexi16_t *coeffs, int len)
+{
+    int i;
+    float min;
+    float max;
+
+    if (s->eq_re)
+        delete s->eq_re;
+    if (s->eq_im)
+        delete s->eq_im;
+
+    s->canvas_eq->current(s->canvas_eq);
+    i = 0;
+    min = coeffs[i].re;
+    if (min > coeffs[i].im)
+        min = coeffs[i].im;
+    max = coeffs[i].re;
+    if (max < coeffs[i].im)
+        max = coeffs[i].im;
+    for (i = 0;  i < len;  i++)
+    {
+        s->eq_re_plot[2*i] = (i - len/2)/2.0f;
+        s->eq_re_plot[2*i + 1] = coeffs[i].re/(float) FP_FACTOR;
+        if (min > coeffs[i].re)
+            min = coeffs[i].re;
+        if (max < coeffs[i].re)
+            max = coeffs[i].re;
+
+        s->eq_im_plot[2*i] = (i - len/2)/2.0f;
+        s->eq_im_plot[2*i + 1] = coeffs[i].im/(float) FP_FACTOR;
+        if (min > coeffs[i].im)
+            min = coeffs[i].im;
+        if (max < coeffs[i].im)
+            max = coeffs[i].im;
+    }
+    min /= (float) FP_FACTOR;
+    max /= (float) FP_FACTOR;
+
     s->eq_x->minimum(-len/4.0);
     s->eq_x->maximum(len/4.0);
     s->eq_y->maximum((max == min)  ?  max + 0.2  :  max);
@@ -273,10 +322,7 @@ int qam_monitor_update_audio_level(qam_monitor_t *s, const int16_t amp[], int le
         s->audio_meter->sample(amp[i]/32768.0);
         s->power_reading += ((amp[i]*amp[i] - s->power_reading) >> 10);
     }
-    if (s->power_reading <= 0)
-        val = -90.0;
-    else
-        val = log10((double) s->power_reading/(32767.0f*32767.0f))*10.0f + 3.14 + 3.02;
+    val = 10.0*log10((double) s->power_reading/(32767.0*32767.0) + 1.0e-10) + 3.14 + 3.02;
 
     snprintf(buf, sizeof(buf), "%5.1fdBm0", val);
     s->audio_level->value(buf);

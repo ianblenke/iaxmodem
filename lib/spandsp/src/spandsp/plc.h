@@ -21,8 +21,6 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: plc.h,v 1.18 2008/04/17 14:27:00 steveu Exp $
  */
 
 /*! \file */
@@ -139,7 +137,7 @@ extern "C"
     \param amp The audio sample buffer.
     \param len The number of samples in the buffer.
     \return The number of samples in the buffer. */
-int plc_rx(plc_state_t *s, int16_t amp[], int len);
+SPAN_DECLARE(int) plc_rx(plc_state_t *s, int16_t amp[], int len);
 
 /*! Fill-in a block of missing audio samples.
     \brief Fill-in a block of missing audio samples.
@@ -147,18 +145,23 @@ int plc_rx(plc_state_t *s, int16_t amp[], int len);
     \param amp The audio sample buffer.
     \param len The number of samples to be synthesised.
     \return The number of samples synthesized. */
-int plc_fillin(plc_state_t *s, int16_t amp[], int len);
+SPAN_DECLARE(int) plc_fillin(plc_state_t *s, int16_t amp[], int len);
 
 /*! Initialise a packet loss concealer context.
     \brief Initialise a PLC context.
     \param s The packet loss concealer context.
     \return A pointer to the the packet loss concealer context. */
-plc_state_t *plc_init(plc_state_t *s);
+SPAN_DECLARE(plc_state_t *) plc_init(plc_state_t *s);
+
+/*! Release a packet loss concealer context.
+    \param s The packet loss concealer context.
+    \return 0 for OK. */
+SPAN_DECLARE(int) plc_release(plc_state_t *s);
 
 /*! Free a packet loss concealer context.
     \param s The packet loss concealer context.
     \return 0 for OK. */
-int plc_free(plc_state_t *s);
+SPAN_DECLARE(int) plc_free(plc_state_t *s);
 
 #if defined(__cplusplus)
 }

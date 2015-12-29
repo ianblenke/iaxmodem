@@ -21,8 +21,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: t38_gateway_to_terminal_tests.c,v 1.59 2008/07/24 13:55:24 steveu Exp $
  */
 
 /*! \file */
@@ -33,6 +31,9 @@ These tests exercise the path
 
     FAX machine -> T.38 gateway -> T.38 termination
 */
+
+/* Enable the following definition to enable direct probing into the FAX structures */
+//#define WITH_SPANDSP_INTERNALS
 
 #if defined(HAVE_CONFIG_H)
 #include <config.h>
@@ -45,20 +46,17 @@ These tests exercise the path
 #include <stdlib.h>
 #include <stdio.h>
 #include <fcntl.h>
-#include <unistd.h>
 #include <string.h>
 #include <assert.h>
 #include <errno.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h>
-#if !defined(__USE_MISC)
-#define __USE_MISC
+#include <sndfile.h>
+#if !defined(_WIN32)
+#include <unistd.h>
 #endif
-#include <arpa/inet.h>
-#include <sys/select.h>
-#include <sys/time.h>
-#include <audiofile.h>
+
+//#if defined(WITH_SPANDSP_INTERNALS)
+#define SPANDSP_EXPOSE_INTERNAL_STRUCTURES
+//#endif
 
 #include "spandsp.h"
 #include "spandsp-sim.h"
@@ -66,6 +64,7 @@ These tests exercise the path
 #if defined(ENABLE_GUI)
 #include "media_monitor.h"
 #endif
+#include "fax_utils.h"
 
 #define SAMPLES_PER_CHUNK       160
 
@@ -73,9 +72,9 @@ These tests exercise the path
 #define OUTPUT_FILE_NAME        "t38.tif"
 #define OUTPUT_FILE_NAME_WAVE   "t38_gateway_to_terminal.wav"
 
-fax_state_t fax_state_a;
-t38_gateway_state_t t38_state_a;
-t38_terminal_state_t t38_state_b;
+fax_state_t *fax_state_a;
+t38_gateway_state_t *t38_state_a;
+t38_terminal_state_t *t38_state_b;
 
 g1050_state_t *path_a_to_b;
 g1050_state_t *path_b_to_a;
@@ -87,12 +86,24 @@ int succeeded[2] = {FALSE, FALSE};
 
 int simulate_incrementing_repeats = FALSE;
 
+int t38_version;
+int use_ecm;
+int use_tep;
+int use_transmit_on_idle;
+int supported_modems;
+int use_gui;
+int g1050_model_no;
+int g1050_speed_pattern_no;
+
 static int phase_b_handler(t30_state_t *s, void *user_data, int result)
 {
     int i;
-    
+    char tag[20];
+
     i = (int) (intptr_t) user_data;
+    snprintf(tag, sizeof(tag), "%c: Phase B", i);
     printf("%c: Phase B handler on channel %c - (0x%X) %s\n", i, i, result, t30_frametype(result));
+    fax_log_rx_parameters(s, tag);
     return T30_ERR_OK;
 }
 /*- End of function --------------------------------------------------------*/
@@ -100,26 +111,14 @@ static int phase_b_handler(t30_state_t *s, void *user_data, int result)
 static int phase_d_handler(t30_state_t *s, void *user_data, int result)
 {
     int i;
-    t30_stats_t t;
-    const char *u;
+    char tag[20];
 
     i = (int) (intptr_t) user_data;
+    snprintf(tag, sizeof(tag), "%c: Phase D", i);
     printf("%c: Phase D handler on channel %c - (0x%X) %s\n", i, i, result, t30_frametype(result));
-    t30_get_transfer_statistics(s, &t);
-    printf("%c: Phase D: bit rate %d\n", i, t.bit_rate);
-    printf("%c: Phase D: ECM %s\n", i, (t.error_correcting_mode)  ?  "on"  :  "off");
-    printf("%c: Phase D: pages transferred %d\n", i, t.pages_transferred);
-    printf("%c: Phase D: image size %d x %d\n", i, t.width, t.length);
-    printf("%c: Phase D: image resolution %d x %d\n", i, t.x_resolution, t.y_resolution);
-    printf("%c: Phase D: bad rows %d\n", i, t.bad_rows);
-    printf("%c: Phase D: longest bad row run %d\n", i, t.longest_bad_row_run);
-    printf("%c: Phase D: coding method %s\n", i, t4_encoding_to_str(t.encoding));
-    printf("%c: Phase D: image size %d bytes\n", i, t.image_size);
-    if ((u = t30_get_tx_ident(s)))
-        printf("%c: Phase D: local ident '%s'\n", i, u);
-    if ((u = t30_get_rx_ident(s)))
-        printf("%c: Phase D: remote ident '%s'\n", i, u);
-    printf("%c: Phase D: bits per row - min %d, max %d\n", i, s->t4.min_row_bits, s->t4.max_row_bits);
+    fax_log_page_transfer_statistics(s, tag);
+    fax_log_tx_parameters(s, tag);
+    fax_log_rx_parameters(s, tag);
     return T30_ERR_OK;
 }
 /*- End of function --------------------------------------------------------*/
@@ -128,37 +127,26 @@ static void phase_e_handler(t30_state_t *s, void *user_data, int result)
 {
     int i;
     t30_stats_t t;
-    const char *u;
+    char tag[20];
     
     i = (int) (intptr_t) user_data;
+    snprintf(tag, sizeof(tag), "%c: Phase E", i);
     printf("%c: Phase E handler on channel %c - (%d) %s\n", i, i, result, t30_completion_code_to_str(result));
+    fax_log_final_transfer_statistics(s, tag);
+    fax_log_tx_parameters(s, tag);
+    fax_log_rx_parameters(s, tag);
     t30_get_transfer_statistics(s, &t);
-    printf("%c: Phase E: bit rate %d\n", i, t.bit_rate);
-    printf("%c: Phase E: ECM %s\n", i, (t.error_correcting_mode)  ?  "on"  :  "off");
-    printf("%c: Phase E: pages transferred %d\n", i, t.pages_transferred);
-    printf("%c: Phase E: image size %d x %d\n", i, t.width, t.length);
-    printf("%c: Phase E: image resolution %d x %d\n", i, t.x_resolution, t.y_resolution);
-    printf("%c: Phase E: bad rows %d\n", i, t.bad_rows);
-    printf("%c: Phase E: longest bad row run %d\n", i, t.longest_bad_row_run);
-    printf("%c: Phase E: coding method %s\n", i, t4_encoding_to_str(t.encoding));
-    printf("%c: Phase E: image size %d bytes\n", i, t.image_size);
-    if ((u = t30_get_tx_ident(s)))
-        printf("%c: Phase E: local ident '%s'\n", i, u);
-    if ((u = t30_get_rx_ident(s)))
-        printf("%c: Phase E: remote ident '%s'\n", i, u);
-    succeeded[i - 'A'] = (result == T30_ERR_OK)  &&  (t.pages_transferred == 12);
+    succeeded[i - 'A'] = (result == T30_ERR_OK)  &&  (t.pages_tx == 12  ||  t.pages_rx == 12);
     done[i - 'A'] = TRUE;
 }
 /*- End of function --------------------------------------------------------*/
 
 static int tx_packet_handler_a(t38_core_state_t *s, void *user_data, const uint8_t *buf, int len, int count)
 {
-    t38_terminal_state_t *t;
     int i;
     static int subst_seq = 0;
 
     /* This routine queues messages between two instances of T.38 processing */
-    t = (t38_terminal_state_t *) user_data;
     if (simulate_incrementing_repeats)
     {
         for (i = 0;  i < count;  i++)
@@ -182,12 +170,10 @@ static int tx_packet_handler_a(t38_core_state_t *s, void *user_data, const uint8
 
 static int tx_packet_handler_b(t38_core_state_t *s, void *user_data, const uint8_t *buf, int len, int count)
 {
-    t38_terminal_state_t *t;
     int i;
     static int subst_seq = 0;
 
     /* This routine queues messages between two instances of T.38 processing */
-    t = (t38_terminal_state_t *) user_data;
     if (simulate_incrementing_repeats)
     {
         for (i = 0;  i < count;  i++)
@@ -209,6 +195,179 @@ static int tx_packet_handler_b(t38_core_state_t *s, void *user_data, const uint8
 }
 /*- End of function --------------------------------------------------------*/
 
+static int decode_test(const char *decode_test_file)
+{
+    int16_t t38_amp_a[SAMPLES_PER_CHUNK];
+    int16_t t30_amp_a[SAMPLES_PER_CHUNK];
+    SNDFILE *wave_handle;
+    t30_state_t *t30;
+    t38_core_state_t *t38_core;
+    logging_state_t *logging;
+    int t38_len_a;
+    int t30_len_a;
+    int msg_len;
+    uint8_t msg[1024];
+    int seq_no;
+    double tx_when;
+    double rx_when;
+
+    printf("Decode test data file '%s'\n", decode_test_file);
+
+    if ((wave_handle = sf_open_telephony_read(decode_test_file, 1)) == NULL)
+    {
+        fprintf(stderr, "    Cannot open audio file '%s'\n", decode_test_file);
+        exit(2);
+    }
+
+    srand48(0x1234567);
+    if ((path_a_to_b = g1050_init(g1050_model_no, g1050_speed_pattern_no, 100, 33)) == NULL)
+    {
+        fprintf(stderr, "Failed to start IP network path model\n");
+        exit(2);
+    }
+    if ((path_b_to_a = g1050_init(g1050_model_no, g1050_speed_pattern_no, 100, 33)) == NULL)
+    {
+        fprintf(stderr, "Failed to start IP network path model\n");
+        exit(2);
+    }
+
+    memset(t30_amp_a, 0, sizeof(t30_amp_a));
+
+    if ((t38_state_a = t38_gateway_init(NULL, tx_packet_handler_a, t38_state_b)) == NULL)
+    {
+        fprintf(stderr, "Cannot start the T.38 channel\n");
+        exit(2);
+    }
+    t38_core = t38_gateway_get_t38_core_state(t38_state_a);
+    t38_gateway_set_transmit_on_idle(t38_state_a, use_transmit_on_idle);
+    t38_set_t38_version(t38_core, t38_version);
+    t38_gateway_set_ecm_capability(t38_state_a, use_ecm);
+
+    logging = t38_gateway_get_logging_state(t38_state_a);
+    span_log_set_level(logging, SPAN_LOG_DEBUG | SPAN_LOG_SHOW_TAG | SPAN_LOG_SHOW_SAMPLE_TIME);
+    span_log_set_tag(logging, "T.38-A");
+
+    logging = t38_core_get_logging_state(t38_core);
+    span_log_set_level(logging, SPAN_LOG_DEBUG | SPAN_LOG_SHOW_TAG | SPAN_LOG_SHOW_SAMPLE_TIME);
+    span_log_set_tag(logging, "T.38-A");
+
+    logging = &t38_state_a->audio.modems.fast_modems.v17_rx.logging;
+    span_log_set_level(logging, SPAN_LOG_DEBUG | SPAN_LOG_SHOW_TAG | SPAN_LOG_SHOW_SAMPLE_TIME);
+    span_log_set_tag(logging, "V.17-A");
+
+    memset(t38_amp_a, 0, sizeof(t38_amp_a));
+
+    if ((t38_state_b = t38_terminal_init(NULL, FALSE, tx_packet_handler_b, t38_state_a)) == NULL)
+    {
+        fprintf(stderr, "Cannot start the T.38 channel\n");
+        exit(2);
+    }
+    t30 = t38_terminal_get_t30_state(t38_state_b);
+    t38_core = t38_terminal_get_t38_core_state(t38_state_b);
+    t38_set_t38_version(t38_core, t38_version);
+
+    logging = t38_terminal_get_logging_state(t38_state_b);
+    span_log_set_level(logging, SPAN_LOG_DEBUG | SPAN_LOG_SHOW_TAG | SPAN_LOG_SHOW_SAMPLE_TIME);
+    span_log_set_tag(logging, "T.38-B");
+
+    logging = t38_core_get_logging_state(t38_core);
+    span_log_set_level(logging, SPAN_LOG_DEBUG | SPAN_LOG_SHOW_TAG | SPAN_LOG_SHOW_SAMPLE_TIME);
+    span_log_set_tag(logging, "T.38-B");
+
+    logging = t30_get_logging_state(t30);
+    span_log_set_level(logging, SPAN_LOG_DEBUG | SPAN_LOG_SHOW_TAG | SPAN_LOG_SHOW_SAMPLE_TIME);
+    span_log_set_tag(logging, "T.38-B");
+
+    t30_set_supported_modems(t30, supported_modems);
+    t30_set_tx_ident(t30, "22222222");
+    t30_set_rx_file(t30, OUTPUT_FILE_NAME, -1);
+    t30_set_phase_b_handler(t30, phase_b_handler, (void *) (intptr_t) 'B');
+    t30_set_phase_d_handler(t30, phase_d_handler, (void *) (intptr_t) 'B');
+    t30_set_phase_e_handler(t30, phase_e_handler, (void *) (intptr_t) 'B');
+    t30_set_ecm_capability(t30, use_ecm);
+    if (use_ecm)
+        t30_set_supported_compressions(t30, T30_SUPPORT_T4_1D_COMPRESSION | T30_SUPPORT_T4_2D_COMPRESSION | T30_SUPPORT_T6_COMPRESSION);
+
+#if defined(ENABLE_GUI)
+    if (use_gui)
+        start_media_monitor();
+#endif
+    for (;;)
+    {
+        t30_len_a = sf_readf_short(wave_handle, t30_amp_a, SAMPLES_PER_CHUNK);
+
+        logging = t38_gateway_get_logging_state(t38_state_a);
+        span_log_bump_samples(logging, t30_len_a);
+        t38_core = t38_gateway_get_t38_core_state(t38_state_a);
+        logging = t38_core_get_logging_state(t38_core);
+        span_log_bump_samples(logging, t30_len_a);
+        logging = &t38_state_a->audio.modems.fast_modems.v17_rx.logging;
+        span_log_bump_samples(logging, t30_len_a);
+
+        logging = t38_terminal_get_logging_state(t38_state_b);
+        span_log_bump_samples(logging, t30_len_a);
+        t38_core = t38_terminal_get_t38_core_state(t38_state_b);
+        logging = t38_core_get_logging_state(t38_core);
+        span_log_bump_samples(logging, t30_len_a);
+
+        t30 = t38_terminal_get_t30_state(t38_state_b);
+        logging = t30_get_logging_state(t30);
+        span_log_bump_samples(logging, t30_len_a);
+
+        t38_terminal_send_timeout(t38_state_b, t30_len_a);
+
+        if (t38_gateway_rx(t38_state_a, t30_amp_a, t30_len_a))
+            break;
+    
+        t38_len_a = t38_gateway_tx(t38_state_a, t38_amp_a, t30_len_a);
+        if (!use_transmit_on_idle)
+        {
+            if (t38_len_a < SAMPLES_PER_CHUNK)
+            {
+                memset(t38_amp_a + t38_len_a, 0, sizeof(int16_t)*(t30_len_a - t38_len_a));
+                t38_len_a = t30_len_a;
+            }
+        }
+
+        when += (float) t30_len_a/(float) SAMPLE_RATE;
+
+        while ((msg_len = g1050_get(path_a_to_b, msg, 1024, when, &seq_no, &tx_when, &rx_when)) >= 0)
+        {
+#if defined(ENABLE_GUI)
+            if (use_gui)
+                media_monitor_rx(seq_no, tx_when, rx_when);
+#endif
+            t38_core = t38_terminal_get_t38_core_state(t38_state_b);
+            t38_core_rx_ifp_packet(t38_core, msg, msg_len, seq_no);
+        }
+        while ((msg_len = g1050_get(path_b_to_a, msg, 1024, when, &seq_no, &tx_when, &rx_when)) >= 0)
+        {
+#if defined(ENABLE_GUI)
+            if (use_gui)
+                media_monitor_rx(seq_no, tx_when, rx_when);
+#endif
+            t38_core = t38_gateway_get_t38_core_state(t38_state_a);
+            t38_core_rx_ifp_packet(t38_core, msg, msg_len, seq_no);
+        }
+
+        if (done[0]  &&  done[1])
+            break;
+#if defined(ENABLE_GUI)
+        if (use_gui)
+            media_monitor_update_display();
+#endif
+    }
+    t38_gateway_release(t38_state_a);
+    t38_terminal_release(t38_state_b);
+    if (sf_close(wave_handle) != 0)
+    {
+        fprintf(stderr, "    Cannot close audio file '%s'\n", decode_test_file);
+        exit(2);
+    }
+    return 0;
+}
+/*- End of function --------------------------------------------------------*/
+
 int main(int argc, char *argv[])
 {
     int16_t t38_amp_a[SAMPLES_PER_CHUNK];
@@ -220,41 +379,39 @@ int main(int argc, char *argv[])
     uint8_t msg[1024];
     int log_audio;
     int outframes;
-    int t38_version;
-    int use_ecm;
-    int use_tep;
     int feedback_audio;
-    int use_transmit_on_idle;
-    AFfilesetup filesetup;
-    AFfilehandle wave_handle;
+    SNDFILE *wave_handle;
     const char *input_file_name;
     int i;
     int seq_no;
-    int model_no;
-    int speed_pattern_no;
     double tx_when;
     double rx_when;
-    int supported_modems;
-    int use_gui;
     int opt;
     t30_state_t *t30;
+    t38_core_state_t *t38_core;
+    logging_state_t *logging;
+    char *decode_test_file;
 
     log_audio = FALSE;
     t38_version = 1;
     use_ecm = FALSE;
     input_file_name = INPUT_FILE_NAME;
     simulate_incrementing_repeats = FALSE;
-    model_no = 0;
-    speed_pattern_no = 1;
+    g1050_model_no = 0;
+    g1050_speed_pattern_no = 1;
     use_gui = FALSE;
     use_tep = FALSE;
     feedback_audio = FALSE;
     use_transmit_on_idle = TRUE;
     supported_modems = T30_SUPPORT_V27TER | T30_SUPPORT_V29 | T30_SUPPORT_V17;
-    while ((opt = getopt(argc, argv, "efgi:Ilm:M:s:tv:")) != -1)
+    decode_test_file = NULL;
+    while ((opt = getopt(argc, argv, "d:efgi:Ilm:M:s:tv:")) != -1)
     {
         switch (opt)
         {
+        case 'd':
+            decode_test_file = optarg;
+            break;
         case 'e':
             use_ecm = TRUE;
             break;
@@ -282,10 +439,10 @@ int main(int argc, char *argv[])
             supported_modems = atoi(optarg);
             break;
         case 'M':
-            model_no = optarg[0] - 'A' + 1;
+            g1050_model_no = optarg[0] - 'A' + 1;
             break;
         case 's':
-            speed_pattern_no = atoi(optarg);
+            g1050_speed_pattern_no = atoi(optarg);
             break;
         case 't':
             use_tep = TRUE;
@@ -304,48 +461,42 @@ int main(int argc, char *argv[])
     if (use_ecm)
         printf("Using ECM\n");
 
-    filesetup = AF_NULL_FILESETUP;
-    wave_handle = AF_NULL_FILEHANDLE;
+    if (decode_test_file)
+    {
+        decode_test(decode_test_file);
+        return 0;
+    }
+
+    wave_handle = NULL;
     if (log_audio)
     {
-        if ((filesetup = afNewFileSetup()) == AF_NULL_FILESETUP)
+        if ((wave_handle = sf_open_telephony_write(OUTPUT_FILE_NAME_WAVE, 2)) == NULL)
         {
-            fprintf(stderr, "    Failed to create file setup\n");
-            exit(2);
-        }
-        afInitSampleFormat(filesetup, AF_DEFAULT_TRACK, AF_SAMPFMT_TWOSCOMP, 16);
-        afInitRate(filesetup, AF_DEFAULT_TRACK, (float) SAMPLE_RATE);
-        afInitFileFormat(filesetup, AF_FILE_WAVE);
-        afInitChannels(filesetup, AF_DEFAULT_TRACK, 2);
-
-        wave_handle = afOpenFile(OUTPUT_FILE_NAME_WAVE, "w", filesetup);
-        if (wave_handle == AF_NULL_FILEHANDLE)
-        {
-            fprintf(stderr, "    Cannot create wave file '%s'\n", OUTPUT_FILE_NAME_WAVE);
+            fprintf(stderr, "    Cannot create audio file '%s'\n", OUTPUT_FILE_NAME_WAVE);
             exit(2);
         }
     }
 
     srand48(0x1234567);
-    if ((path_a_to_b = g1050_init(model_no, speed_pattern_no, 100, 33)) == NULL)
+    if ((path_a_to_b = g1050_init(g1050_model_no, g1050_speed_pattern_no, 100, 33)) == NULL)
     {
         fprintf(stderr, "Failed to start IP network path model\n");
         exit(2);
     }
-    if ((path_b_to_a = g1050_init(model_no, speed_pattern_no, 100, 33)) == NULL)
+    if ((path_b_to_a = g1050_init(g1050_model_no, g1050_speed_pattern_no, 100, 33)) == NULL)
     {
         fprintf(stderr, "Failed to start IP network path model\n");
         exit(2);
     }
 
-    if (fax_init(&fax_state_a, TRUE) == NULL)
+    if ((fax_state_a = fax_init(NULL, TRUE)) == NULL)
     {
         fprintf(stderr, "Cannot start FAX\n");
         exit(2);
     }
-    t30 = fax_get_t30_state(&fax_state_a);
-    fax_set_transmit_on_idle(&fax_state_a, use_transmit_on_idle);
-    fax_set_tep_mode(&fax_state_a, use_tep);
+    t30 = fax_get_t30_state(fax_state_a);
+    fax_set_transmit_on_idle(fax_state_a, use_transmit_on_idle);
+    fax_set_tep_mode(fax_state_a, use_tep);
     t30_set_supported_modems(t30, supported_modems);
     t30_set_tx_ident(t30, "11111111");
     t30_set_tx_nsf(t30, (const uint8_t *) "\x50\x00\x00\x00Spandsp\x00", 12);
@@ -356,39 +507,61 @@ int main(int argc, char *argv[])
     t30_set_ecm_capability(t30, use_ecm);
     if (use_ecm)
         t30_set_supported_compressions(t30, T30_SUPPORT_T4_1D_COMPRESSION | T30_SUPPORT_T4_2D_COMPRESSION | T30_SUPPORT_T6_COMPRESSION);
-    span_log_set_level(&fax_state_a.logging, SPAN_LOG_DEBUG | SPAN_LOG_SHOW_TAG | SPAN_LOG_SHOW_SAMPLE_TIME);
-    span_log_set_tag(&fax_state_a.logging, "FAX-A ");
-    span_log_set_level(&t30->logging, SPAN_LOG_DEBUG | SPAN_LOG_SHOW_TAG | SPAN_LOG_SHOW_SAMPLE_TIME);
-    span_log_set_tag(&t30->logging, "FAX-A ");
+
+    logging = fax_get_logging_state(fax_state_a);
+    span_log_set_level(logging, SPAN_LOG_DEBUG | SPAN_LOG_SHOW_TAG | SPAN_LOG_SHOW_SAMPLE_TIME);
+    span_log_set_tag(logging, "FAX-A ");
+
+    logging = t30_get_logging_state(t30);
+    span_log_set_level(logging, SPAN_LOG_DEBUG | SPAN_LOG_SHOW_TAG | SPAN_LOG_SHOW_SAMPLE_TIME);
+    span_log_set_tag(logging, "FAX-A ");
+
     memset(t30_amp_a, 0, sizeof(t30_amp_a));
 
-    if (t38_gateway_init(&t38_state_a, tx_packet_handler_a, &t38_state_b) == NULL)
+    if ((t38_state_a = t38_gateway_init(NULL, tx_packet_handler_a, t38_state_b)) == NULL)
     {
         fprintf(stderr, "Cannot start the T.38 channel\n");
         exit(2);
     }
-    t38_gateway_set_transmit_on_idle(&t38_state_a, use_transmit_on_idle);
-    t38_set_t38_version(&t38_state_a.t38x.t38, t38_version);
-    t38_gateway_set_ecm_capability(&t38_state_a, use_ecm);
-    span_log_set_level(&t38_state_a.logging, SPAN_LOG_DEBUG | SPAN_LOG_SHOW_TAG | SPAN_LOG_SHOW_SAMPLE_TIME);
-    span_log_set_tag(&t38_state_a.logging, "T.38-A");
-    span_log_set_level(&t38_state_a.t38x.t38.logging, SPAN_LOG_DEBUG | SPAN_LOG_SHOW_TAG | SPAN_LOG_SHOW_SAMPLE_TIME);
-    span_log_set_tag(&t38_state_a.t38x.t38.logging, "T.38-A");
+    t38_core = t38_gateway_get_t38_core_state(t38_state_a);
+    t38_gateway_set_transmit_on_idle(t38_state_a, use_transmit_on_idle);
+    t38_set_t38_version(t38_core, t38_version);
+    t38_gateway_set_ecm_capability(t38_state_a, use_ecm);
+
+    logging = t38_gateway_get_logging_state(t38_state_a);
+    span_log_set_level(logging, SPAN_LOG_DEBUG | SPAN_LOG_SHOW_TAG | SPAN_LOG_SHOW_SAMPLE_TIME);
+    span_log_set_tag(logging, "T.38-A");
+
+    logging = t38_core_get_logging_state(t38_core);
+    span_log_set_level(logging, SPAN_LOG_DEBUG | SPAN_LOG_SHOW_TAG | SPAN_LOG_SHOW_SAMPLE_TIME);
+    span_log_set_tag(logging, "T.38-A");
+
+    logging = &t38_state_a->audio.modems.fast_modems.v17_rx.logging;
+    span_log_set_level(logging, SPAN_LOG_DEBUG | SPAN_LOG_SHOW_TAG | SPAN_LOG_SHOW_SAMPLE_TIME);
+    span_log_set_tag(logging, "V.17-A");
+
     memset(t38_amp_a, 0, sizeof(t38_amp_a));
 
-    if (t38_terminal_init(&t38_state_b, FALSE, tx_packet_handler_b, &t38_state_a) == NULL)
+    if ((t38_state_b = t38_terminal_init(NULL, FALSE, tx_packet_handler_b, t38_state_a)) == NULL)
     {
         fprintf(stderr, "Cannot start the T.38 channel\n");
         exit(2);
     }
-    t30 = t38_terminal_get_t30_state(&t38_state_b);
-    t38_set_t38_version(&t38_state_b.t38_fe.t38, t38_version);
-    span_log_set_level(&t38_state_b.logging, SPAN_LOG_DEBUG | SPAN_LOG_SHOW_TAG | SPAN_LOG_SHOW_SAMPLE_TIME);
-    span_log_set_tag(&t38_state_b.logging, "T.38-B");
-    span_log_set_level(&t38_state_b.t38_fe.t38.logging, SPAN_LOG_DEBUG | SPAN_LOG_SHOW_TAG | SPAN_LOG_SHOW_SAMPLE_TIME);
-    span_log_set_tag(&t38_state_b.t38_fe.t38.logging, "T.38-B");
-    span_log_set_level(&t30->logging, SPAN_LOG_DEBUG | SPAN_LOG_SHOW_TAG | SPAN_LOG_SHOW_SAMPLE_TIME);
-    span_log_set_tag(&t30->logging, "T.38-B");
+    t30 = t38_terminal_get_t30_state(t38_state_b);
+    t38_core = t38_terminal_get_t38_core_state(t38_state_b);
+    t38_set_t38_version(t38_core, t38_version);
+
+    logging = t38_terminal_get_logging_state(t38_state_b);
+    span_log_set_level(logging, SPAN_LOG_DEBUG | SPAN_LOG_SHOW_TAG | SPAN_LOG_SHOW_SAMPLE_TIME);
+    span_log_set_tag(logging, "T.38-B");
+
+    logging = t38_core_get_logging_state(t38_core);
+    span_log_set_level(logging, SPAN_LOG_DEBUG | SPAN_LOG_SHOW_TAG | SPAN_LOG_SHOW_SAMPLE_TIME);
+    span_log_set_tag(logging, "T.38-B");
+
+    logging = t30_get_logging_state(t30);
+    span_log_set_level(logging, SPAN_LOG_DEBUG | SPAN_LOG_SHOW_TAG | SPAN_LOG_SHOW_SAMPLE_TIME);
+    span_log_set_tag(logging, "T.38-B");
 
     t30_set_supported_modems(t30, supported_modems);
     t30_set_tx_ident(t30, "22222222");
@@ -406,18 +579,33 @@ int main(int argc, char *argv[])
 #endif
     for (;;)
     {
-        span_log_bump_samples(&fax_state_a.logging, SAMPLES_PER_CHUNK);
-        span_log_bump_samples(&fax_state_a.t30.logging, SAMPLES_PER_CHUNK);
-        span_log_bump_samples(&t38_state_a.logging, SAMPLES_PER_CHUNK);
-        span_log_bump_samples(&t38_state_a.t38x.t38.logging, SAMPLES_PER_CHUNK);
-        span_log_bump_samples(&t38_state_b.logging, SAMPLES_PER_CHUNK);
-        span_log_bump_samples(&t38_state_b.t38_fe.t38.logging, SAMPLES_PER_CHUNK);
-        span_log_bump_samples(&t38_state_b.t30.logging, SAMPLES_PER_CHUNK);
+        logging = fax_get_logging_state(fax_state_a);
+        span_log_bump_samples(logging, SAMPLES_PER_CHUNK);
+        t30 = fax_get_t30_state(fax_state_a);
+        logging = t30_get_logging_state(t30);
+        span_log_bump_samples(logging, SAMPLES_PER_CHUNK);
+
+        logging = t38_gateway_get_logging_state(t38_state_a);
+        span_log_bump_samples(logging, SAMPLES_PER_CHUNK);
+        t38_core = t38_gateway_get_t38_core_state(t38_state_a);
+        logging = t38_core_get_logging_state(t38_core);
+        span_log_bump_samples(logging, SAMPLES_PER_CHUNK);
+        logging = &t38_state_a->audio.modems.fast_modems.v17_rx.logging;
+        span_log_bump_samples(logging, SAMPLES_PER_CHUNK);
+
+        logging = t38_terminal_get_logging_state(t38_state_b);
+        span_log_bump_samples(logging, SAMPLES_PER_CHUNK);
+        t38_core = t38_terminal_get_t38_core_state(t38_state_b);
+        logging = t38_core_get_logging_state(t38_core);
+        span_log_bump_samples(logging, SAMPLES_PER_CHUNK);
+        t30 = t38_terminal_get_t30_state(t38_state_b);
+        logging = t30_get_logging_state(t30);
+        span_log_bump_samples(logging, SAMPLES_PER_CHUNK);
         memset(out_amp, 0, sizeof(out_amp));
 
-        t38_terminal_send_timeout(&t38_state_b, SAMPLES_PER_CHUNK);
+        t38_terminal_send_timeout(t38_state_b, SAMPLES_PER_CHUNK);
 
-        t30_len_a = fax_tx(&fax_state_a, t30_amp_a, SAMPLES_PER_CHUNK);
+        t30_len_a = fax_tx(fax_state_a, t30_amp_a, SAMPLES_PER_CHUNK);
         if (!use_transmit_on_idle)
         {
             /* The receive side always expects a full block of samples, but the
@@ -439,10 +627,10 @@ int main(int argc, char *argv[])
             for (i = 0;  i < t30_len_a;  i++)
                 t30_amp_a[i] += t38_amp_a[i] >> 1;
         }
-        if (t38_gateway_rx(&t38_state_a, t30_amp_a, t30_len_a))
+        if (t38_gateway_rx(t38_state_a, t30_amp_a, t30_len_a))
             break;
     
-        t38_len_a = t38_gateway_tx(&t38_state_a, t38_amp_a, SAMPLES_PER_CHUNK);
+        t38_len_a = t38_gateway_tx(t38_state_a, t38_amp_a, SAMPLES_PER_CHUNK);
         if (!use_transmit_on_idle)
         {
             if (t38_len_a < SAMPLES_PER_CHUNK)
@@ -456,10 +644,10 @@ int main(int argc, char *argv[])
             for (i = 0;  i < t38_len_a;  i++)
                 out_amp[2*i + 1] = t38_amp_a[i];
         }
-        if (fax_rx(&fax_state_a, t38_amp_a, SAMPLES_PER_CHUNK))
+        if (fax_rx(fax_state_a, t38_amp_a, SAMPLES_PER_CHUNK))
             break;
 
-        when += 0.02;
+        when += (float) SAMPLES_PER_CHUNK/(float) SAMPLE_RATE;
 
         while ((msg_len = g1050_get(path_a_to_b, msg, 1024, when, &seq_no, &tx_when, &rx_when)) >= 0)
         {
@@ -467,7 +655,8 @@ int main(int argc, char *argv[])
             if (use_gui)
                 media_monitor_rx(seq_no, tx_when, rx_when);
 #endif
-            t38_core_rx_ifp_packet(&t38_state_b.t38_fe.t38, msg, msg_len, seq_no);
+            t38_core = t38_terminal_get_t38_core_state(t38_state_b);
+            t38_core_rx_ifp_packet(t38_core, msg, msg_len, seq_no);
         }
         while ((msg_len = g1050_get(path_b_to_a, msg, 1024, when, &seq_no, &tx_when, &rx_when)) >= 0)
         {
@@ -475,11 +664,12 @@ int main(int argc, char *argv[])
             if (use_gui)
                 media_monitor_rx(seq_no, tx_when, rx_when);
 #endif
-            t38_core_rx_ifp_packet(&t38_state_a.t38x.t38, msg, msg_len, seq_no);
+            t38_core = t38_gateway_get_t38_core_state(t38_state_a);
+            t38_core_rx_ifp_packet(t38_core, msg, msg_len, seq_no);
         }
         if (log_audio)
         {
-            outframes = afWriteFrames(wave_handle, AF_DEFAULT_TRACK, out_amp, SAMPLES_PER_CHUNK);
+            outframes = sf_writef_short(wave_handle, out_amp, SAMPLES_PER_CHUNK);
             if (outframes != SAMPLES_PER_CHUNK)
                 break;
         }
@@ -491,16 +681,16 @@ int main(int argc, char *argv[])
             media_monitor_update_display();
 #endif
     }
-    fax_release(&fax_state_a);
-    t38_terminal_release(&t38_state_b);
+    fax_release(fax_state_a);
+    t38_gateway_release(t38_state_a);
+    t38_terminal_release(t38_state_b);
     if (log_audio)
     {
-        if (afCloseFile(wave_handle) != 0)
+        if (sf_close(wave_handle) != 0)
         {
-            fprintf(stderr, "    Cannot close wave file '%s'\n", OUTPUT_FILE_NAME_WAVE);
+            fprintf(stderr, "    Cannot close audio file '%s'\n", OUTPUT_FILE_NAME_WAVE);
             exit(2);
         }
-        afFreeFileSetup(filesetup);
     }
     if (!succeeded[0]  ||  !succeeded[1])
     {

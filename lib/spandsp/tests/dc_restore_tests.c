@@ -21,8 +21,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: dc_restore_tests.c,v 1.23 2008/05/13 13:17:25 steveu Exp $
  */
 
 /*! \page dc_restore_tests_page DC restoration tests
@@ -38,6 +36,10 @@
 #include <memory.h>
 #include <time.h>
 
+//#if defined(WITH_SPANDSP_INTERNALS)
+#define SPANDSP_EXPOSE_INTERNAL_STRUCTURES
+//#endif
+
 #include "spandsp.h"
     
 int main (int argc, char *argv[])
@@ -47,7 +49,6 @@ int main (int argc, char *argv[])
     int i;
     int idum = 1234567;
     int16_t dirty;
-    int16_t clean;
     int estimate;
     int min;
     int max;
@@ -59,7 +60,7 @@ int main (int argc, char *argv[])
     for (i = 0;  i < 100000;  i++)
     {
         dirty = awgn(&noise_source) + dc_offset;
-        clean = dc_restore(&dc_state, dirty);
+        dc_restore(&dc_state, dirty);
         if ((i % 1000) == 0)
         {
             printf("Sample %6d: %d (expect %d)\n",
@@ -74,7 +75,7 @@ int main (int argc, char *argv[])
     for (i = 0;  i < 100000;  i++)
     {
         dirty = awgn(&noise_source) + dc_offset;
-        clean = dc_restore(&dc_state, dirty);
+        dc_restore(&dc_state, dirty);
         estimate = dc_restore_estimate(&dc_state);
         if (estimate < min)
             min = estimate;

@@ -21,8 +21,6 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: modem_echo.c,v 1.22 2008/07/02 14:48:25 steveu Exp $
  */
 
 /*! \file */
@@ -33,27 +31,38 @@
  */
 
 #if defined(HAVE_CONFIG_H)
-#include <config.h>
+#include "config.h"
 #endif
 
 #include <stdlib.h>
 #include <inttypes.h>
 #include <string.h>
 #include <stdio.h>
-#include "floating_fudge.h"
 #if defined(HAVE_TGMATH_H)
 #include <tgmath.h>
 #endif
 #if defined(HAVE_MATH_H)
 #include <math.h>
 #endif
+#include "floating_fudge.h"
 
 #include "spandsp/telephony.h"
 #include "spandsp/bit_operations.h"
 #include "spandsp/dc_restore.h"
 #include "spandsp/modem_echo.h"
 
-modem_echo_can_state_t *modem_echo_can_create(int len)
+#include "spandsp/private/modem_echo.h"
+
+SPAN_DECLARE(void) modem_echo_can_free(modem_echo_can_state_t *ec)
+{
+    fir16_free(&ec->fir_state);
+    free(ec->fir_taps32);
+    free(ec->fir_taps16);
+    free(ec);
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE(modem_echo_can_state_t *) modem_echo_can_init(int len)
 {
     modem_echo_can_state_t *ec;
 
@@ -86,16 +95,7 @@ modem_echo_can_state_t *modem_echo_can_create(int len)
 }
 /*- End of function --------------------------------------------------------*/
 
-void modem_echo_can_free(modem_echo_can_state_t *ec)
-{
-    fir16_free(&ec->fir_state);
-    free(ec->fir_taps32);
-    free(ec->fir_taps16);
-    free(ec);
-}
-/*- End of function --------------------------------------------------------*/
-
-void modem_echo_can_flush(modem_echo_can_state_t *ec)
+SPAN_DECLARE(void) modem_echo_can_flush(modem_echo_can_state_t *ec)
 {
     ec->tx_power = 0;
 
@@ -107,13 +107,13 @@ void modem_echo_can_flush(modem_echo_can_state_t *ec)
 }
 /*- End of function --------------------------------------------------------*/
 
-void modem_echo_can_adaption_mode(modem_echo_can_state_t *ec, int adapt)
+SPAN_DECLARE(void) modem_echo_can_adaption_mode(modem_echo_can_state_t *ec, int adapt)
 {
     ec->adapt = adapt;
 }
 /*- End of function --------------------------------------------------------*/
 
-int16_t modem_echo_can_update(modem_echo_can_state_t *ec, int16_t tx, int16_t rx)
+SPAN_DECLARE(int16_t) modem_echo_can_update(modem_echo_can_state_t *ec, int16_t tx, int16_t rx)
 {
     int32_t echo_value;
     int clean_rx;

@@ -21,38 +21,42 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: v27ter_tx.c,v 1.64 2008/07/16 14:23:47 steveu Exp $
  */
 
 /*! \file */
 
 #if defined(HAVE_CONFIG_H)
-#include <config.h>
+#include "config.h"
 #endif
 
 #include <stdio.h>
 #include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
-#include "floating_fudge.h"
 #if defined(HAVE_TGMATH_H)
 #include <tgmath.h>
 #endif
 #if defined(HAVE_MATH_H)
 #include <math.h>
 #endif
+#include "floating_fudge.h"
 
 #include "spandsp/telephony.h"
+#include "spandsp/fast_convert.h"
 #include "spandsp/logging.h"
 #include "spandsp/complex.h"
 #include "spandsp/vector_float.h"
 #include "spandsp/complex_vector_float.h"
+#include "spandsp/vector_int.h"
+#include "spandsp/complex_vector_int.h"
 #include "spandsp/async.h"
 #include "spandsp/dds.h"
 #include "spandsp/power_meter.h"
 
 #include "spandsp/v27ter_tx.h"
+
+#include "spandsp/private/logging.h"
+#include "spandsp/private/v27ter_tx.h"
 
 #if defined(SPANDSP_USE_FIXED_POINT)
 #include "v27ter_tx_4800_fixed_rrc.h"
@@ -62,17 +66,25 @@
 #include "v27ter_tx_2400_floating_rrc.h"
 #endif
 
+/*! The nominal frequency of the carrier, in Hertz */
 #define CARRIER_NOMINAL_FREQ            1800.0f
 
 /* Segments of the training sequence */
 /* V.27ter defines a long and a short sequence. FAX doesn't use the
    short sequence, so it is not implemented here. */
+/*! The start of training segment 1, in symbols */
 #define V27TER_TRAINING_SEG_1           0
+/*! The start of training segment 2, in symbols */
 #define V27TER_TRAINING_SEG_2           (V27TER_TRAINING_SEG_1 + 320)
+/*! The start of training segment 3, in symbols */
 #define V27TER_TRAINING_SEG_3           (V27TER_TRAINING_SEG_2 + 32)
+/*! The start of training segment 4, in symbols */
 #define V27TER_TRAINING_SEG_4           (V27TER_TRAINING_SEG_3 + 50)
+/*! The start of training segment 5, in symbols */
 #define V27TER_TRAINING_SEG_5           (V27TER_TRAINING_SEG_4 + 1074)
+/*! The end of the training, in symbols */
 #define V27TER_TRAINING_END             (V27TER_TRAINING_SEG_5 + 8)
+/*! The end of the shutdown sequence, in symbols */
 #define V27TER_TRAINING_SHUTDOWN_END    (V27TER_TRAINING_END + 32)
 
 static int fake_get_bit(void *user_data)
@@ -108,12 +120,12 @@ static __inline__ int get_scrambled_bit(v27ter_tx_state_t *s)
 {
     int bit;
     
-    if ((bit = s->current_get_bit(s->get_bit_user_data)) == PUTBIT_END_OF_DATA)
+    if ((bit = s->current_get_bit(s->get_bit_user_data)) == SIG_STATUS_END_OF_DATA)
     {
         /* End of real data. Switch to the fake get_bit routine, until we
            have shut down completely. */
         if (s->status_handler)
-            s->status_handler(s->status_user_data, MODEM_TX_STATUS_DATA_EXHAUSTED);
+            s->status_handler(s->status_user_data, SIG_STATUS_END_OF_DATA);
         s->current_get_bit = fake_get_bit;
         s->in_training = TRUE;
         bit = 1;
@@ -148,6 +160,7 @@ static complexf_t getbaud(v27ter_tx_state_t *s)
         { 0000,   -1414},       /* 270deg */
         { 1000,   -1000}        /* 315deg */
     };
+    static const complexi16_t zero = {0, 0};
 #else
     static const complexf_t constellation[8] =
     {
@@ -160,6 +173,7 @@ static complexf_t getbaud(v27ter_tx_state_t *s)
         { 0.0f,   -1.414f},     /* 270deg */
         { 1.0f,   -1.0f}        /* 315deg */
     };
+    static const complexf_t zero = {0.0f, 0.0f};
 #endif
     int bits;
 
@@ -178,11 +192,7 @@ static complexf_t getbaud(v27ter_tx_state_t *s)
                 if (s->training_step <= V27TER_TRAINING_SEG_3)
                 {
                     /* Segment 2: Silence */
-#if defined(SPANDSP_USE_FIXED_POINT)
-                    return complex_seti16(0, 0);
-#else
-                    return complex_setf(0.0f, 0.0f);
-#endif
+                    return zero;
                 }
                 /* Segment 3: Regular reversals... */
                 s->constellation_state = (s->constellation_state + 4) & 7;
@@ -212,7 +222,7 @@ static complexf_t getbaud(v27ter_tx_state_t *s)
         if (s->training_step == V27TER_TRAINING_SHUTDOWN_END)
         {
             if (s->status_handler)
-                s->status_handler(s->status_user_data, MODEM_TX_STATUS_SHUTDOWN_COMPLETE);
+                s->status_handler(s->status_user_data, SIG_STATUS_SHUTDOWN_COMPLETE);
         }
     }
     /* 4800bps uses 8 phases. 2400bps uses 4 phases. */
@@ -234,7 +244,7 @@ static complexf_t getbaud(v27ter_tx_state_t *s)
 }
 /*- End of function --------------------------------------------------------*/
 
-int v27ter_tx(v27ter_tx_state_t *s, int16_t amp[], int len)
+SPAN_DECLARE_NONSTD(int) v27ter_tx(v27ter_tx_state_t *s, int16_t amp[], int len)
 {
 #if defined(SPANDSP_USE_FIXED_POINT)
     complexi_t x;
@@ -277,7 +287,7 @@ int v27ter_tx(v27ter_tx_state_t *s, int16_t amp[], int len)
             /* Now create and modulate the carrier */
             x.re >>= 14;
             x.im >>= 14;
-            z = dds_complexi(&(s->carrier_phase), s->carrier_phase_rate);
+            z = dds_complexi(&s->carrier_phase, s->carrier_phase_rate);
             /* Don't bother saturating. We should never clip. */
             i = (x.re*z.re - x.im*z.im) >> 15;
             amp[sample] = (int16_t) ((i*s->gain_4800) >> 15);
@@ -289,9 +299,9 @@ int v27ter_tx(v27ter_tx_state_t *s, int16_t amp[], int len)
                 x.im += tx_pulseshaper_4800[TX_PULSESHAPER_4800_COEFF_SETS - 1 - s->baud_phase][i]*s->rrc_filter[i + s->rrc_filter_step].im;
             }
             /* Now create and modulate the carrier */
-            z = dds_complexf(&(s->carrier_phase), s->carrier_phase_rate);
+            z = dds_complexf(&s->carrier_phase, s->carrier_phase_rate);
             /* Don't bother saturating. We should never clip. */
-            amp[sample] = (int16_t) lrintf((x.re*z.re - x.im*z.im)*s->gain_4800);
+            amp[sample] = (int16_t) lfastrintf((x.re*z.re - x.im*z.im)*s->gain_4800);
 #endif
         }
     }
@@ -318,7 +328,7 @@ int v27ter_tx(v27ter_tx_state_t *s, int16_t amp[], int len)
             /* Now create and modulate the carrier */
             x.re >>= 14;
             x.im >>= 14;
-            z = dds_complexi(&(s->carrier_phase), s->carrier_phase_rate);
+            z = dds_complexi(&s->carrier_phase, s->carrier_phase_rate);
             /* Don't bother saturating. We should never clip. */
             i = (x.re*z.re - x.im*z.im) >> 15;
             amp[sample] = (int16_t) ((i*s->gain_2400) >> 15);
@@ -330,9 +340,9 @@ int v27ter_tx(v27ter_tx_state_t *s, int16_t amp[], int len)
                 x.im += tx_pulseshaper_2400[TX_PULSESHAPER_2400_COEFF_SETS - 1 - s->baud_phase][i]*s->rrc_filter[i + s->rrc_filter_step].im;
             }
             /* Now create and modulate the carrier */
-            z = dds_complexf(&(s->carrier_phase), s->carrier_phase_rate);
+            z = dds_complexf(&s->carrier_phase, s->carrier_phase_rate);
             /* Don't bother saturating. We should never clip. */
-            amp[sample] = (int16_t) lrintf((x.re*z.re - x.im*z.im)*s->gain_2400);
+            amp[sample] = (int16_t) lfastrintf((x.re*z.re - x.im*z.im)*s->gain_2400);
 #endif
         }
     }
@@ -340,7 +350,7 @@ int v27ter_tx(v27ter_tx_state_t *s, int16_t amp[], int len)
 }
 /*- End of function --------------------------------------------------------*/
 
-void v27ter_tx_power(v27ter_tx_state_t *s, float power)
+SPAN_DECLARE(void) v27ter_tx_power(v27ter_tx_state_t *s, float power)
 {
     float l;
 
@@ -355,7 +365,7 @@ void v27ter_tx_power(v27ter_tx_state_t *s, float power)
 }
 /*- End of function --------------------------------------------------------*/
 
-void v27ter_tx_set_get_bit(v27ter_tx_state_t *s, get_bit_func_t get_bit, void *user_data)
+SPAN_DECLARE(void) v27ter_tx_set_get_bit(v27ter_tx_state_t *s, get_bit_func_t get_bit, void *user_data)
 {
     if (s->get_bit == s->current_get_bit)
         s->current_get_bit = get_bit;
@@ -364,20 +374,26 @@ void v27ter_tx_set_get_bit(v27ter_tx_state_t *s, get_bit_func_t get_bit, void *u
 }
 /*- End of function --------------------------------------------------------*/
 
-void v27ter_tx_set_modem_status_handler(v27ter_tx_state_t *s, modem_tx_status_func_t handler, void *user_data)
+SPAN_DECLARE(void) v27ter_tx_set_modem_status_handler(v27ter_tx_state_t *s, modem_status_func_t handler, void *user_data)
 {
     s->status_handler = handler;
     s->status_user_data = user_data;
 }
 /*- End of function --------------------------------------------------------*/
 
-int v27ter_tx_restart(v27ter_tx_state_t *s, int bit_rate, int tep)
+SPAN_DECLARE(logging_state_t *) v27ter_tx_get_logging_state(v27ter_tx_state_t *s)
+{
+    return &s->logging;
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE(int) v27ter_tx_restart(v27ter_tx_state_t *s, int bit_rate, int tep)
 {
     if (bit_rate != 4800  &&  bit_rate != 2400)
         return -1;
     s->bit_rate = bit_rate;
 #if defined(SPANDSP_USE_FIXED_POINT)
-    memset(s->rrc_filter, 0, sizeof(s->rrc_filter));
+    cvec_zeroi16(s->rrc_filter, sizeof(s->rrc_filter)/sizeof(s->rrc_filter[0]));
 #else
     cvec_zerof(s->rrc_filter, sizeof(s->rrc_filter)/sizeof(s->rrc_filter[0]));
 #endif
@@ -394,8 +410,16 @@ int v27ter_tx_restart(v27ter_tx_state_t *s, int bit_rate, int tep)
 }
 /*- End of function --------------------------------------------------------*/
 
-v27ter_tx_state_t *v27ter_tx_init(v27ter_tx_state_t *s, int bit_rate, int tep, get_bit_func_t get_bit, void *user_data)
+SPAN_DECLARE(v27ter_tx_state_t *) v27ter_tx_init(v27ter_tx_state_t *s, int bit_rate, int tep, get_bit_func_t get_bit, void *user_data)
 {
+    switch (bit_rate)
+    {
+    case 4800:
+    case 2400:
+        break;
+    default:
+        return NULL;
+    }
     if (s == NULL)
     {
         if ((s = (v27ter_tx_state_t *) malloc(sizeof(*s))) == NULL)
@@ -413,7 +437,13 @@ v27ter_tx_state_t *v27ter_tx_init(v27ter_tx_state_t *s, int bit_rate, int tep, g
 }
 /*- End of function --------------------------------------------------------*/
 
-int v27ter_tx_free(v27ter_tx_state_t *s)
+SPAN_DECLARE(int) v27ter_tx_release(v27ter_tx_state_t *s)
+{
+    return 0;
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE(int) v27ter_tx_free(v27ter_tx_state_t *s)
 {
     free(s);
     return 0;

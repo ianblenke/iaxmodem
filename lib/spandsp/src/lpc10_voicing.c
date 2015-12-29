@@ -25,29 +25,28 @@
  * This code is based on the U.S. Department of Defense reference
  * implementation of the LPC-10 2400 bps Voice Coder. They do not
  * exert copyright claims on their code, and it may be freely used.
- *
- * $Id: lpc10_voicing.c,v 1.14 2008/07/02 14:48:25 steveu Exp $
  */
 
 #if defined(HAVE_CONFIG_H)
-#include <config.h>
+#include "config.h"
 #endif
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <inttypes.h>
 #include <memory.h>
-#include "floating_fudge.h"
 #if defined(HAVE_TGMATH_H)
 #include <tgmath.h>
 #endif
 #if defined(HAVE_MATH_H)
 #include <math.h>
 #endif
+#include "floating_fudge.h"
 
 #include "spandsp/telephony.h"
-#include "spandsp/dc_restore.h"
+#include "spandsp/fast_convert.h"
 #include "spandsp/lpc10.h"
+#include "spandsp/private/lpc10.h"
 
 #include "lpc10_encdecs.h"
 
@@ -157,11 +156,11 @@ static void vparms(int32_t vwin[],
     /* Normalize ZC, LBE, and FBE to old fixed window length of 180. */
     /* (The fraction 90/VLEN has a range of 0.58 to 1) */
     r2 = (float) (*zc << 1);
-    *zc = lrintf(r2*(90.0f/vlen));
+    *zc = lfastrintf(r2*(90.0f/vlen));
     r1 = lp_rms/4*(90.0f/vlen);
-    *lbe = min(lrintf(r1), 32767);
+    *lbe = min(lfastrintf(r1), 32767);
     r1 = ap_rms/4*(90.0f/vlen);
-    *fbe = min(lrintf(r1), 32767);
+    *fbe = min(lfastrintf(r1), 32767);
 }
 /*- End of function --------------------------------------------------------*/
 
@@ -322,7 +321,7 @@ void lpc10_voicing(lpc10_encode_state_t *s,
     /* running average full-band voiced energy to the running average */
     /* full-band unvoiced energy. SNR filter has gain of 63. */
     r1 = (s->snr + s->fbve/(float) max(s->fbue, 1))*63/64.0f;
-    s->snr = (float) lrintf(r1);
+    s->snr = (float) lfastrintf(r1);
     snr2 = s->snr*s->fbue/max(s->lbue, 1);
     /* Quantize SNR to SNRL according to VDCL thresholds. */
     i1 = nvdcl - 1;
@@ -377,18 +376,18 @@ void lpc10_voicing(lpc10_encode_state_t *s,
         /*     -----    ----- */
         /*     0   0   0   0 */
         /*     0   0   0*  1    (If there is an onset there) */
-        /*     0   0   1*  0*    (Based on 2F and discriminant distance) */
+        /*     0   0   1*  0*   (Based on 2F and discriminant distance) */
         /*     0   0   1   1 */
         /*     0   1*  0   0    (Always) */
         /*     0   1*  0*  1    (Based on discriminant distance) */
-        /*     0*  1   1   0*    (Based on past, 2F, and discriminant distance) */
+        /*     0*  1   1   0*   (Based on past, 2F, and discriminant distance) */
         /*     0   1*  1   1    (If there is an onset there) */
         /*     1   0*  0   0    (If there is an onset there) */
         /*     1   0   0   1 */
         /*     1   0*  1*  0    (Based on discriminant distance) */
         /*     1   0*  1   1    (Always) */
         /*     1   1   0   0 */
-        /*     1   1   0*  1*    (Based on 2F and discriminant distance) */
+        /*     1   1   0*  1*   (Based on 2F and discriminant distance) */
         /*     1   1   1*  0    (If there is an onset there) */
         /*     1   1   1   1 */
 
@@ -434,7 +433,7 @@ void lpc10_voicing(lpc10_encode_state_t *s,
                 s->voibuf[1][1] = 1;
             break;
         case 11:
-            if (s->voice[1][9] < -s->voice[0][1])
+            if (s->voice[1][0] < -s->voice[0][1])
                 s->voibuf[2][0] = 0;
             else
                 s->voibuf[1][1] = 1;
@@ -464,18 +463,18 @@ void lpc10_voicing(lpc10_encode_state_t *s,
     if (s->voibuf[3][half] == 0)
     {
         r1 = (s->sfbue*63 + (min(fbe, s->ofbue*3) << 3))/64.0f;
-        s->sfbue = lrintf(r1);
+        s->sfbue = lfastrintf(r1);
         s->fbue = s->sfbue/8;
         s->ofbue = fbe;
         r1 = (s->slbue*63 + (min(lbe, s->olbue*3) << 3))/64.0f;
-        s->slbue = lrintf(r1);
+        s->slbue = lfastrintf(r1);
         s->lbue = s->slbue/8;
         s->olbue = lbe;
     }
     else
     {
-        s->lbve = lrintf((s->lbve*63 + lbe)/64.0f);
-        s->fbve = lrintf((s->fbve*63 + fbe)/64.0f);
+        s->lbve = lfastrintf((s->lbve*63 + lbe)/64.0f);
+        s->fbve = lfastrintf((s->fbve*63 + fbe)/64.0f);
     }
     /* Set dither threshold to yield proper zero crossing rates in the */
     /* presence of low frequency noise and low level signal input. */

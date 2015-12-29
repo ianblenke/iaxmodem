@@ -28,12 +28,10 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * $Id: playout.c,v 1.14 2008/05/13 13:17:23 steveu Exp $
  */
 
 #if defined(HAVE_CONFIG_H)
-#include <config.h>
+#include "config.h"
 #endif
 
 #include <stdio.h>
@@ -73,19 +71,19 @@ static playout_frame_t *queue_get(playout_state_t *s, timestamp_t sender_stamp)
 }
 /*- End of function --------------------------------------------------------*/
 
-timestamp_t playout_next_due(playout_state_t *s)
+SPAN_DECLARE(timestamp_t) playout_next_due(playout_state_t *s)
 {
     return s->last_speech_sender_stamp + s->last_speech_sender_len;
 }
 /*- End of function --------------------------------------------------------*/
 
-timestamp_t playout_current_length(playout_state_t *s)
+SPAN_DECLARE(timestamp_t) playout_current_length(playout_state_t *s)
 {
     return s->target_buffer_length;
 }
 /*- End of function --------------------------------------------------------*/
 
-playout_frame_t *playout_get_unconditional(playout_state_t *s)
+SPAN_DECLARE(playout_frame_t *) playout_get_unconditional(playout_state_t *s)
 {
     playout_frame_t *frame;
     
@@ -103,7 +101,7 @@ playout_frame_t *playout_get_unconditional(playout_state_t *s)
 }
 /*- End of function --------------------------------------------------------*/
 
-int playout_get(playout_state_t *s, playout_frame_t *frameout, timestamp_t now)
+SPAN_DECLARE(int) playout_get(playout_state_t *s, playout_frame_t *frameout, timestamp_t now)
 {
     playout_frame_t *frame;
 
@@ -222,7 +220,7 @@ int playout_get(playout_state_t *s, playout_frame_t *frameout, timestamp_t now)
 }
 /*- End of function --------------------------------------------------------*/
 
-int playout_put(playout_state_t *s, void *data, int type, timestamp_t sender_len, timestamp_t sender_stamp, timestamp_t receiver_stamp)
+SPAN_DECLARE(int) playout_put(playout_state_t *s, void *data, int type, timestamp_t sender_len, timestamp_t sender_stamp, timestamp_t receiver_stamp)
 {
     playout_frame_t *frame;
     playout_frame_t *p;
@@ -305,7 +303,7 @@ int playout_put(playout_state_t *s, void *data, int type, timestamp_t sender_len
 }
 /*- End of function --------------------------------------------------------*/
 
-void playout_restart(playout_state_t *s, int min_length, int max_length)
+SPAN_DECLARE(void) playout_restart(playout_state_t *s, int min_length, int max_length)
 {
     playout_frame_t *frame;
     playout_frame_t *next;
@@ -330,7 +328,7 @@ void playout_restart(playout_state_t *s, int min_length, int max_length)
 }
 /*- End of function --------------------------------------------------------*/
 
-playout_state_t *playout_new(int min_length, int max_length)
+SPAN_DECLARE(playout_state_t *) playout_init(int min_length, int max_length)
 {
     playout_state_t *s;
 
@@ -342,7 +340,7 @@ playout_state_t *playout_new(int min_length, int max_length)
 }
 /*- End of function --------------------------------------------------------*/
 
-void playout_free(playout_state_t *s)
+SPAN_DECLARE(int) playout_release(playout_state_t *s)
 {
     playout_frame_t *frame;
     playout_frame_t *next;
@@ -360,8 +358,19 @@ void playout_free(playout_state_t *s)
         next = frame->later;
         free(frame);
     }
-    /* Finally, free ourselves! */ 
-    free(s);
+    return 0;
+}
+/*- End of function --------------------------------------------------------*/
+
+SPAN_DECLARE(int) playout_free(playout_state_t *s)
+{
+    if (s)
+    {
+        playout_release(s);
+        /* Finally, free ourselves! */ 
+        free(s);
+    }
+    return 0;
 }
 /*- End of function --------------------------------------------------------*/
 /*- End of file ------------------------------------------------------------*/
