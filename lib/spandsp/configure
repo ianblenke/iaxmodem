@@ -19772,7 +19772,7 @@ intel)
     ;;
 esac
 
-COMP_VENDOR_CFLAGS="-DNDEBUG -DIAXMODEM_STUFF $COMP_VENDOR_CFLAGS"
+COMP_VENDOR_CFLAGS="-DNDEBUG $COMP_VENDOR_CFLAGS"
 
 if test "$enable_fixed_point" = "yes" ; then
 
