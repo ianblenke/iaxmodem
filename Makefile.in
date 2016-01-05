@@ -30,3 +30,10 @@ clean:
 	cd lib/libiax2 && ${MAKE} clean && \
 	cd ../../lib/spandsp && ${MAKE} clean
 
+distclean:
+	rm -f *.o && \
+	cd lib/libiax2 && ${MAKE} distclean && \
+	cd ../../lib/spandsp && ${MAKE} distclean && \
+	cd ../.. && rm -f iaxmodem && \
+	rm -f Makefile
+
