@@ -3,12 +3,11 @@
 getVersions()
 {
     MODEMVER="iaxmodem-`cat VERSION`"
-    DSPVER=`grep VERSION= lib/spandsp/config.status | sed "s/ *VERSION='\([^']*\)'/\1/g"`
+    DSPVER=`grep "^ VERSION=" lib/spandsp/configure | sed "s/ VERSION='*\([^']*\)'*/\1/g"`
     if [ -n "$DSPVER" ]; then
 	DSPVER="spandsp-$DSPVER"
     fi
-    STEP1=`grep @VERSION@ lib/libiax2/config.status | sed 's/;.*//g'`
-    IAXVER=`echo "@VERSION@" | sed $STEP1`
+    IAXVER=`grep "^ VERSION=" lib/libiax2/configure | sed "s/ VERSION='*\([^']*\)'*/\1/g"`
     if [ -n "$IAXVER" ]; then
 	IAXVER="libiax2-$IAXVER-SVN-20071223+"
     fi
