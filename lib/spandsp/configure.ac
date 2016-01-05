@@ -431,7 +431,7 @@ intel)
     ;;
 esac
 
-COMP_VENDOR_CFLAGS="-DNDEBUG $COMP_VENDOR_CFLAGS"
+COMP_VENDOR_CFLAGS="-DNDEBUG -DIAXMODEM_STUFF $COMP_VENDOR_CFLAGS"
 
 if test "$enable_fixed_point" = "yes" ; then
     AC_DEFINE([SPANDSP_USE_FIXED_POINT], [1], [Enable fixed point processing, where possible, instead of floating point])
