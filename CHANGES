@@ -1,4 +1,5 @@
 1.3.0
+	allow spandsp-v17rx fast-train to be more-permissive
 	update to spandsp-0.0.6
 	fix problem on some platforms triggered by large clock skips
 	avoid a bug in libiax2 sometimes after a call ends

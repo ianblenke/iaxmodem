@@ -12,7 +12,7 @@ fi
 IAXMODEMVER="`cat VERSION`"
 DSPVER=`grep "^ VERSION=" lib/spandsp/configure | sed "s/ VERSION='*\([^']*\)'*/\1/g"`
 if [ -n "${DSPVER}" ]; then
-	DSPVER="spandsp-${DSPVER}"
+	DSPVER="spandsp-${DSPVER}+"
 fi
 IAXVER=`grep "^ VERSION=" lib/libiax2/configure | sed "s/ VERSION='*\([^']*\)'*/\1/g"`
 if [ -n "${IAXVER}" ]; then
