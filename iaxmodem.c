@@ -177,13 +177,12 @@ printlog(FILE *fp, char *fmt, ...)
 {
   va_list ap;
   char buf[32];
-  time_t tt;
-  struct tm *ttm;
+  struct timeval tv;
 
-  time(&tt);
-  ttm = localtime(&tt);
-  strftime(buf, sizeof(buf), "[%Y-%m-%d %H:%M:%S] ", ttm);
-  fprintf(fp, "%s", buf);
+  gettimeofday(&tv, NULL);
+  time_t tt = tv.tv_sec;
+  strftime(buf, sizeof(buf), "[%Y-%m-%d %H:%M:%S", localtime(&tt));
+  fprintf(fp, "%s.%.6ld] ", buf, tv.tv_usec);
 
   va_start(ap, fmt);
   vfprintf(fp, fmt, ap);
@@ -538,7 +537,7 @@ t31_call_control_handler(t31_state_t *s, void *user_data, int op, const char *nu
 	    /* Unset V.24 Circuit 125, "ring indicator". */
 	    int tioflags;
 	    ioctl(aslave, TIOCMGET, &tioflags);
-	    tioflags |= TIOCM_RI;
+	    tioflags &= ~TIOCM_RI;
 	    ioctl(aslave, TIOCMSET, &tioflags);
 
 	    iax_answer(session[0]);
@@ -921,6 +920,7 @@ iaxmodem(const char *config, int nondaemon)
      */
     if (dspdebug) {
 	t31_state.logging.level = SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_FLOW;
+	t31_state.at_state.logging.level = SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_FLOW;
 	t31_state.audio.modems.fast_modems.v17_rx.logging.level = SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_FLOW;
 	t31_state.audio.modems.fast_modems.v29_rx.logging.level = SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_FLOW;
 	t31_state.audio.modems.fast_modems.v27ter_rx.logging.level = SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_FLOW;
@@ -1128,7 +1128,7 @@ iaxmodem(const char *config, int nondaemon)
 	    (modemstate == MODEM_CONNECTED && !t31_state.tx.holding && avail)) {
 	    ssize_t len;
 	    do {
-		len = read(amaster, modembuf, avail);
+		len = read(amaster, modembuf, 1);
 		if (len > 0) {
 		    int taken = t31_at_rx(&t31_state, modembuf, len);
 		    if (taken != len) {
@@ -1138,7 +1138,6 @@ iaxmodem(const char *config, int nondaemon)
 			   timing problems. */
 			printlog(LOG_ERROR, "Unexpected modem buffering. Sent %zd bytes, modem buffered %d.\n", len, taken);
 		    }
-		    len -= taken;	/* ??? */
 		    avail -= taken;
 		    lastdtedata = now;
 		}
