@@ -750,6 +750,10 @@ iaxmodem(const char *config, int nondaemon)
     int i;
     unsigned int last_ts = 0;
 
+    int16_t audiobuf[VOIP_PACKET_SIZE*100];
+    int16_t* audiobufpos = audiobuf;
+    memset(audiobuf, (int16_t) 0, sizeof(int16_t)*VOIP_PACKET_SIZE*100);
+
     snprintf(dspnowaudiofile, sizeof(dspnowaudiofile), "/tmp/%s-dsp.raw.recording", regpeer);
     snprintf(iaxnowaudiofile, sizeof(iaxnowaudiofile), "/tmp/%s-iax.raw.recording", regpeer);
     snprintf(dspaudiofile, sizeof(dspaudiofile), "/tmp/%s-dsp.raw", regpeer);
@@ -1342,7 +1346,7 @@ iaxmodem(const char *config, int nondaemon)
 			break;
 		    case IAX_EVENT_CNG:
 			/* pseudo-silence */
-			memset(dspbuf, (int16_t) 0, VOIP_PACKET_SIZE);
+			memset(dspbuf, (int16_t) 0, sizeof(int16_t)*VOIP_PACKET_SIZE);
 			if (replay) read(iaxaudiofd, (uint8_t *) dspbuf, VOIP_PACKET_SIZE*sizeof(int16_t));
 			if (!dialextra && modemstate == MODEM_CONNECTED && t31_rx(&t31_state, (int16_t *) dspbuf, VOIP_PACKET_SIZE)) {
 			    printlog(LOG_ERROR, "Error sending silence to DSP.\n");
@@ -1434,12 +1438,48 @@ iaxmodem(const char *config, int nondaemon)
 				    printlog(LOG_ERROR, "Unknown codec!\n");
 				    break;
 			    }
-			    memcpy(iaxbuf, audiodata, units >= VOIP_PACKET_SIZE ? VOIP_PACKET_SIZE*sizeof(int16_t) : units*sizeof(int16_t));
-			    if (replay) read(iaxaudiofd, audiodata, units*sizeof(int16_t));
+
+			    /* Save this for our use in with jitter-fill. */
+			    if (!nojitterbuffer)
+				memcpy(iaxbuf, audiodata, units >= VOIP_PACKET_SIZE ? VOIP_PACKET_SIZE*sizeof(int16_t) : units*sizeof(int16_t));
+
+			    /*
+			     * During a fax session (the entire time the modem is off-hook) the modem should
+			     * only be in command-mode for extemely brief periods of time (between commands).
+			     * Whatever audio we send to the DSP while the modem is in command-mode is lost 
+			     * and wasted.  Sometimes the DTE is slow between one command's result and the 
+			     * sending of the subsequent command.  Buffer this audio to some extent and "replay" 
+			     * it later to the DSP once we leave command-mode.
+			     */
+			    if (t31_state.at_state.at_rx_mode == AT_MODE_OFFHOOK_COMMAND ||
+				t31_state.at_state.at_rx_mode == AT_MODE_ONHOOK_COMMAND) {
+				/* Save this audio for later. */
+				if ((audiobufpos + units*sizeof(int16_t)) > (audiobuf + sizeof(audiobuf))) {
+				    int bufsize = audiobufpos - audiobuf;
+				    memmove(audiobuf, audiobuf+units*sizeof(int16_t), bufsize);
+				    audiobufpos = audiobuf + bufsize;
+				}
+				memcpy(audiobufpos, audiodata, units*sizeof(int16_t));
+				audiobufpos += (units * sizeof(int16_t));
+				/* Use silence instead. */
+				memset(audiodata, (int16_t) 0, units*sizeof(int16_t));
+			    } else {
+				if (audiobufpos != audiobuf && !dialextra && modemstate == MODEM_CONNECTED) {
+				    /* Deliver audio that was buffered while the modem was in command-mode. */
+				    printlog(LOG_INFO, "DTE was slow.  Playing %ld bytes of buffered audio.\n", audiobufpos-audiobuf);
+				    if (replay) read(iaxaudiofd, audiobuf, audiobufpos-audiobuf);
+				    if (t31_rx(&t31_state, audiobuf, (audiobufpos-audiobuf)/sizeof(int16_t))) {
+					printlog(LOG_ERROR, "Error sending %ld bytes of buffered IAX audio to DSP.\n", audiobufpos-audiobuf);
+				    }
+				    if (record) write(iaxaudiofd, audiobuf, audiobufpos-audiobuf);
+				    audiobufpos = audiobuf;
+				}
+				if (replay) read(iaxaudiofd, audiodata, units*sizeof(int16_t));
+				if (record) write(iaxaudiofd, audiodata, units*sizeof(int16_t));
+			    }
 			    if (!dialextra && modemstate == MODEM_CONNECTED && t31_rx(&t31_state, audiodata, units)) {
 				printlog(LOG_ERROR, "Error sending %d units of IAX audio to DSP.\n", units);
 			    }
-			    if (record) write(iaxaudiofd, audiodata, units*sizeof(int16_t));
 			}
 			break;
 		    case IAX_EVENT_TRANSFER:
