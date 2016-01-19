@@ -1388,7 +1388,7 @@ iaxmodem(const char *config, int nondaemon)
 				 */
 				if (replay) read(iaxaudiofd, fillbuf, VOIP_PACKET_SIZE*sizeof(int16_t));
 				if (!dialextra && modemstate == MODEM_CONNECTED && t31_rx(&t31_state, fillbuf, VOIP_PACKET_SIZE)) {
-				    printlog(LOG_ERROR, "Error sending %d units of IAX make-up audio to DSP.\n", VOIP_PACKET_SIZE);
+				    printlog(LOG_ERROR, "Error sending %d samples of IAX make-up audio to DSP.\n", VOIP_PACKET_SIZE);
 				}
 				if (record) write(iaxaudiofd, fillbuf, VOIP_PACKET_SIZE*sizeof(int16_t));
 				last_ts += 20;
@@ -1415,14 +1415,14 @@ iaxmodem(const char *config, int nondaemon)
 			}
 			/* Here's an audio frame from the IAX server, send it to the DSP. */
 			{
-			    int units = iaxevent->datalen;
+			    int samples = iaxevent->datalen;
 			    int16_t convertedbuf[iaxevent->datalen];
 			    int16_t* audiodata;
 			    int i = 0;
 			    switch (codec) {
 				case AST_FORMAT_SLINEAR:
-				    units = iaxevent->datalen/sizeof(int16_t);
-				    orderbytes((int16_t *) iaxevent->data, units);
+				    samples = iaxevent->datalen/sizeof(int16_t);
+				    orderbytes((int16_t *) iaxevent->data, samples);
 				    audiodata = (int16_t*) iaxevent->data;
 				    break;
 				case AST_FORMAT_ALAW:
@@ -1434,7 +1434,7 @@ iaxmodem(const char *config, int nondaemon)
 				    audiodata = convertedbuf;
 				    break;
 				default:
-				    units = 0;
+				    samples = 0;
 				    memset(convertedbuf, 0, iaxevent->datalen);
 				    audiodata = convertedbuf;
 				    printlog(LOG_ERROR, "Unknown codec!\n");
@@ -1443,7 +1443,7 @@ iaxmodem(const char *config, int nondaemon)
 
 			    /* Save this for our use in with jitter-fill. */
 			    if (!nojitterbuffer)
-				memcpy(iaxbuf, audiodata, units >= VOIP_PACKET_SIZE ? VOIP_PACKET_SIZE*sizeof(int16_t) : units*sizeof(int16_t));
+				memcpy(iaxbuf, audiodata, samples >= VOIP_PACKET_SIZE ? VOIP_PACKET_SIZE*sizeof(int16_t) : samples*sizeof(int16_t));
 
 			    /*
 			     * During a fax session (the entire time the modem is off-hook) the modem should
@@ -1456,31 +1456,31 @@ iaxmodem(const char *config, int nondaemon)
 			    if (t31_state.at_state.at_rx_mode == AT_MODE_OFFHOOK_COMMAND ||
 				t31_state.at_state.at_rx_mode == AT_MODE_ONHOOK_COMMAND) {
 				/* Save this audio for later. */
-				if ((audiobufpos + units*sizeof(int16_t)) > (audiobuf + sizeof(audiobuf))) {
-				    int bufsize = audiobufpos - audiobuf;
-				    memmove(audiobuf, audiobuf+units*sizeof(int16_t), bufsize);
-				    audiobufpos = audiobuf + bufsize;
+				if ((audiobufpos + samples) > (audiobuf + VOIP_PACKET_SIZE*100)) {
+				    int16_t bufsamples = audiobufpos - (audiobuf + samples);
+				    memmove(audiobuf, audiobuf+samples, bufsamples*sizeof(int16_t));
+				    audiobufpos = audiobuf + bufsamples;
 				}
-				memcpy(audiobufpos, audiodata, units*sizeof(int16_t));
-				audiobufpos += (units * sizeof(int16_t));
+				memcpy(audiobufpos, audiodata, samples*sizeof(int16_t));
+				audiobufpos += samples;
 				/* Use silence instead. */
-				memset(audiodata, (int16_t) 0, units*sizeof(int16_t));
+				memset(audiodata, (int16_t) 0, samples*sizeof(int16_t));
 			    } else {
 				if (audiobufpos != audiobuf && !dialextra && modemstate == MODEM_CONNECTED) {
 				    /* Deliver audio that was buffered while the modem was in command-mode. */
-				    printlog(LOG_INFO, "DTE was slow.  Playing %ld bytes of buffered audio.\n", audiobufpos-audiobuf);
+				    printlog(LOG_INFO, "DTE was slow.  Playing %ld samples of buffered audio.\n", audiobufpos-audiobuf);
 				    if (replay) read(iaxaudiofd, audiobuf, audiobufpos-audiobuf);
 				    if (t31_rx(&t31_state, audiobuf, (audiobufpos-audiobuf)/sizeof(int16_t))) {
-					printlog(LOG_ERROR, "Error sending %ld bytes of buffered IAX audio to DSP.\n", audiobufpos-audiobuf);
+					printlog(LOG_ERROR, "Error sending %ld samples of buffered IAX audio to DSP.\n", audiobufpos-audiobuf);
 				    }
 				    if (record) write(iaxaudiofd, audiobuf, audiobufpos-audiobuf);
 				    audiobufpos = audiobuf;
 				}
-				if (replay) read(iaxaudiofd, audiodata, units*sizeof(int16_t));
-				if (record) write(iaxaudiofd, audiodata, units*sizeof(int16_t));
+				if (replay) read(iaxaudiofd, audiodata, samples*sizeof(int16_t));
+				if (record) write(iaxaudiofd, audiodata, samples*sizeof(int16_t));
 			    }
-			    if (!dialextra && modemstate == MODEM_CONNECTED && t31_rx(&t31_state, audiodata, units)) {
-				printlog(LOG_ERROR, "Error sending %d units of IAX audio to DSP.\n", units);
+			    if (!dialextra && modemstate == MODEM_CONNECTED && t31_rx(&t31_state, audiodata, samples)) {
+				printlog(LOG_ERROR, "Error sending %d samples of IAX audio to DSP.\n", samples);
 			    }
 			}
 			break;
