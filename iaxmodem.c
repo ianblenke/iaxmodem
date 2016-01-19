@@ -1234,6 +1234,7 @@ iaxmodem(const char *config, int nondaemon)
 			}
 			modemstate = MODEM_CONNECTED;
 			audiobalance = 0;
+			audiobufpos = audiobuf;
 			skew = defskew;
 			if (record) {
 			    if (dspaudiofd > 0) {
@@ -1281,6 +1282,7 @@ iaxmodem(const char *config, int nondaemon)
 				}
 			    }
 			}
+			audiobufpos = audiobuf;
 			audiobalance = 0;
 			skew = defskew;
 			last_ts = 0;
