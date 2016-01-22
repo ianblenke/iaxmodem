@@ -923,11 +923,13 @@ iaxmodem(const char *config, int nondaemon)
      * Again, debugging should be minimal for normal use as the writes slow things too much.
      */
     if (dspdebug) {
-	t31_state.logging.level = SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_FLOW;
-	t31_state.at_state.logging.level = SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_FLOW;
-	t31_state.audio.modems.fast_modems.v17_rx.logging.level = SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_FLOW;
-	t31_state.audio.modems.fast_modems.v29_rx.logging.level = SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_FLOW;
-	t31_state.audio.modems.fast_modems.v27ter_rx.logging.level = SPAN_LOG_SHOW_SEVERITY | SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_FLOW;
+	int loglevel = SPAN_LOG_SEVERITY_MASK | SPAN_LOG_SHOW_DATE | SPAN_LOG_SHOW_SEVERITY | 
+	    SPAN_LOG_SHOW_PROTOCOL | SPAN_LOG_SHOW_VARIANT | SPAN_LOG_SHOW_TAG;
+	t31_state.logging.level = loglevel;
+	t31_state.at_state.logging.level = loglevel;
+	t31_state.audio.modems.fast_modems.v17_rx.logging.level = loglevel;
+	t31_state.audio.modems.fast_modems.v29_rx.logging.level = loglevel;
+	t31_state.audio.modems.fast_modems.v27ter_rx.logging.level = loglevel;
     }
 
     int selectfd, selectretval, selectblock, avail, audiobalance = 0;
