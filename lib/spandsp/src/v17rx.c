@@ -1049,7 +1049,7 @@ static void process_half_baud(v17_rx_state_t *s, const complexf_t *sample)
             /* We need to be liberally accepting of poor fast-train training errors here.
                Doing this affords the DTE the opportunity to make some use of whatever 
                valid Phase C data can be decoded. */
-            if (s->training_error < (V17_TRAINING_SHORT_SEG_2_LEN - 8)*5.0f*constellation_spacing[s->space_map])
+            if (s->training_error < (V17_TRAINING_SHORT_SEG_2_LEN - 8)*10.0f*constellation_spacing[s->space_map])
             {
                 s->training_count = 0;
                 if (s->bits_per_symbol == 2)
