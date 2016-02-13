@@ -654,6 +654,20 @@ t31_call_control_handler(t31_state_t *s, void *user_data, int op, const char *nu
 }
 
 void
+simulateHangup(t31_state_t *s)
+{
+    /*
+     * End-of-file was reached.  Simulate hangup.
+     */
+    printlog(LOG_INFO, "Reached end of recording to replay.  Simulating hangup.\n");
+    phonestate = PHONE_FREED;
+    modemstate = MODEM_ONHOOK;
+    t31_call_event(s, AT_CALL_EVENT_HANGUP);
+    iax_hangup(session[0], "Normal disconnect");
+    if (gothup) sighandler(SIGHUP);
+}
+
+void
 iaxmodem(const char *config, int nondaemon)
 {
     /*
@@ -1087,7 +1101,11 @@ iaxmodem(const char *config, int nondaemon)
 		} while (t31buflen < VOIP_PACKET_SIZE && gotlen > 0 && modemstate == MODEM_CONNECTED);
 	    }
 	    if (record) write(dspaudiofd, (uint8_t *) dspbuf, VOIP_PACKET_SIZE*sizeof(int16_t));
-	    if (replay) read(dspaudiofd, (uint8_t *) dspbuf, VOIP_PACKET_SIZE*sizeof(int16_t));
+	    if (replay) {
+		if (read(dspaudiofd, (uint8_t *) dspbuf, VOIP_PACKET_SIZE*sizeof(int16_t)) == 0) {
+		    simulateHangup(&t31_state);
+		}
+	    }
 	    if (modemstate == MODEM_CONNECTED) {	/* t31_tx can change modemstate */
 		audiobalance++;
 		if (audiobalance > 5) {
@@ -1351,7 +1369,11 @@ iaxmodem(const char *config, int nondaemon)
 		    case IAX_EVENT_CNG:
 			/* pseudo-silence */
 			memset(dspbuf, (int16_t) 0, sizeof(int16_t)*VOIP_PACKET_SIZE);
-			if (replay) read(iaxaudiofd, (uint8_t *) dspbuf, VOIP_PACKET_SIZE*sizeof(int16_t));
+			if (replay) {
+			    if (read(iaxaudiofd, (uint8_t *) dspbuf, VOIP_PACKET_SIZE*sizeof(int16_t)) == 0) {
+				simulateHangup(&t31_state);
+			    }
+			}
 			if (!dialextra && modemstate == MODEM_CONNECTED && t31_rx(&t31_state, (int16_t *) dspbuf, VOIP_PACKET_SIZE)) {
 			    printlog(LOG_ERROR, "Error sending silence to DSP.\n");
 			}
@@ -1388,7 +1410,11 @@ iaxmodem(const char *config, int nondaemon)
 				 * not replaced with non-silence... in order to keep as
 				 * syncrhonous with the remote as possible.
 				 */
-				if (replay) read(iaxaudiofd, fillbuf, VOIP_PACKET_SIZE*sizeof(int16_t));
+				if (replay) {
+				    if (read(iaxaudiofd, fillbuf, VOIP_PACKET_SIZE*sizeof(int16_t)) == 0) {
+					simulateHangup(&t31_state);
+				    }
+				}
 				if (!dialextra && modemstate == MODEM_CONNECTED && t31_rx(&t31_state, fillbuf, VOIP_PACKET_SIZE)) {
 				    printlog(LOG_ERROR, "Error sending %d samples of IAX make-up audio to DSP.\n", VOIP_PACKET_SIZE);
 				}
@@ -1471,14 +1497,22 @@ iaxmodem(const char *config, int nondaemon)
 				if (audiobufpos != audiobuf && !dialextra && modemstate == MODEM_CONNECTED) {
 				    /* Deliver audio that was buffered while the modem was in command-mode. */
 				    printlog(LOG_INFO, "DTE was slow.  Playing %ld samples of buffered audio.\n", audiobufpos-audiobuf);
-				    if (replay) read(iaxaudiofd, audiobuf, audiobufpos-audiobuf);
+				    if (replay) {
+					if (read(iaxaudiofd, audiobuf, audiobufpos-audiobuf) == 0) {
+					    simulateHangup(&t31_state);
+					}
+				    }
 				    if (t31_rx(&t31_state, audiobuf, (audiobufpos-audiobuf)/sizeof(int16_t))) {
 					printlog(LOG_ERROR, "Error sending %ld samples of buffered IAX audio to DSP.\n", audiobufpos-audiobuf);
 				    }
 				    if (record) write(iaxaudiofd, audiobuf, audiobufpos-audiobuf);
 				    audiobufpos = audiobuf;
 				}
-				if (replay) read(iaxaudiofd, audiodata, samples*sizeof(int16_t));
+				if (replay) {
+				    if (read(iaxaudiofd, audiodata, samples*sizeof(int16_t)) == 0) {
+					simulateHangup(&t31_state);
+				    }
+				}
 				if (record) write(iaxaudiofd, audiodata, samples*sizeof(int16_t));
 			    }
 			    if (!dialextra && modemstate == MODEM_CONNECTED && t31_rx(&t31_state, audiodata, samples)) {
