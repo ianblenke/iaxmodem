@@ -195,6 +195,10 @@ In daemon mode IAXmodem sends logging data to files in the
 /var/log/iaxmodem directory, if available.  (The /var/log/iaxmodem 
 directory will need to be created.)
 
+In daemon mode the child processes can be restarted by sending SIGINT,
+SIGTERM, and SIGHUP to the child process to be restarted.  When using 
+SIGHUP the restart occurs once when that modem is on-hook.
+
 You may wish to run iaxmodem in daemon mode and start it with a standard
 init.d script.  The provided iaxmodem.init files should serve this
 purpose.  (Choose the appropriate one for your distribution.)
