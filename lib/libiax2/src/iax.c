@@ -77,9 +77,6 @@ void gettimeofday(struct timeval *tv, void /*struct timezone*/ *tz);
 
 #if !defined(MACOSX) && !defined(__OpenBSD__)
 #include <malloc.h>
-#if !defined(SOLARIS)
-#include <error.h>
-#endif
 #endif
 
 #endif
